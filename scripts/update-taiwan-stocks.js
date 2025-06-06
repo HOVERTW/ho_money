@@ -206,6 +206,21 @@ function calculateBatchRange(stocks, batchNumber, totalBatches) {
 }
 
 /**
+ * 生成完整台股代碼列表（1001-9962）
+ */
+function generateTaiwanStockCodes() {
+  const stocks = [];
+
+  // 生成 1001-9962 的所有股票代碼
+  for (let i = 1001; i <= 9962; i++) {
+    stocks.push({ code: i.toString() });
+  }
+
+  console.log(`📊 生成台股代碼列表: ${stocks.length} 支 (1001-9962)`);
+  return stocks;
+}
+
+/**
  * 主要更新函數（分批優化版）
  */
 async function updateTaiwanStocks() {
@@ -216,13 +231,8 @@ async function updateTaiwanStocks() {
     // 步驟 1：獲取 TSE API 資料
     tseApiData = await fetchTSEData();
 
-    // 步驟 2：獲取所有台股代碼
-    const { data: allStocks, error } = await supabase
-      .from('taiwan_stocks')
-      .select('code')
-      .order('code');
-
-    if (error) throw error;
+    // 步驟 2：生成完整台股代碼列表（不依賴資料表）
+    const allStocks = generateTaiwanStockCodes();
 
     // 步驟 3：計算此批次要處理的股票範圍
     const range = calculateBatchRange(allStocks, batchNumber, totalBatches);
