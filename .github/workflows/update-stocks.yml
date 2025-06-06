@@ -1,0 +1,111 @@
+name: 📈 股票資料更新
+
+on:
+  schedule:
+    # 台股更新時間：台灣時間 14:30 (UTC+8) - 台股收盤後
+    - cron: '30 6 * * 1-5'
+    # 美股更新時間：台灣時間 05:00 (UTC+8) - 美股收盤後
+    - cron: '0 21 * * 1-5'
+    # 匯率更新：每日台灣時間 09:00 (UTC+8)
+    - cron: '0 1 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      update_type:
+        description: '選擇要更新的資料類型'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - tw
+          - us
+          - rates
+
+jobs:
+  # 匯率更新
+  update-rates:
+    name: 💱 更新匯率
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'rates') || github.event_name == 'schedule' && github.event.schedule == '0 1 * * 1-5' }}
+
+    steps:
+    - name: 📥 檢出代碼
+      uses: actions/checkout@v4
+
+    - name: 🟢 設置 Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: 📦 安裝核心依賴
+      run: |
+        npm install --legacy-peer-deps @supabase/supabase-js@2.39.0 node-fetch@3.3.2 dotenv@16.3.1
+
+    - name: 💱 執行匯率更新
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      run: node scripts/update-exchange-rates.js
+
+  # 台股更新
+  update-tw:
+    name: 🇹🇼 更新台股 (TWSE + Yahoo Finance)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'tw') || github.event_name == 'schedule' && github.event.schedule == '30 6 * * 1-5' }}
+
+    steps:
+    - name: 📥 檢出代碼
+      uses: actions/checkout@v4
+
+    - name: 🟢 設置 Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: 📦 安裝核心依賴
+      run: |
+        npm install --legacy-peer-deps @supabase/supabase-js@2.39.0 node-fetch@3.3.2 dotenv@16.3.1
+
+    - name: 🏢 執行台股更新
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      run: node scripts/update-taiwan-stocks.js
+
+    - name: 📊 台股更新結果
+      if: always()
+      run: |
+        echo "台股更新完成 - 使用台灣證交所官方 API 和 Yahoo Finance 備用"
+
+  # 美股更新
+  update-us:
+    name: 🇺🇸 更新美股 (Yahoo Finance)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'us') || github.event_name == 'schedule' && github.event.schedule == '0 21 * * 1-5' }}
+
+    steps:
+    - name: 📥 檢出代碼
+      uses: actions/checkout@v4
+
+    - name: 🟢 設置 Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: 📦 安裝核心依賴
+      run: |
+        npm install --legacy-peer-deps @supabase/supabase-js@2.39.0 node-fetch@3.3.2 dotenv@16.3.1 csv-parse@5.6.0
+
+    - name: 🏢 執行美股更新
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      run: node scripts/update-us-stocks.js
+
+    - name: 📊 美股更新結果
+      if: always()
+      run: |
+        echo "美股更新完成 - 使用 Yahoo Finance API"

@@ -1,0 +1,27 @@
+{
+  "functions": {
+    "api/update-taiwan-stocks.js": {
+      "maxDuration": 60
+    },
+    "api/update-us-stocks.js": {
+      "maxDuration": 60
+    },
+    "api/update-exchange-rates.js": {
+      "maxDuration": 30
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/update-taiwan-stocks",
+      "schedule": "0 15 * * 1-5"
+    },
+    {
+      "path": "/api/update-us-stocks", 
+      "schedule": "0 22 * * 1-5"
+    },
+    {
+      "path": "/api/update-exchange-rates",
+      "schedule": "0 9 * * 1-5"
+    }
+  ]
+}
