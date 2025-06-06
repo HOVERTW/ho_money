@@ -36,12 +36,49 @@ const BATCH_CONFIG = {
   successRateThreshold: 30     // 成功率閾值降低到 30%（確保批次不會因低成功率而停止）
 };
 
+// Fugle API 配置（備用 API）
+const FUGLE_CONFIG = {
+  apiKey: 'ODYxNzdjOTAtN2Q0My00OWFlLTg1ZWYtNWVmOTY3MmY4MGI3IGUyZWQxOWNiLTVjZDItNDZkNC1iOWUyLTExZTc2ZGNhZjlhMw==',
+  baseUrl: 'https://api.fugle.tw/marketdata/v1.0/stock',
+  rateLimit: 60,               // 60 次/分鐘
+  requestDelay: 1100           // 1.1 秒間隔（確保不超過 60次/分鐘）
+};
+
 // 獲取批次參數
 const batchNumber = parseInt(process.env.BATCH_NUMBER || '1');
 const totalBatches = parseInt(process.env.TOTAL_BATCHES || '3');
 
 // 全域變數儲存 TSE API 資料
 let tseApiData = null;
+
+// Fugle API 速率限制管理
+let fugleRequestCount = 0;
+let fugleLastResetTime = Date.now();
+
+/**
+ * 檢查 Fugle API 速率限制
+ */
+async function checkFugleRateLimit() {
+  const now = Date.now();
+  const timeSinceReset = now - fugleLastResetTime;
+
+  // 每分鐘重置計數器
+  if (timeSinceReset >= 60000) {
+    fugleRequestCount = 0;
+    fugleLastResetTime = now;
+  }
+
+  // 如果已達到限制，等待到下一分鐘
+  if (fugleRequestCount >= FUGLE_CONFIG.rateLimit) {
+    const waitTime = 60000 - timeSinceReset;
+    console.log(`⏳ Fugle API 達到速率限制，等待 ${Math.ceil(waitTime/1000)} 秒`);
+    await delay(waitTime);
+    fugleRequestCount = 0;
+    fugleLastResetTime = Date.now();
+  }
+
+  fugleRequestCount++;
+}
 
 /**
  * 獲取台灣證交所完整資料（一次性獲取）
@@ -98,27 +135,38 @@ function findInTSEData(stockCode) {
 }
 
 /**
- * 獲取台股價格（智能選擇 API）
+ * 獲取台股價格（兩層 API 策略：TSE + Fugle）
  */
 async function fetchTaiwanStockPrice(stockCode) {
-  // 首先嘗試從 TSE 資料中查找
+  // 第一層：嘗試從 TSE 資料中查找
   const tseResult = findInTSEData(stockCode);
   if (tseResult) {
     return tseResult;
   }
 
-  // 如果 TSE 沒有，使用 Yahoo Finance
-  return await fetchFromYahooFinance(stockCode);
+  // 第二層：使用 Fugle API（唯一備用）
+  console.log(`🔄 使用 Fugle API 獲取 ${stockCode}`);
+  const fugleResult = await fetchFromFugleAPI(stockCode);
+  if (fugleResult) {
+    return fugleResult;
+  }
+
+  // 如果兩層都失敗，返回 null
+  console.log(`❌ ${stockCode} 所有 API 都失敗`);
+  return null;
 }
 
 /**
- * Yahoo Finance 備用 API（改進版）
+ * Fugle API 獲取股票價格（主要備用 API）
  */
-async function fetchFromYahooFinance(stockCode) {
+async function fetchFromFugleAPI(stockCode) {
   try {
-    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${stockCode}.TW`, {
+    // 檢查速率限制
+    await checkFugleRateLimit();
+
+    const response = await fetch(`${FUGLE_CONFIG.baseUrl}/intraday/quote/${stockCode}`, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'X-API-KEY': FUGLE_CONFIG.apiKey,
         'Accept': 'application/json'
       }
     });
@@ -129,33 +177,31 @@ async function fetchFromYahooFinance(stockCode) {
 
     const data = await response.json();
 
-    if (!data.chart || !data.chart.result || !data.chart.result[0]) {
-      throw new Error('Invalid response format');
-    }
-
-    const result = data.chart.result[0];
-    const quote = result.meta;
-
-    if (!quote.regularMarketPrice) {
+    if (!data.closePrice && !data.lastPrice) {
       throw new Error('Missing price data');
     }
 
+    // 使用收盤價或最後成交價
+    const price = data.closePrice || data.lastPrice;
+
     return {
       code: stockCode,
-      name: quote.longName || quote.symbol || stockCode,
-      market_type: stockCode.startsWith('00') ? 'ETF' : (stockCode.startsWith('6') ? 'OTC' : 'TSE'),
-      closing_price: parseFloat(quote.regularMarketPrice),
-      change_amount: parseFloat(quote.regularMarketChange || 0),
-      change_percent: parseFloat(quote.regularMarketChangePercent || 0),
-      volume: parseInt(quote.regularMarketVolume || 0),
+      name: data.name || stockCode,
+      market_type: data.market === 'TSE' ? 'TSE' : (data.market === 'OTC' ? 'OTC' : (stockCode.startsWith('00') ? 'ETF' : 'TSE')),
+      closing_price: parseFloat(price),
+      change_amount: parseFloat(data.change || 0),
+      change_percent: parseFloat(data.changePercent || 0),
+      volume: parseInt(data.total?.tradeVolume || 0),
       price_date: new Date().toISOString().split('T')[0],
       updated_at: new Date().toISOString()
     };
   } catch (error) {
-    console.error(`❌ Yahoo Finance 獲取 ${stockCode} 失敗:`, error.message);
+    console.error(`❌ Fugle API 獲取 ${stockCode} 失敗:`, error.message);
     return null;
   }
 }
+
+
 
 /**
  * 更新單支股票（優化重試機制）
