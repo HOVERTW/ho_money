@@ -21,6 +21,8 @@ on:
           - tw-batch-1
           - tw-batch-2
           - tw-batch-3
+          - tw-batch-4
+          - tw-batch-5
           - us
           - rates
 
@@ -55,7 +57,7 @@ jobs:
   update-tw-batch-1:
     name: 🇹🇼 更新台股 批次 1/5 (最多700支)
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'tw') || github.event_name == 'schedule' && github.event.schedule == '30 6 * * 1-5' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'tw' || github.event.inputs.update_type == 'tw-batch-1') || github.event_name == 'schedule' && github.event.schedule == '30 6 * * 1-5' }}
 
     steps:
     - name: 📥 檢出代碼
@@ -82,14 +84,14 @@ jobs:
     - name: 📊 台股批次 1 更新結果
       if: always()
       run: |
-        echo "台股批次 1/3 更新完成"
+        echo "台股批次 1/5 更新完成"
 
   # 台股更新 - 批次 2
   update-tw-batch-2:
     name: 🇹🇼 更新台股 批次 2/5 (最多700支)
     runs-on: ubuntu-latest
     needs: update-tw-batch-1
-    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'tw') || github.event_name == 'schedule' && github.event.schedule == '30 6 * * 1-5' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'tw' || github.event.inputs.update_type == 'tw-batch-2') || github.event_name == 'schedule' && github.event.schedule == '30 6 * * 1-5' }}
 
     steps:
     - name: 📥 檢出代碼
@@ -123,7 +125,7 @@ jobs:
     name: 🇹🇼 更新台股 批次 3/5 (最多700支)
     runs-on: ubuntu-latest
     needs: update-tw-batch-2
-    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'tw') || github.event_name == 'schedule' && github.event.schedule == '30 6 * * 1-5' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'tw' || github.event.inputs.update_type == 'tw-batch-3') || github.event_name == 'schedule' && github.event.schedule == '30 6 * * 1-5' }}
 
     steps:
     - name: 📥 檢出代碼
@@ -157,7 +159,7 @@ jobs:
     name: 🇹🇼 更新台股 批次 4/5 (最多700支)
     runs-on: ubuntu-latest
     needs: update-tw-batch-3
-    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'tw') || github.event_name == 'schedule' && github.event.schedule == '30 6 * * 1-5' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'tw' || github.event.inputs.update_type == 'tw-batch-4') || github.event_name == 'schedule' && github.event.schedule == '30 6 * * 1-5' }}
 
     steps:
     - name: 📥 檢出代碼
@@ -191,7 +193,7 @@ jobs:
     name: 🇹🇼 更新台股 批次 5/5 (最多700支)
     runs-on: ubuntu-latest
     needs: update-tw-batch-4
-    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'tw') || github.event_name == 'schedule' && github.event.schedule == '30 6 * * 1-5' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'tw' || github.event.inputs.update_type == 'tw-batch-5') || github.event_name == 'schedule' && github.event.schedule == '30 6 * * 1-5' }}
 
     steps:
     - name: 📥 檢出代碼
