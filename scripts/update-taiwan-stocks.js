@@ -206,17 +206,27 @@ function calculateBatchRange(stocks, batchNumber, totalBatches) {
 }
 
 /**
- * 生成完整台股代碼列表（1001-9962）
+ * 生成完整台股代碼列表（包含個股和ETF）
  */
 function generateTaiwanStockCodes() {
   const stocks = [];
 
-  // 生成 1001-9962 的所有股票代碼
+  // 1. ETF 代碼 (00xx 格式，通常到 0200 左右)
+  for (let i = 1; i <= 200; i++) {
+    const code = '00' + i.toString().padStart(2, '0');
+    stocks.push({ code: code });
+  }
+
+  // 2. 個股代碼 (1001-9962)
   for (let i = 1001; i <= 9962; i++) {
     stocks.push({ code: i.toString() });
   }
 
-  console.log(`📊 生成台股代碼列表: ${stocks.length} 支 (1001-9962)`);
+  console.log(`📊 生成台股代碼列表: ${stocks.length} 支`);
+  console.log(`   ETF (0001-0200): 200 支`);
+  console.log(`   個股 (1001-9962): ${9962-1001+1} 支`);
+  console.log(`   總計: ${stocks.length} 支`);
+
   return stocks;
 }
 

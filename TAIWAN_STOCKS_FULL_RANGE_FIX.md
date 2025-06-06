@@ -1,4 +1,4 @@
-# 🔧 台股完整範圍修正：從 1000 支擴展到 8962 支
+# 🔧 台股完整範圍修正：從 1000 支擴展到 9162 支（包含ETF）
 
 ## 🚨 發現的根本問題
 
@@ -32,21 +32,31 @@ const { data: allStocks, error } = await supabase
 
 ## ✅ 修正方案
 
-### 🎯 生成完整股票代碼列表
+### 🎯 生成完整股票代碼列表（包含ETF）
 
 ```javascript
 /**
- * 生成完整台股代碼列表（1001-9962）
+ * 生成完整台股代碼列表（包含個股和ETF）
  */
 function generateTaiwanStockCodes() {
   const stocks = [];
-  
-  // 生成 1001-9962 的所有股票代碼
+
+  // 1. ETF 代碼 (00xx 格式，通常到 0200 左右)
+  for (let i = 1; i <= 200; i++) {
+    const code = '00' + i.toString().padStart(2, '0');
+    stocks.push({ code: code });
+  }
+
+  // 2. 個股代碼 (1001-9962)
   for (let i = 1001; i <= 9962; i++) {
     stocks.push({ code: i.toString() });
   }
-  
-  console.log(`📊 生成台股代碼列表: ${stocks.length} 支 (1001-9962)`);
+
+  console.log(`📊 生成台股代碼列表: ${stocks.length} 支`);
+  console.log(`   ETF (0001-0200): 200 支`);
+  console.log(`   個股 (1001-9962): ${9962-1001+1} 支`);
+  console.log(`   總計: ${stocks.length} 支`);
+
   return stocks;
 }
 ```
@@ -59,7 +69,7 @@ const { data: allStocks } = await supabase
   .from('taiwan_stocks')
   .select('code');
 
-// 修正後：生成完整列表（✅ 8962 支）
+// 修正後：生成完整列表（✅ 9162 支：ETF + 個股）
 const allStocks = generateTaiwanStockCodes();
 ```
 
@@ -67,22 +77,22 @@ const allStocks = generateTaiwanStockCodes();
 
 ### 🎯 完整股票代碼範圍
 ```
-起始代碼：1001
-結束代碼：9962
-總數量：8962 支股票
+ETF 代碼：0001-0200 (200 支)
+個股代碼：1001-9962 (8962 支)
+總數量：9162 支（ETF + 個股）
 ```
 
 ### 📈 分批處理策略
 ```
-總股票數：8962 支
+總股票數：9162 支（ETF + 個股）
 分批策略：5 批次
-每批次約：1792 支股票
+每批次約：1832 支代碼
 
-批次 1: 1001-2792  (約 1792 支)
-批次 2: 2793-4584  (約 1792 支)
-批次 3: 4585-6376  (約 1792 支)
-批次 4: 6377-8168  (約 1792 支)
-批次 5: 8169-9962  (約 1794 支)
+批次 1: 0001-1832  (約 1832 支，包含所有ETF + 部分個股)
+批次 2: 1833-3664  (約 1832 支個股)
+批次 3: 3665-5496  (約 1832 支個股)
+批次 4: 5497-7328  (約 1832 支個股)
+批次 5: 7329-9962  (約 1834 支個股)
 ```
 
 ### ⏱️ 執行時間預估
