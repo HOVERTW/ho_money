@@ -33,7 +33,7 @@ const BATCH_CONFIG = {
   requestDelay: 150,           // 請求間隔 150ms（減少延遲）
   batchDelay: 800,             // 批次間延遲 800ms
   maxRetries: 1,               // 最多重試 1 次（減少重試）
-  successRateThreshold: 85     // 成功率閾值提高到 85%（因為都是有效股票）
+  successRateThreshold: 30     // 成功率閾值降低到 30%（確保批次不會因低成功率而停止）
 };
 
 // 獲取批次參數
