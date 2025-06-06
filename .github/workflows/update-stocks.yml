@@ -48,9 +48,9 @@ jobs:
         SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       run: node scripts/update-exchange-rates.js
 
-  # 台股更新
-  update-tw:
-    name: 🇹🇼 更新台股 (TWSE + Yahoo Finance)
+  # 台股更新 - 批次 1
+  update-tw-batch-1:
+    name: 🇹🇼 更新台股 批次 1/3 (最多700支)
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'tw') || github.event_name == 'schedule' && github.event.schedule == '30 6 * * 1-5' }}
 
@@ -68,16 +68,86 @@ jobs:
       run: |
         npm install --legacy-peer-deps @supabase/supabase-js@2.39.0 node-fetch@3.3.2 dotenv@16.3.1
 
-    - name: 🏢 執行台股更新
+    - name: 🏢 執行台股更新 - 批次 1
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        BATCH_NUMBER: 1
+        TOTAL_BATCHES: 3
       run: node scripts/update-taiwan-stocks.js
 
-    - name: 📊 台股更新結果
+    - name: 📊 台股批次 1 更新結果
       if: always()
       run: |
-        echo "台股更新完成 - 使用台灣證交所官方 API 和 Yahoo Finance 備用"
+        echo "台股批次 1/3 更新完成"
+
+  # 台股更新 - 批次 2
+  update-tw-batch-2:
+    name: 🇹🇼 更新台股 批次 2/3 (最多700支)
+    runs-on: ubuntu-latest
+    needs: update-tw-batch-1
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'tw') || github.event_name == 'schedule' && github.event.schedule == '30 6 * * 1-5' }}
+
+    steps:
+    - name: 📥 檢出代碼
+      uses: actions/checkout@v4
+
+    - name: 🟢 設置 Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: 📦 安裝核心依賴
+      run: |
+        npm install --legacy-peer-deps @supabase/supabase-js@2.39.0 node-fetch@3.3.2 dotenv@16.3.1
+
+    - name: 🏢 執行台股更新 - 批次 2
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        BATCH_NUMBER: 2
+        TOTAL_BATCHES: 3
+      run: node scripts/update-taiwan-stocks.js
+
+    - name: 📊 台股批次 2 更新結果
+      if: always()
+      run: |
+        echo "台股批次 2/3 更新完成"
+
+  # 台股更新 - 批次 3
+  update-tw-batch-3:
+    name: 🇹🇼 更新台股 批次 3/3 (最多700支)
+    runs-on: ubuntu-latest
+    needs: update-tw-batch-2
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'tw') || github.event_name == 'schedule' && github.event.schedule == '30 6 * * 1-5' }}
+
+    steps:
+    - name: 📥 檢出代碼
+      uses: actions/checkout@v4
+
+    - name: 🟢 設置 Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: 📦 安裝核心依賴
+      run: |
+        npm install --legacy-peer-deps @supabase/supabase-js@2.39.0 node-fetch@3.3.2 dotenv@16.3.1
+
+    - name: 🏢 執行台股更新 - 批次 3
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        BATCH_NUMBER: 3
+        TOTAL_BATCHES: 3
+      run: node scripts/update-taiwan-stocks.js
+
+    - name: 📊 台股批次 3 更新結果
+      if: always()
+      run: |
+        echo "台股批次 3/3 更新完成 - 所有台股更新完成！"
 
   # 美股更新
   update-us:

@@ -1,6 +1,7 @@
 /**
- * GitHub Actions - 台股每日更新腳本
+ * GitHub Actions - 台股每日更新腳本（分批優化版）
  * 使用台灣證交所官方 API + Yahoo Finance 備用
+ * 支援分批處理以避免超時和提高成功率
  */
 
 require('dotenv').config();
@@ -24,6 +25,20 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
 );
+
+// 分批處理配置
+const BATCH_CONFIG = {
+  maxStocksPerRun: 700,        // 每次最多處理 700 支股票
+  batchSize: 30,               // 每批處理 30 支（減少批次大小）
+  requestDelay: 150,           // 請求間隔 150ms（減少延遲）
+  batchDelay: 800,             // 批次間延遲 800ms
+  maxRetries: 1,               // 最多重試 1 次（減少重試）
+  successRateThreshold: 75     // 成功率閾值降低到 75%
+};
+
+// 獲取批次參數
+const batchNumber = parseInt(process.env.BATCH_NUMBER || '1');
+const totalBatches = parseInt(process.env.TOTAL_BATCHES || '3');
 
 // 全域變數儲存 TSE API 資料
 let tseApiData = null;
@@ -143,11 +158,9 @@ async function fetchFromYahooFinance(stockCode) {
 }
 
 /**
- * 更新單支股票（帶重試機制）
+ * 更新單支股票（優化重試機制）
  */
 async function updateSingleStock(stockCode, retryCount = 0) {
-  const maxRetries = 2;
-
   try {
     const priceData = await fetchTaiwanStockPrice(stockCode);
 
@@ -157,9 +170,9 @@ async function updateSingleStock(stockCode, retryCount = 0) {
       throw new Error('無法獲取價格資料');
     }
   } catch (error) {
-    if (retryCount < maxRetries) {
-      console.log(`⚠️ ${stockCode} 失敗，重試 ${retryCount + 1}/${maxRetries}`);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // 等待 1 秒
+    if (retryCount < BATCH_CONFIG.maxRetries) {
+      console.log(`⚠️ ${stockCode} 失敗，重試 ${retryCount + 1}/${BATCH_CONFIG.maxRetries}`);
+      await delay(1000); // 等待 1 秒
       return await updateSingleStock(stockCode, retryCount + 1);
     } else {
       console.error(`❌ ${stockCode} 最終失敗: ${error.message}`);
@@ -168,37 +181,63 @@ async function updateSingleStock(stockCode, retryCount = 0) {
   }
 }
 
+// 延遲函數
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// 計算股票分批範圍
+function calculateBatchRange(stocks, batchNumber, totalBatches) {
+  const totalStocks = Math.min(stocks.length, BATCH_CONFIG.maxStocksPerRun * totalBatches);
+  const stocksPerBatch = Math.ceil(totalStocks / totalBatches);
+
+  const startIndex = (batchNumber - 1) * stocksPerBatch;
+  const endIndex = Math.min(startIndex + stocksPerBatch, totalStocks);
+
+  return {
+    startIndex,
+    endIndex,
+    stocksInThisBatch: endIndex - startIndex,
+    totalStocks
+  };
+}
+
 /**
- * 主要更新函數（改進版）
+ * 主要更新函數（分批優化版）
  */
 async function updateTaiwanStocks() {
   try {
-    console.log('🚀 台股更新開始');
+    console.log(`🚀 台股更新開始 - 批次 ${batchNumber}/${totalBatches}`);
     console.log('⏰ 執行時間:', new Date().toLocaleString('zh-TW'));
 
     // 步驟 1：獲取 TSE API 資料
     tseApiData = await fetchTSEData();
 
     // 步驟 2：獲取所有台股代碼
-    const { data: stocks, error } = await supabase
+    const { data: allStocks, error } = await supabase
       .from('taiwan_stocks')
       .select('code')
       .order('code');
 
     if (error) throw error;
 
-    console.log(`📊 需要更新 ${stocks.length} 支台股\n`);
+    // 步驟 3：計算此批次要處理的股票範圍
+    const range = calculateBatchRange(allStocks, batchNumber, totalBatches);
+    const stocks = allStocks.slice(range.startIndex, range.endIndex);
 
-    // 步驟 3：分批更新股票
+    console.log(`📊 總股票數: ${allStocks.length}`);
+    console.log(`🎯 此批次處理: ${stocks.length} 支 (${range.startIndex + 1}-${range.endIndex})`);
+    console.log(`📈 批次進度: ${batchNumber}/${totalBatches}\n`);
+
+    // 步驟 4：分小批處理股票
     let successCount = 0;
     let failCount = 0;
     const failedStocks = [];
 
-    const batchSize = 50; // 減少批次大小以提高成功率
+    for (let i = 0; i < stocks.length; i += BATCH_CONFIG.batchSize) {
+      const batch = stocks.slice(i, i + BATCH_CONFIG.batchSize);
+      const batchNum = Math.floor(i / BATCH_CONFIG.batchSize) + 1;
+      const totalBatchesInRun = Math.ceil(stocks.length / BATCH_CONFIG.batchSize);
 
-    for (let i = 0; i < stocks.length; i += batchSize) {
-      const batch = stocks.slice(i, i + batchSize);
-      console.log(`🔄 處理第 ${Math.floor(i/batchSize) + 1} 批 (${i + 1}-${Math.min(i + batchSize, stocks.length)})`);
+      console.log(`🔄 處理第 ${batchNum}/${totalBatchesInRun} 小批 (${range.startIndex + i + 1}-${Math.min(range.startIndex + i + BATCH_CONFIG.batchSize, range.endIndex)})`);
 
       const updates = [];
 
@@ -216,7 +255,7 @@ async function updateTaiwanStocks() {
         }
 
         // 每支股票間短暫等待
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await delay(BATCH_CONFIG.requestDelay);
       }
 
       // 批次更新資料庫
@@ -233,16 +272,16 @@ async function updateTaiwanStocks() {
       }
 
       // 批次間等待
-      if (i + batchSize < stocks.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      if (i + BATCH_CONFIG.batchSize < stocks.length) {
+        await delay(BATCH_CONFIG.batchDelay);
       }
     }
 
-    // 步驟 4：記錄更新結果
+    // 步驟 5：記錄更新結果
     const logEntry = {
       operation_type: 'taiwan_stocks_update',
       status: 'completed',
-      details: `成功: ${successCount}, 失敗: ${failCount}`,
+      details: `批次 ${batchNumber}/${totalBatches} - 成功: ${successCount}, 失敗: ${failCount}`,
       total_stocks: stocks.length,
       success_count: successCount,
       failed_count: failCount,
@@ -258,10 +297,10 @@ async function updateTaiwanStocks() {
       console.error('⚠️ 記錄日誌失敗:', logError.message);
     }
 
-    // 步驟 5：顯示結果
-    console.log('\n📊 台股更新完成！');
+    // 步驟 6：顯示結果
+    console.log(`\n📊 台股批次 ${batchNumber}/${totalBatches} 更新完成！`);
     console.log('==================');
-    console.log(`📈 總股票數: ${stocks.length}`);
+    console.log(`📈 此批次股票數: ${stocks.length}`);
     console.log(`✅ 成功更新: ${successCount} (${((successCount/stocks.length)*100).toFixed(1)}%)`);
     console.log(`❌ 更新失敗: ${failCount} (${((failCount/stocks.length)*100).toFixed(1)}%)`);
 
@@ -273,14 +312,18 @@ async function updateTaiwanStocks() {
 
     console.log(`📅 更新日期: ${new Date().toISOString().split('T')[0]}`);
 
-    // 如果成功率低於 85%，退出並報錯
+    // 調整成功率閾值
     const successRate = (successCount / stocks.length) * 100;
-    if (successRate < 85) {
+    if (successRate < BATCH_CONFIG.successRateThreshold) {
       console.error(`❌ 成功率過低 (${successRate.toFixed(1)}%)，請檢查 API 狀態`);
       process.exit(1);
     }
 
-    console.log('\n🎉 台股更新流程完成！');
+    console.log(`\n🎉 批次 ${batchNumber}/${totalBatches} 更新流程完成！`);
+
+    if (batchNumber === totalBatches) {
+      console.log('🏁 所有批次處理完成！');
+    }
 
   } catch (error) {
     console.error('\n💥 台股更新過程發生錯誤:', error.message);

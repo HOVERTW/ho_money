@@ -11,12 +11,20 @@ import {
   ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { signIn, loading, error, clearError } = useAuthStore();
+  const {
+    signIn,
+    signInWithGoogle,
+    signInWithApple,
+    loading,
+    error,
+    clearError
+  } = useAuthStore();
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -38,6 +46,30 @@ export default function LoginScreen({ navigation }: any) {
 
   const navigateToForgotPassword = () => {
     navigation.navigate('ForgotPassword');
+  };
+
+  const handleGoogleLogin = async () => {
+    clearError();
+    try {
+      await signInWithGoogle();
+      if (error) {
+        Alert.alert('Google 登錄失敗', error);
+      }
+    } catch (err) {
+      Alert.alert('Google 登錄失敗', '請稍後再試');
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    clearError();
+    try {
+      await signInWithApple();
+      if (error) {
+        Alert.alert('Apple 登錄失敗', error);
+      }
+    } catch (err) {
+      Alert.alert('Apple 登錄失敗', '請稍後再試');
+    }
   };
 
   return (
@@ -98,6 +130,34 @@ export default function LoginScreen({ navigation }: any) {
           >
             <Text style={styles.forgotPasswordText}>忘記密碼？</Text>
           </TouchableOpacity>
+
+          {/* 分隔線 */}
+          <View style={styles.dividerContainer}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>或</Text>
+            <View style={styles.divider} />
+          </View>
+
+          {/* 社交登錄按鈕 */}
+          <TouchableOpacity
+            style={[styles.socialButton, styles.googleButton]}
+            onPress={handleGoogleLogin}
+            disabled={loading}
+          >
+            <Ionicons name="logo-google" size={20} color="#fff" />
+            <Text style={styles.socialButtonText}>使用 Google 登錄</Text>
+          </TouchableOpacity>
+
+          {Platform.OS === 'ios' && (
+            <TouchableOpacity
+              style={[styles.socialButton, styles.appleButton]}
+              onPress={handleAppleLogin}
+              disabled={loading}
+            >
+              <Ionicons name="logo-apple" size={20} color="#fff" />
+              <Text style={styles.socialButtonText}>使用 Apple 登錄</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.footer}>
@@ -195,5 +255,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#007AFF',
     fontWeight: '600',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E5E5',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 14,
+    color: '#666',
+  },
+  socialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginBottom: 12,
+  },
+  googleButton: {
+    backgroundColor: '#DB4437',
+  },
+  appleButton: {
+    backgroundColor: '#000',
+  },
+  socialButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });

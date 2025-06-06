@@ -7,10 +7,12 @@ interface AuthState {
   session: Session | null;
   loading: boolean;
   error: string | null;
-  
+
   // Actions
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   setUser: (user: User | null) => void;
@@ -55,27 +57,81 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signUp: async (email: string, password: string) => {
     set({ loading: true, error: null });
-    
+
     try {
       const { data, error } = await authService.signUp(email, password);
-      
+
       if (error) {
         set({ error: error.message, loading: false });
         return;
       }
-      
+
       if (data.user && data.session) {
-        set({ 
-          user: data.user, 
-          session: data.session, 
+        set({
+          user: data.user,
+          session: data.session,
           loading: false,
-          error: null 
+          error: null
         });
       }
     } catch (error) {
-      set({ 
+      set({
         error: error instanceof Error ? error.message : 'An error occurred',
-        loading: false 
+        loading: false
+      });
+    }
+  },
+
+  signInWithGoogle: async () => {
+    set({ loading: true, error: null });
+
+    try {
+      const { data, error } = await authService.signInWithGoogle();
+
+      if (error) {
+        set({ error: error.message, loading: false });
+        return;
+      }
+
+      if (data.user && data.session) {
+        set({
+          user: data.user,
+          session: data.session,
+          loading: false,
+          error: null
+        });
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Google 登錄失敗',
+        loading: false
+      });
+    }
+  },
+
+  signInWithApple: async () => {
+    set({ loading: true, error: null });
+
+    try {
+      const { data, error } = await authService.signInWithApple();
+
+      if (error) {
+        set({ error: error.message, loading: false });
+        return;
+      }
+
+      if (data.user && data.session) {
+        set({
+          user: data.user,
+          session: data.session,
+          loading: false,
+          error: null
+        });
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Apple 登錄失敗',
+        loading: false
       });
     }
   },

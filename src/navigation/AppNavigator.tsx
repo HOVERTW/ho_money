@@ -7,6 +7,7 @@ import { View, ActivityIndicator } from 'react-native';
 
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
+import { userDataSyncService } from '../services/userDataSyncService';
 import { RootStackParamList, MainTabParamList, AuthStackParamList } from '../types';
 
 // Import screens (we'll create these next)
@@ -191,10 +192,23 @@ export default function AppNavigator() {
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
 
-        if (session) {
+        if (session && session.user) {
+          // 用戶登錄成功
           setUser(session.user);
           setSession(session);
+
+          // 初始化用戶數據（僅在首次登錄或新用戶時）
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            try {
+              await userDataSyncService.initializeUserData(session.user);
+              console.log('✅ 用戶數據初始化完成');
+            } catch (error) {
+              console.error('❌ 用戶數據初始化失敗:', error);
+              // 不阻止用戶繼續使用應用
+            }
+          }
         } else {
+          // 用戶登出
           setUser(null);
           setSession(null);
         }

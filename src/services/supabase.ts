@@ -1,4 +1,8 @@
 import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from '@env';
+import { createClient, AuthError, AuthResponse, User, Session } from '@supabase/supabase-js';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
+import * as Crypto from 'expo-crypto';
 
 // Supabase configuration
 const supabaseUrl = EXPO_PUBLIC_SUPABASE_URL || 'your_supabase_url_here';
@@ -7,6 +11,15 @@ const supabaseAnonKey = EXPO_PUBLIC_SUPABASE_ANON_KEY || 'your_supabase_anon_key
 // Debug configuration
 console.log('🔗 Supabase URL:', supabaseUrl);
 console.log('🔑 Supabase Key exists:', !!supabaseAnonKey);
+
+// 創建 Supabase 客戶端
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
 
 // 純 HTTP API 客戶端 - 不使用 Supabase SDK
 export const supabaseConfig = {
@@ -141,4 +154,299 @@ export const exchangeRateService = {
       return null;
     }
   }
+};
+
+// 認證服務
+export const authService = {
+  // 傳統電子郵件登錄
+  signIn: async (email: string, password: string): Promise<AuthResponse> => {
+    return await supabase.auth.signInWithPassword({ email, password });
+  },
+
+  // 傳統電子郵件註冊
+  signUp: async (email: string, password: string): Promise<AuthResponse> => {
+    return await supabase.auth.signUp({ email, password });
+  },
+
+  // 登出
+  signOut: async () => {
+    return await supabase.auth.signOut();
+  },
+
+  // 重設密碼
+  resetPassword: async (email: string) => {
+    return await supabase.auth.resetPasswordForEmail(email);
+  },
+
+  // Google 登錄
+  signInWithGoogle: async (): Promise<AuthResponse> => {
+    try {
+      // 生成隨機 state 參數
+      const state = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        Math.random().toString()
+      );
+
+      const redirectUrl = AuthSession.makeRedirectUri({
+        useProxy: true,
+      });
+
+      console.log('🔗 Redirect URL:', redirectUrl);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+
+      if (error) {
+        console.error('❌ Google 登錄錯誤:', error);
+        return { data: { user: null, session: null }, error };
+      }
+
+      if (data.url) {
+        // 開啟瀏覽器進行 OAuth 流程
+        const result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          redirectUrl
+        );
+
+        if (result.type === 'success') {
+          // 從 URL 中提取 session 資訊
+          const url = new URL(result.url);
+          const accessToken = url.searchParams.get('access_token');
+          const refreshToken = url.searchParams.get('refresh_token');
+
+          if (accessToken) {
+            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || '',
+            });
+
+            return { data: sessionData, error: sessionError };
+          }
+        }
+      }
+
+      return { data: { user: null, session: null }, error: new AuthError('OAuth 流程失敗') };
+    } catch (error) {
+      console.error('❌ Google 登錄異常:', error);
+      return {
+        data: { user: null, session: null },
+        error: new AuthError(error instanceof Error ? error.message : 'Google 登錄失敗')
+      };
+    }
+  },
+
+  // Apple 登錄
+  signInWithApple: async (): Promise<AuthResponse> => {
+    try {
+      const redirectUrl = AuthSession.makeRedirectUri({
+        useProxy: true,
+      });
+
+      console.log('🍎 Apple 登錄 Redirect URL:', redirectUrl);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: redirectUrl,
+        },
+      });
+
+      if (error) {
+        console.error('❌ Apple 登錄錯誤:', error);
+        return { data: { user: null, session: null }, error };
+      }
+
+      if (data.url) {
+        const result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          redirectUrl
+        );
+
+        if (result.type === 'success') {
+          const url = new URL(result.url);
+          const accessToken = url.searchParams.get('access_token');
+          const refreshToken = url.searchParams.get('refresh_token');
+
+          if (accessToken) {
+            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || '',
+            });
+
+            return { data: sessionData, error: sessionError };
+          }
+        }
+      }
+
+      return { data: { user: null, session: null }, error: new AuthError('Apple OAuth 流程失敗') };
+    } catch (error) {
+      console.error('❌ Apple 登錄異常:', error);
+      return {
+        data: { user: null, session: null },
+        error: new AuthError(error instanceof Error ? error.message : 'Apple 登錄失敗')
+      };
+    }
+  },
+
+  // 獲取當前用戶
+  getCurrentUser: async (): Promise<User | null> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user;
+  },
+
+  // 獲取當前 session
+  getCurrentSession: async (): Promise<Session | null> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session;
+  },
+};
+
+// 數據庫服務 - 支援 RLS (Row Level Security)
+export const dbService = {
+  // 通用讀取方法
+  read: async (table: string, query?: string) => {
+    try {
+      let queryBuilder = supabase.from(table).select(query || '*');
+
+      const { data, error } = await queryBuilder;
+
+      if (error) {
+        console.error(`❌ 讀取 ${table} 失敗:`, error);
+        return { data: null, error };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      console.error(`❌ 讀取 ${table} 異常:`, error);
+      return { data: null, error };
+    }
+  },
+
+  // 通用創建方法
+  create: async (table: string, data: any) => {
+    try {
+      const { data: result, error } = await supabase
+        .from(table)
+        .insert(data)
+        .select();
+
+      if (error) {
+        console.error(`❌ 創建 ${table} 失敗:`, error);
+        return { data: null, error };
+      }
+
+      return { data: result, error: null };
+    } catch (error) {
+      console.error(`❌ 創建 ${table} 異常:`, error);
+      return { data: null, error };
+    }
+  },
+
+  // 通用更新方法
+  update: async (table: string, id: string, data: any) => {
+    try {
+      const { data: result, error } = await supabase
+        .from(table)
+        .update(data)
+        .eq('id', id)
+        .select();
+
+      if (error) {
+        console.error(`❌ 更新 ${table} 失敗:`, error);
+        return { data: null, error };
+      }
+
+      return { data: result, error: null };
+    } catch (error) {
+      console.error(`❌ 更新 ${table} 異常:`, error);
+      return { data: null, error };
+    }
+  },
+
+  // 通用刪除方法
+  delete: async (table: string, id: string) => {
+    try {
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error(`❌ 刪除 ${table} 失敗:`, error);
+        return { error };
+      }
+
+      return { error: null };
+    } catch (error) {
+      console.error(`❌ 刪除 ${table} 異常:`, error);
+      return { error };
+    }
+  },
+
+  // 用戶專用方法 - 只獲取當前用戶的數據
+  readUserData: async (table: string, query?: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        return { data: null, error: new Error('用戶未登錄') };
+      }
+
+      let queryBuilder = supabase
+        .from(table)
+        .select(query || '*')
+        .eq('user_id', user.id);
+
+      const { data, error } = await queryBuilder;
+
+      if (error) {
+        console.error(`❌ 讀取用戶 ${table} 失敗:`, error);
+        return { data: null, error };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      console.error(`❌ 讀取用戶 ${table} 異常:`, error);
+      return { data: null, error };
+    }
+  },
+
+  // 創建用戶數據 - 自動添加 user_id
+  createUserData: async (table: string, data: any) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        return { data: null, error: new Error('用戶未登錄') };
+      }
+
+      const dataWithUserId = {
+        ...data,
+        user_id: user.id,
+      };
+
+      const { data: result, error } = await supabase
+        .from(table)
+        .insert(dataWithUserId)
+        .select();
+
+      if (error) {
+        console.error(`❌ 創建用戶 ${table} 失敗:`, error);
+        return { data: null, error };
+      }
+
+      return { data: result, error: null };
+    } catch (error) {
+      console.error(`❌ 創建用戶 ${table} 異常:`, error);
+      return { data: null, error };
+    }
+  },
 };
