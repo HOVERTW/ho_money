@@ -1,4 +1,4 @@
--- =====================================================
+ -- =====================================================
 -- 台股資料表查詢 SQL 集合
 -- 用於分析和導出 Supabase taiwan_stocks 資料表
 -- =====================================================
@@ -205,19 +205,23 @@ ORDER BY row_num;
 -- 8. 匯出用 SQL
 -- =====================================================
 
--- 生成 JavaScript 陣列格式
-SELECT 
+-- 生成 JavaScript 陣列格式 (修正版)
+WITH ordered_codes AS (
+  SELECT code
+  FROM taiwan_stocks
+  ORDER BY
+    CASE
+      WHEN code ~ '^00\d{2}$' THEN CAST(code AS INTEGER)
+      WHEN code ~ '^\d{4}$' THEN CAST(code AS INTEGER) + 10000
+      ELSE 99999
+    END
+)
+SELECT
   'const TAIWAN_STOCKS_CODES = [' as line
 UNION ALL
-SELECT 
+SELECT
   '  ''' || code || ''',' as line
-FROM taiwan_stocks 
-ORDER BY 
-  CASE 
-    WHEN code ~ '^00\d{2}$' THEN CAST(code AS INTEGER)
-    WHEN code ~ '^\d{4}$' THEN CAST(code AS INTEGER) + 10000
-    ELSE 99999
-  END
+FROM ordered_codes
 UNION ALL
 SELECT '];' as line;
 
