@@ -33,7 +33,7 @@ const BATCH_CONFIG = {
   requestDelay: 150,           // 請求間隔 150ms（減少延遲）
   batchDelay: 800,             // 批次間延遲 800ms
   maxRetries: 1,               // 最多重試 1 次（減少重試）
-  successRateThreshold: 75     // 成功率閾值降低到 75%
+  successRateThreshold: 85     // 成功率閾值提高到 85%（因為都是有效股票）
 };
 
 // 獲取批次參數
@@ -206,26 +206,17 @@ function calculateBatchRange(stocks, batchNumber, totalBatches) {
 }
 
 /**
- * 生成完整台股代碼列表（包含個股和ETF）
+ * 使用從 Supabase 導出的真實股票列表
  */
-function generateTaiwanStockCodes() {
-  const stocks = [];
+const TAIWAN_STOCKS_CODES = require('../taiwan_stocks_codes_from_supabase.js');
 
-  // 1. ETF 代碼 (00xx 格式，通常到 0200 左右)
-  for (let i = 1; i <= 200; i++) {
-    const code = '00' + i.toString().padStart(2, '0');
-    stocks.push({ code: code });
-  }
+function getTaiwanStockCodes() {
+  const stocks = TAIWAN_STOCKS_CODES.map(code => ({ code }));
 
-  // 2. 個股代碼 (1001-9962)
-  for (let i = 1001; i <= 9962; i++) {
-    stocks.push({ code: i.toString() });
-  }
-
-  console.log(`📊 生成台股代碼列表: ${stocks.length} 支`);
-  console.log(`   ETF (0001-0200): 200 支`);
-  console.log(`   個股 (1001-9962): ${9962-1001+1} 支`);
-  console.log(`   總計: ${stocks.length} 支`);
+  console.log(`📊 使用 Supabase 導出的股票列表: ${stocks.length} 支`);
+  console.log(`   來源: 實際 Supabase taiwan_stocks 資料表`);
+  console.log(`   包含: ETF + 個股 + 其他格式`);
+  console.log(`   優勢: 100% 有效股票，無無效代碼`);
 
   return stocks;
 }
@@ -241,8 +232,8 @@ async function updateTaiwanStocks() {
     // 步驟 1：獲取 TSE API 資料
     tseApiData = await fetchTSEData();
 
-    // 步驟 2：生成完整台股代碼列表（不依賴資料表）
-    const allStocks = generateTaiwanStockCodes();
+    // 步驟 2：獲取真實股票列表（從 Supabase 導出）
+    const allStocks = getTaiwanStockCodes();
 
     // 步驟 3：計算此批次要處理的股票範圍
     const range = calculateBatchRange(allStocks, batchNumber, totalBatches);
