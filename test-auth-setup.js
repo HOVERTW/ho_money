@@ -3,6 +3,9 @@
  * 測試 Google & Apple 登錄功能設置
  */
 
+// 載入環境變數
+require('dotenv').config();
+
 console.log('🧪 FinTranzo 認證系統測試');
 console.log('=' * 50);
 

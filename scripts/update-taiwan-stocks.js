@@ -184,13 +184,18 @@ async function updateSingleStock(stockCode, retryCount = 0) {
 // 延遲函數
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// 計算股票分批範圍
+// 計算股票分批範圍（修正版）
 function calculateBatchRange(stocks, batchNumber, totalBatches) {
-  const totalStocks = Math.min(stocks.length, BATCH_CONFIG.maxStocksPerRun * totalBatches);
+  const totalStocks = stocks.length; // 使用所有股票，不限制數量
   const stocksPerBatch = Math.ceil(totalStocks / totalBatches);
 
   const startIndex = (batchNumber - 1) * stocksPerBatch;
   const endIndex = Math.min(startIndex + stocksPerBatch, totalStocks);
+
+  console.log(`📊 分批計算詳情:`);
+  console.log(`   總股票數: ${totalStocks}`);
+  console.log(`   每批股票數: ${stocksPerBatch}`);
+  console.log(`   批次 ${batchNumber}: 索引 ${startIndex}-${endIndex-1} (共 ${endIndex - startIndex} 支)`);
 
   return {
     startIndex,
