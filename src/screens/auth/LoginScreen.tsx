@@ -49,12 +49,28 @@ export default function LoginScreen({ navigation }: any) {
 
   const handleGoogleLogin = async () => {
     clearError();
+    console.log('🔐 開始 Google 登錄流程...');
+    console.log('🌐 當前 URL:', window.location.href);
+
     try {
       await signInWithGoogle();
-      if (error) {
-        Alert.alert('Google 登錄失敗', error);
+
+      // 檢查最新狀態
+      const currentState = useAuthStore.getState();
+      console.log('📝 Google 登錄後狀態:', {
+        user: currentState.user?.email,
+        error: currentState.error,
+        loading: currentState.loading
+      });
+
+      if (currentState.error) {
+        console.error('❌ Google 登錄失敗:', currentState.error);
+        Alert.alert('Google 登錄失敗', currentState.error);
+      } else if (currentState.user) {
+        console.log('✅ Google 登錄成功:', currentState.user.email);
       }
     } catch (err) {
+      console.error('💥 Google 登錄異常:', err);
       Alert.alert('Google 登錄失敗', '請稍後再試');
     }
   };
