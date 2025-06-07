@@ -15,12 +15,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { assetTransactionSyncService } from '../services/assetTransactionSyncService';
 import StockSearchInput from './StockSearchInput';
 import USStockSearchInput from './USStockSearchInput';
-import { StockSearchResult } from '../services/taiwanStockService';
+import { StockSearchResult, taiwanStockService } from '../services/taiwanStockService';
 import { USStockSearchResult } from '../services/usStockQueryService';
 import { exchangeRateService } from '../services/exchangeRateService';
-import { testSupabaseConnection } from '../utils/testSupabaseConnection';
 
-import { verifyCorrectScale, showScaleComparison } from '../utils/verifyCorrectScale';
+
 
 interface AddAssetModalProps {
   visible: boolean;
@@ -135,20 +134,11 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
         // 測試 Supabase 連接（僅在開發模式）
         if (__DEV__) {
           console.log('🧪 測試 Supabase 連接...');
-          await testSupabaseConnection();
+          await taiwanStockService.testSupabaseConnection();
 
-          // 如果是美股類型，驗證正確規模
+          // 如果是美股類型，記錄日誌
           if (type === 'us_stock') {
-            console.log('🔍 驗證正確規模 (美股500檔+台股2000+檔+USD/TWD匯率)...');
-
-            // 驗證系統規模
-            verifyCorrectScale().then(success => {
-              if (success) {
-                showScaleComparison();
-              }
-            }).catch((error: any) => {
-              console.error('❌ 規模驗證失敗:', error);
-            });
+            console.log('🔍 美股類型資產，準備獲取匯率...');
           }
         }
 

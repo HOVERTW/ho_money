@@ -220,7 +220,7 @@ export type MainTabParamList = {
   BalanceSheet: undefined;
   CashFlow: undefined;
   Charts: undefined;
-  CategoryTest: undefined;
+  // CategoryTest: undefined;
   StockManagement: undefined;
 };
 

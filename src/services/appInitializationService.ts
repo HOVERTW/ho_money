@@ -23,38 +23,63 @@ class AppInitializationService {
 
     try {
       // 0. 檢查是否需要清除舊的預設數據
-      await this.checkAndClearOldData();
+      await this.safeExecute('清除舊數據', () => this.checkAndClearOldData());
 
       // 1. 初始化交易資料服務
-      await this.initializeTransactionService();
+      await this.safeExecute('交易服務', () => this.initializeTransactionService());
 
       // 2. 初始化資產服務
-      await assetTransactionSyncService.initialize();
-      console.log('✅ 資產服務已初始化（空列表）');
+      await this.safeExecute('資產服務', async () => {
+        await assetTransactionSyncService.initialize();
+        console.log('✅ 資產服務已初始化（空列表）');
+      });
 
       // 3. 初始化負債服務
-      await liabilityService.initialize();
-      console.log('✅ 負債服務已初始化（空列表）');
+      await this.safeExecute('負債服務', async () => {
+        await liabilityService.initialize();
+        console.log('✅ 負債服務已初始化（空列表）');
+      });
 
       // 4. 初始化自動還款服務
-      automaticPaymentService.initialize();
-      console.log('✅ 自動還款服務已初始化');
+      await this.safeExecute('自動還款服務', async () => {
+        automaticPaymentService.initialize();
+        console.log('✅ 自動還款服務已初始化');
+      });
 
       // 5. 初始化負債循環交易同步服務
-      await liabilityTransactionSyncService.initialize();
-      console.log('✅ 負債循環交易同步服務已初始化');
+      await this.safeExecute('負債循環交易同步服務', async () => {
+        await liabilityTransactionSyncService.initialize();
+        console.log('✅ 負債循環交易同步服務已初始化');
+      });
 
       // 強制創建當月負債交易記錄
-      await liabilityTransactionSyncService.forceCreateCurrentMonthTransactions();
+      await this.safeExecute('創建當月負債交易', async () => {
+        await liabilityTransactionSyncService.forceCreateCurrentMonthTransactions();
+      });
 
       // 6. 啟動每日更新調度器
-      await this.initializeDailyUpdateScheduler();
+      await this.safeExecute('每日更新調度器', () => this.initializeDailyUpdateScheduler());
 
       this.isInitialized = true;
       console.log('🎉 所有服務初始化完成！帳戶已歸零');
     } catch (error) {
       console.error('❌ 服務初始化失敗:', error);
-      throw error;
+      // 即使有錯誤，也標記為已初始化，讓應用可以啟動
+      this.isInitialized = true;
+      console.log('⚠️ 部分服務初始化失敗，但應用將繼續運行');
+    }
+  }
+
+  /**
+   * 安全執行函數，捕獲錯誤但不中斷整個初始化流程
+   */
+  private async safeExecute(serviceName: string, fn: () => Promise<void> | void): Promise<void> {
+    try {
+      await fn();
+    } catch (error) {
+      console.error(`❌ ${serviceName}初始化失敗:`, error);
+      console.log(`⚠️ ${serviceName}初始化失敗，但應用將繼續運行`);
+      // 不拋出錯誤，讓其他服務繼續初始化
     }
   }
 

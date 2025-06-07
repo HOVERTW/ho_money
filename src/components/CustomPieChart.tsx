@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -83,19 +83,26 @@ const CustomPieChart: React.FC<CustomPieChartProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* SVG 圓餅圖 */}
+      {/* 根據平台顯示圓餅圖 */}
       <View style={styles.chartContainer}>
-        <Svg width={width} height={180}>
-          {slices.map((slice, index) => (
-            <Path
-              key={`pie-slice-${slice.name}-${index}`}
-              d={slice.pathData}
-              fill={slice.color}
-              stroke="#fff"
-              strokeWidth={2}
-            />
-          ))}
-        </Svg>
+        {Platform.OS === 'web' ? (
+          <View style={styles.chartPlaceholder}>
+            <Text style={styles.chartPlaceholderText}>圓餅圖在 Web 版暫不可用</Text>
+            <Text style={styles.chartPlaceholderSubtext}>請使用手機版查看圖表</Text>
+          </View>
+        ) : (
+          <Svg width={width} height={180}>
+            {slices.map((slice, index) => (
+              <Path
+                key={`pie-slice-${slice.name}-${index}`}
+                d={slice.pathData}
+                fill={slice.color}
+                stroke="#fff"
+                strokeWidth={2}
+              />
+            ))}
+          </Svg>
+        )}
       </View>
 
       {/* 自定義圖例 */}
@@ -153,6 +160,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
     textAlign: 'center',
+  },
+  chartPlaceholder: {
+    height: 180,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderStyle: 'dashed',
+  },
+  chartPlaceholderText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  chartPlaceholderSubtext: {
+    fontSize: 12,
+    color: '#999',
   },
 });
 

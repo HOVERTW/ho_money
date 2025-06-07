@@ -20,7 +20,7 @@ import TransactionsScreen from '../screens/main/TransactionsScreen';
 import BalanceSheetScreen from '../screens/main/BalanceSheetScreen';
 import CashFlowScreen from '../screens/main/CashFlowScreen';
 import ChartsScreen from '../screens/main/ChartsScreen';
-import CategoryTestScreen from '../screens/CategoryTestScreen';
+
 import StockManagementScreen from '../screens/StockManagementScreen';
 
 const RootStack = createStackNavigator<RootStackParamList>();
@@ -67,9 +67,7 @@ function MainNavigator() {
             case 'Charts':
               iconName = focused ? 'bar-chart' : 'bar-chart-outline';
               break;
-            case 'CategoryTest':
-              iconName = focused ? 'settings' : 'settings-outline';
-              break;
+
             case 'StockManagement':
               iconName = focused ? 'trending-up' : 'trending-up-outline';
               break;
@@ -133,11 +131,7 @@ function MainNavigator() {
         component={ChartsScreen}
         options={{ title: '圖表分析' }}
       />
-      <MainTab.Screen
-        name="CategoryTest"
-        component={CategoryTestScreen}
-        options={{ title: '類別測試' }}
-      />
+
       <MainTab.Screen
         name="StockManagement"
         component={StockManagementScreen}

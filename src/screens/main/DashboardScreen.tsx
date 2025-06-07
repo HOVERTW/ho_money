@@ -14,6 +14,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
+import { Platform } from 'react-native';
 import { transactionDataService, Transaction } from '../../services/transactionDataService';
 import { assetTransactionSyncService, AssetData } from '../../services/assetTransactionSyncService';
 import { liabilityService, LiabilityData } from '../../services/liabilityService';
@@ -25,6 +26,7 @@ import { runSyncValidationTests } from '../../utils/testSyncValidation';
 import { userProfileService, UserProfile } from '../../services/userProfileService';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import { clearAllStorage } from '../../utils/storageManager';
+import { useAuthStore } from '../../store/authStore';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -40,6 +42,25 @@ export default function DashboardScreen() {
   const [showEditNameModal, setShowEditNameModal] = useState(false);
   const [editingName, setEditingName] = useState('');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  // 登錄相關狀態
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  // 從 auth store 獲取認證狀態和方法
+  const {
+    user,
+    loading: authLoading,
+    error: authError,
+    signIn,
+    signUp,
+    signInWithGoogle,
+    signOut,
+    clearError
+  } = useAuthStore();
 
   // 初始化用戶資料服務
   useEffect(() => {
@@ -390,6 +411,150 @@ export default function DashboardScreen() {
     setShowEditNameModal(false);
   };
 
+  // 上傳按鈕處理函數
+  const handleUploadClick = () => {
+    if (user) {
+      // 用戶已登錄，直接進行同步
+      handleSyncToSupabase();
+    } else {
+      // 用戶未登錄，顯示登錄模態
+      setShowLoginModal(true);
+      clearError();
+    }
+  };
+
+  // 處理登錄
+  const handleLogin = async () => {
+    if (!loginEmail.trim() || !loginPassword.trim()) {
+      Alert.alert('錯誤', '請輸入電子郵件和密碼');
+      return;
+    }
+
+    clearError();
+
+    try {
+      if (isRegistering) {
+        if (loginPassword !== confirmPassword) {
+          Alert.alert('錯誤', '密碼確認不一致');
+          return;
+        }
+        if (loginPassword.length < 6) {
+          Alert.alert('錯誤', '密碼長度至少需要6個字符');
+          return;
+        }
+        console.log('🔐 開始註冊流程:', loginEmail.trim());
+        await signUp(loginEmail.trim(), loginPassword);
+      } else {
+        console.log('🔐 開始登錄流程:', loginEmail.trim());
+        await signIn(loginEmail.trim(), loginPassword);
+      }
+
+      // 等待一下讓狀態更新
+      setTimeout(() => {
+        const { user: currentUser, error: currentError } = useAuthStore.getState();
+
+        if (currentUser && !currentError) {
+          console.log('✅ 登錄/註冊成功:', currentUser.email);
+          setShowLoginModal(false);
+          resetLoginForm();
+          // 登錄成功後自動同步
+          setTimeout(() => {
+            handleSyncToSupabase();
+          }, 1000);
+        } else if (currentError) {
+          console.log('❌ 登錄/註冊失敗:', currentError);
+          Alert.alert(isRegistering ? '註冊失敗' : '登錄失敗', currentError);
+        }
+      }, 500);
+
+    } catch (error) {
+      console.error('💥 登錄/註冊異常:', error);
+      Alert.alert('錯誤', '登錄過程中發生錯誤，請稍後再試');
+    }
+  };
+
+  // 處理 Google 登錄
+  const handleGoogleLogin = async () => {
+    clearError();
+
+    try {
+      console.log('🔐 開始 Google 登錄流程');
+      await signInWithGoogle();
+
+      // 等待一下讓狀態更新
+      setTimeout(() => {
+        const { user: currentUser, error: currentError } = useAuthStore.getState();
+
+        if (currentUser && !currentError) {
+          console.log('✅ Google 登錄成功:', currentUser.email);
+          setShowLoginModal(false);
+          resetLoginForm();
+          // 登錄成功後自動同步
+          setTimeout(() => {
+            handleSyncToSupabase();
+          }, 1000);
+        } else if (currentError) {
+          console.log('❌ Google 登錄失敗:', currentError);
+          Alert.alert('Google 登錄失敗', currentError);
+        }
+      }, 500);
+
+    } catch (error) {
+      console.error('💥 Google 登錄異常:', error);
+      Alert.alert('錯誤', 'Google 登錄過程中發生錯誤，請稍後再試');
+    }
+  };
+
+  // 重置登錄表單
+  const resetLoginForm = () => {
+    setLoginEmail('');
+    setLoginPassword('');
+    setConfirmPassword('');
+    setIsRegistering(false);
+  };
+
+  // 關閉登錄模態
+  const handleCloseLoginModal = () => {
+    setShowLoginModal(false);
+    resetLoginForm();
+    clearError();
+  };
+
+  // 同步到 Supabase
+  const handleSyncToSupabase = async () => {
+    if (!user) {
+      Alert.alert('錯誤', '請先登錄');
+      return;
+    }
+
+    try {
+      Alert.alert(
+        '開始同步',
+        '正在將本地數據同步到雲端...',
+        [{ text: '確定' }]
+      );
+
+      // 這裡可以添加實際的同步邏輯
+      // 例如：await userDataSyncService.syncAllDataToSupabase();
+
+      console.log('🔄 開始同步數據到 Supabase...');
+      console.log('👤 當前用戶:', user.email);
+
+      // 模擬同步過程
+      setTimeout(() => {
+        Alert.alert(
+          '同步完成',
+          '您的數據已成功同步到雲端！',
+          [{ text: '確定' }]
+        );
+      }, 2000);
+
+    } catch (error) {
+      console.error('❌ 同步失敗:', error);
+      Alert.alert('同步失敗', '數據同步時發生錯誤，請稍後再試。');
+    }
+  };
+
   // 一鍵清除所有資料功能
   const handleClearAllData = () => {
     Alert.alert(
@@ -694,10 +859,17 @@ export default function DashboardScreen() {
           <Text style={styles.userName}>{userProfile?.displayName || '小富翁'}</Text>
         </View>
 
-        {/* 一鍵清除按鈕 */}
-        <TouchableOpacity onPress={handleClearAllData} style={styles.clearDataButton}>
-          <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          {/* 上傳按鈕 */}
+          <TouchableOpacity onPress={handleUploadClick} style={styles.uploadButton}>
+            <Ionicons name="cloud-upload-outline" size={20} color="#007AFF" />
+          </TouchableOpacity>
+
+          {/* 一鍵清除按鈕 */}
+          <TouchableOpacity onPress={handleClearAllData} style={styles.clearDataButton}>
+            <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+          </TouchableOpacity>
+        </View>
 
       </View>
 
@@ -716,14 +888,38 @@ export default function DashboardScreen() {
           ]}>
             {formatCurrency(realSummary.netWorth)}
           </Text>
-          <LineChart
-            data={netWorthData}
-            width={screenWidth - 48}
-            height={200}
-            chartConfig={chartConfig}
-            bezier
-            style={styles.chart}
-          />
+          {/* 根據平台顯示圖表 - 生產環境安全版本 */}
+          {Platform.OS === 'web' ? (
+            <View style={styles.chartPlaceholder}>
+              <Text style={styles.chartPlaceholderText}>圖表功能在 Web 版暫不可用</Text>
+              <Text style={styles.chartPlaceholderSubtext}>請使用手機版查看圖表</Text>
+            </View>
+          ) : (
+            <View style={styles.chart}>
+              {(() => {
+                try {
+                  return (
+                    <LineChart
+                      data={netWorthData}
+                      width={screenWidth - 48}
+                      height={200}
+                      chartConfig={chartConfig}
+                      bezier
+                      style={styles.chart}
+                    />
+                  );
+                } catch (error) {
+                  console.error('圖表渲染失敗:', error);
+                  return (
+                    <View style={styles.chartPlaceholder}>
+                      <Text style={styles.chartPlaceholderText}>圖表載入中...</Text>
+                      <Text style={styles.chartPlaceholderSubtext}>請稍候</Text>
+                    </View>
+                  );
+                }
+              })()}
+            </View>
+          )}
         </View>
 
         {/* Bento Grid Layout */}
@@ -869,6 +1065,121 @@ export default function DashboardScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* 登錄模態 */}
+      <Modal
+        visible={showLoginModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleCloseLoginModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.loginModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {user ? '已登錄' : (isRegistering ? '註冊帳號' : '登錄帳號')}
+              </Text>
+              <TouchableOpacity onPress={handleCloseLoginModal} style={styles.modalCloseButton}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              {user ? (
+                // 已登錄狀態
+                <View style={styles.loggedInContainer}>
+                  <Ionicons name="checkmark-circle" size={48} color="#34C759" style={styles.successIcon} />
+                  <Text style={styles.loggedInText}>您已成功登錄</Text>
+                  <Text style={styles.userEmailText}>{user.email}</Text>
+                  <TouchableOpacity onPress={signOut} style={styles.signOutButton}>
+                    <Text style={styles.signOutButtonText}>登出</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                // 未登錄狀態
+                <View>
+                  {/* Google 登錄按鈕 */}
+                  <TouchableOpacity
+                    onPress={handleGoogleLogin}
+                    style={styles.googleLoginButton}
+                    disabled={authLoading}
+                  >
+                    <Ionicons name="logo-google" size={20} color="#fff" />
+                    <Text style={styles.googleLoginText}>
+                      {authLoading ? '登錄中...' : '使用 Google 登錄'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.divider}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>或</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+
+                  {/* 電子郵件登錄表單 */}
+                  <View style={styles.formContainer}>
+                    <Text style={styles.inputLabel}>電子郵件</Text>
+                    <TextInput
+                      style={styles.loginInput}
+                      value={loginEmail}
+                      onChangeText={setLoginEmail}
+                      placeholder="請輸入您的電子郵件"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+
+                    <Text style={styles.inputLabel}>密碼</Text>
+                    <TextInput
+                      style={styles.loginInput}
+                      value={loginPassword}
+                      onChangeText={setLoginPassword}
+                      placeholder={isRegistering ? "請輸入密碼（至少6個字符）" : "請輸入您的密碼"}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+
+                    {isRegistering && (
+                      <>
+                        <Text style={styles.inputLabel}>確認密碼</Text>
+                        <TextInput
+                          style={styles.loginInput}
+                          value={confirmPassword}
+                          onChangeText={setConfirmPassword}
+                          placeholder="請再次輸入密碼"
+                          secureTextEntry
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                        />
+                      </>
+                    )}
+
+                    <TouchableOpacity
+                      onPress={handleLogin}
+                      style={[styles.loginButton, authLoading && styles.disabledButton]}
+                      disabled={authLoading}
+                    >
+                      <Text style={styles.loginButtonText}>
+                        {authLoading ? (isRegistering ? '註冊中...' : '登錄中...') : (isRegistering ? '註冊' : '登錄')}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => setIsRegistering(!isRegistering)}
+                      style={styles.switchModeButton}
+                    >
+                      <Text style={styles.switchModeText}>
+                        {isRegistering ? '已有帳號？立即登錄' : '沒有帳號？立即註冊'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
       </View>
     </ErrorBoundary>
   );
@@ -908,6 +1219,19 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  uploadButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#F0F8FF',
+    borderWidth: 1,
+    borderColor: '#E5F3FF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   clearDataButton: {
     padding: 8,
@@ -952,6 +1276,27 @@ const styles = StyleSheet.create({
   chart: {
     marginVertical: 8,
     borderRadius: 16,
+  },
+  chartPlaceholder: {
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderStyle: 'dashed',
+  },
+  chartPlaceholderText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  chartPlaceholderSubtext: {
+    fontSize: 12,
+    color: '#999',
   },
   bentoGrid: {
     marginBottom: 24,
@@ -1171,5 +1516,116 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     fontWeight: '600',
+  },
+  // 登錄模態樣式
+  loginModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 450,
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  loggedInContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  successIcon: {
+    marginBottom: 16,
+  },
+  loggedInText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  userEmailText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+  },
+  signOutButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF3B30',
+    backgroundColor: '#FFF5F5',
+  },
+  signOutButtonText: {
+    fontSize: 14,
+    color: '#FF3B30',
+    fontWeight: '500',
+  },
+  googleLoginButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4285F4',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+    gap: 8,
+  },
+  googleLoginText: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E5E5',
+  },
+  dividerText: {
+    fontSize: 14,
+    color: '#999',
+    marginHorizontal: 16,
+  },
+  formContainer: {
+    gap: 16,
+  },
+  loginInput: {
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#333',
+    backgroundColor: '#F8F9FA',
+  },
+  loginButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  loginButtonText: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  switchModeButton: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  switchModeText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
   },
 });

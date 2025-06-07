@@ -1,8 +1,8 @@
 import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from '@env';
 import { createClient, AuthError, AuthResponse, User, Session } from '@supabase/supabase-js';
-import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
-import * as Crypto from 'expo-crypto';
+import * as Linking from 'expo-linking';
+import { makeRedirectUri } from 'expo-auth-session';
 
 // Supabase configuration
 const supabaseUrl = EXPO_PUBLIC_SUPABASE_URL || 'your_supabase_url_here';
@@ -160,12 +160,54 @@ export const exchangeRateService = {
 export const authService = {
   // 傳統電子郵件登錄
   signIn: async (email: string, password: string): Promise<AuthResponse> => {
-    return await supabase.auth.signInWithPassword({ email, password });
+    console.log('🔐 Supabase signIn 開始:', email);
+
+    try {
+      const result = await supabase.auth.signInWithPassword({ email, password });
+      console.log('📝 Supabase signIn 結果:', result);
+      return result;
+    } catch (error) {
+      console.error('💥 Supabase signIn 錯誤:', error);
+      throw error;
+    }
   },
 
   // 傳統電子郵件註冊
   signUp: async (email: string, password: string): Promise<AuthResponse> => {
-    return await supabase.auth.signUp({ email, password });
+    console.log('🔐 Supabase signUp 開始:', email);
+
+    try {
+      // 檢查 Supabase 配置
+      console.log('🔗 Supabase URL:', supabaseUrl);
+      console.log('🔑 Supabase Key 存在:', !!supabaseAnonKey);
+
+      const result = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: process.env.EXPO_PUBLIC_REDIRECT_URL || 'https://yrryyapzkgrsahranzvo.supabase.co/auth/v1/callback'
+        }
+      });
+
+      console.log('📝 Supabase signUp 詳細結果:', {
+        user: result.data.user ? {
+          id: result.data.user.id,
+          email: result.data.user.email,
+          email_confirmed_at: result.data.user.email_confirmed_at,
+          created_at: result.data.user.created_at
+        } : null,
+        session: result.data.session ? 'exists' : 'null',
+        error: result.error ? {
+          message: result.error.message,
+          status: result.error.status
+        } : null
+      });
+
+      return result;
+    } catch (error) {
+      console.error('💥 Supabase signUp 錯誤:', error);
+      throw error;
+    }
   },
 
   // 登出
@@ -181,17 +223,14 @@ export const authService = {
   // Google 登錄
   signInWithGoogle: async (): Promise<AuthResponse> => {
     try {
-      // 生成隨機 state 參數
-      const state = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        Math.random().toString()
-      );
-
-      const redirectUrl = AuthSession.makeRedirectUri({
-        useProxy: true,
+      // 使用 Expo 的重定向 URI
+      const redirectUrl = makeRedirectUri({
+        scheme: 'fintranzo',
+        path: 'auth',
       });
 
       console.log('🔗 Redirect URL:', redirectUrl);
+      console.log('🌐 開啟 Google OAuth 頁面...');
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -210,17 +249,23 @@ export const authService = {
       }
 
       if (data.url) {
+        console.log('🌐 開啟 Google OAuth 頁面...');
+
         // 開啟瀏覽器進行 OAuth 流程
         const result = await WebBrowser.openAuthSessionAsync(
           data.url,
           redirectUrl
         );
 
-        if (result.type === 'success') {
+        console.log('📱 OAuth 結果:', result);
+
+        if (result.type === 'success' && result.url) {
           // 從 URL 中提取 session 資訊
           const url = new URL(result.url);
           const accessToken = url.searchParams.get('access_token');
           const refreshToken = url.searchParams.get('refresh_token');
+
+          console.log('🔑 Access Token 存在:', !!accessToken);
 
           if (accessToken) {
             const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
@@ -228,12 +273,27 @@ export const authService = {
               refresh_token: refreshToken || '',
             });
 
-            return { data: sessionData, error: sessionError };
+            if (sessionError) {
+              console.error('❌ Session 設置錯誤:', sessionError);
+              return { data: { user: null, session: null }, error: sessionError };
+            }
+
+            console.log('✅ Google 登錄成功');
+            return { data: sessionData, error: null };
           }
+        } else if (result.type === 'cancel') {
+          console.log('⚠️ 用戶取消登錄');
+          return {
+            data: { user: null, session: null },
+            error: new AuthError('用戶取消登錄')
+          };
         }
       }
 
-      return { data: { user: null, session: null }, error: new AuthError('OAuth 流程失敗') };
+      return {
+        data: { user: null, session: null },
+        error: new AuthError('OAuth 流程失敗')
+      };
     } catch (error) {
       console.error('❌ Google 登錄異常:', error);
       return {
@@ -243,58 +303,7 @@ export const authService = {
     }
   },
 
-  // Apple 登錄
-  signInWithApple: async (): Promise<AuthResponse> => {
-    try {
-      const redirectUrl = AuthSession.makeRedirectUri({
-        useProxy: true,
-      });
 
-      console.log('🍎 Apple 登錄 Redirect URL:', redirectUrl);
-
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: redirectUrl,
-        },
-      });
-
-      if (error) {
-        console.error('❌ Apple 登錄錯誤:', error);
-        return { data: { user: null, session: null }, error };
-      }
-
-      if (data.url) {
-        const result = await WebBrowser.openAuthSessionAsync(
-          data.url,
-          redirectUrl
-        );
-
-        if (result.type === 'success') {
-          const url = new URL(result.url);
-          const accessToken = url.searchParams.get('access_token');
-          const refreshToken = url.searchParams.get('refresh_token');
-
-          if (accessToken) {
-            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken || '',
-            });
-
-            return { data: sessionData, error: sessionError };
-          }
-        }
-      }
-
-      return { data: { user: null, session: null }, error: new AuthError('Apple OAuth 流程失敗') };
-    } catch (error) {
-      console.error('❌ Apple 登錄異常:', error);
-      return {
-        data: { user: null, session: null },
-        error: new AuthError(error instanceof Error ? error.message : 'Apple 登錄失敗')
-      };
-    }
-  },
 
   // 獲取當前用戶
   getCurrentUser: async (): Promise<User | null> => {

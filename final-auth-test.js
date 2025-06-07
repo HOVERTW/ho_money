@@ -47,12 +47,15 @@ async function testDatabaseTables() {
 
 async function testAuthConfiguration() {
   console.log('\n2️⃣ 測試認證配置...');
-  
+
   try {
     // 測試獲取用戶（應該返回 null，因為未登錄）
     const { data: { user }, error } = await supabase.auth.getUser();
-    
-    if (error) {
+
+    if (error && error.message.includes('Auth session missing')) {
+      console.log('✅ 認證系統正常（當前未登錄，這是預期的）');
+      return true;
+    } else if (error) {
       console.log(`⚠️ 認證測試警告: ${error.message}`);
       return false;
     } else if (!user) {

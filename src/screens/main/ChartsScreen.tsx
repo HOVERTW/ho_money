@@ -246,19 +246,26 @@ export default function ChartsScreen() {
         const spendingData = getSpendingByCategory();
         return spendingData.length > 0 ? (
           <View style={styles.chartWithLegendContainer}>
-            {/* 圓餅圖 Frame */}
+            {/* 根據平台顯示圓餅圖 */}
             <View style={styles.pieChartFrame}>
-              <PieChart
-                data={spendingData}
-                width={screenWidth * 0.8}
-                height={200}
-                chartConfig={chartConfig}
-                accessor="value"
-                backgroundColor="transparent"
-                paddingLeft="80"
-                center={[0, 0]}
-                hasLegend={false}
-              />
+              {Platform.OS === 'web' ? (
+                <View style={styles.chartPlaceholder}>
+                  <Text style={styles.chartPlaceholderText}>圓餅圖在 Web 版暫不可用</Text>
+                  <Text style={styles.chartPlaceholderSubtext}>請使用手機版查看圖表</Text>
+                </View>
+              ) : (
+                <PieChart
+                  data={spendingData}
+                  width={screenWidth * 0.8}
+                  height={200}
+                  chartConfig={chartConfig}
+                  accessor="value"
+                  backgroundColor="transparent"
+                  paddingLeft="80"
+                  center={[0, 0]}
+                  hasLegend={false}
+                />
+              )}
             </View>
 
             {/* 文字圖例 Frame */}
@@ -569,5 +576,26 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
     flex: 1,
+  },
+  chartPlaceholder: {
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderStyle: 'dashed',
+  },
+  chartPlaceholderText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  chartPlaceholderSubtext: {
+    fontSize: 12,
+    color: '#999',
   },
 });

@@ -12,14 +12,17 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../../store/authStore';
+import { supabaseDiagnostics } from '../../utils/supabaseDiagnostics';
 
 export default function RegisterScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const { signUp, loading, error, clearError } = useAuthStore();
+  const { signUp, loading, error, registrationSuccess, clearError, clearRegistrationSuccess } = useAuthStore();
 
   const handleRegister = async () => {
+    console.log('🔐 開始註冊流程...');
+
     if (!email.trim() || !password.trim() || !confirmPassword.trim()) {
       Alert.alert('錯誤', '請填寫所有欄位');
       return;
@@ -35,17 +38,66 @@ export default function RegisterScreen({ navigation }: any) {
       return;
     }
 
+    console.log('📧 註冊電子郵件:', email.trim());
+    console.log('🔑 密碼長度:', password.length);
+
+    // 運行 Supabase 診斷
+    console.log('🔍 運行 Supabase 診斷...');
+    const diagnosticResult = await supabaseDiagnostics.checkConnection();
+
+    if (!diagnosticResult) {
+      Alert.alert('連接錯誤', '無法連接到 Supabase 服務器，請稍後再試');
+      return;
+    }
+
     clearError();
-    await signUp(email.trim(), password);
-    
-    if (error) {
-      Alert.alert('註冊失敗', error);
-    } else {
-      Alert.alert(
-        '註冊成功',
-        '請檢查您的電子郵件以驗證帳號',
-        [{ text: '確定', onPress: () => navigation.navigate('Login') }]
-      );
+
+    try {
+      console.log('🚀 調用 signUp...');
+      await signUp(email.trim(), password);
+
+      console.log('📝 註冊完成，檢查錯誤狀態...');
+
+      // 使用 setTimeout 來確保狀態已更新
+      setTimeout(() => {
+        const { error: currentError, loading: currentLoading, registrationSuccess: currentSuccess } = useAuthStore.getState();
+        console.log('❓ 當前狀態:', {
+          error: currentError,
+          loading: currentLoading,
+          registrationSuccess: currentSuccess
+        });
+
+        if (currentError) {
+          console.error('❌ 註冊失敗:', currentError);
+          Alert.alert('註冊失敗', currentError);
+        } else if (!currentLoading && currentSuccess) {
+          console.log('✅ 註冊成功');
+          Alert.alert(
+            '註冊成功！',
+            '我們已經發送確認郵件到您的信箱。請點擊郵件中的確認連結來啟用您的帳號，然後返回此處登錄。',
+            [{
+              text: '確定',
+              onPress: () => {
+                clearRegistrationSuccess();
+                navigation.navigate('Login');
+              }
+            }]
+          );
+        } else if (!currentLoading) {
+          console.log('✅ 註冊完成（無明確成功狀態）');
+          Alert.alert(
+            '註冊完成',
+            '請檢查您的電子郵件以驗證帳號，然後返回登錄',
+            [{ text: '確定', onPress: () => navigation.navigate('Login') }]
+          );
+        } else {
+          console.log('⏳ 仍在處理中...');
+        }
+      }, 2000);
+
+    } catch (error) {
+      console.error('💥 註冊異常:', error);
+      Alert.alert('註冊失敗', error instanceof Error ? error.message : '未知錯誤');
     }
   };
 

@@ -20,7 +20,6 @@ export default function LoginScreen({ navigation }: any) {
   const {
     signIn,
     signInWithGoogle,
-    signInWithApple,
     loading,
     error,
     clearError
@@ -60,17 +59,7 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  const handleAppleLogin = async () => {
-    clearError();
-    try {
-      await signInWithApple();
-      if (error) {
-        Alert.alert('Apple 登錄失敗', error);
-      }
-    } catch (err) {
-      Alert.alert('Apple 登錄失敗', '請稍後再試');
-    }
-  };
+
 
   return (
     <KeyboardAvoidingView 
@@ -147,17 +136,6 @@ export default function LoginScreen({ navigation }: any) {
             <Ionicons name="logo-google" size={20} color="#fff" />
             <Text style={styles.socialButtonText}>使用 Google 登錄</Text>
           </TouchableOpacity>
-
-          {Platform.OS === 'ios' && (
-            <TouchableOpacity
-              style={[styles.socialButton, styles.appleButton]}
-              onPress={handleAppleLogin}
-              disabled={loading}
-            >
-              <Ionicons name="logo-apple" size={20} color="#fff" />
-              <Text style={styles.socialButtonText}>使用 Apple 登錄</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         <View style={styles.footer}>
@@ -281,9 +259,6 @@ const styles = StyleSheet.create({
   },
   googleButton: {
     backgroundColor: '#DB4437',
-  },
-  appleButton: {
-    backgroundColor: '#000',
   },
   socialButtonText: {
     color: '#fff',
