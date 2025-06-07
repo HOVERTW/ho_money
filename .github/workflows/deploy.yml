@@ -28,7 +28,7 @@ jobs:
       env:
         EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
         EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
-        EXPO_PUBLIC_REDIRECT_URL: https://hovertw.github.io/ho_money
+        EXPO_PUBLIC_REDIRECT_URL: https://19930913.xyz
         
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
@@ -36,4 +36,4 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./dist
-        cname: false
+        cname: 19930913.xyz

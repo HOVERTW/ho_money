@@ -2,7 +2,7 @@
   "name": "fintranzo",
   "version": "1.0.0",
   "description": "FinTranzo - 金融交易追蹤系統",
-  "homepage": "https://hovertw.github.io/ho_money",
+  "homepage": "https://19930913.xyz",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
