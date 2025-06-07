@@ -3,6 +3,7 @@ import { createClient, AuthError, AuthResponse, User, Session } from '@supabase/
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
+import { Platform } from 'react-native';
 
 // Supabase configuration
 const supabaseUrl = EXPO_PUBLIC_SUPABASE_URL || 'your_supabase_url_here';
@@ -223,13 +224,22 @@ export const authService = {
   // Google 登錄
   signInWithGoogle: async (): Promise<AuthResponse> => {
     try {
-      // 使用 Expo 的重定向 URI
-      const redirectUrl = makeRedirectUri({
-        scheme: 'fintranzo',
-        path: 'auth',
-      });
+      // 根據平台決定重定向 URL
+      let redirectUrl: string;
 
-      console.log('🔗 Redirect URL:', redirectUrl);
+      if (Platform.OS === 'web') {
+        // Web 平台使用當前域名
+        redirectUrl = window.location.origin;
+        console.log('🌐 Web 重定向 URL:', redirectUrl);
+      } else {
+        // 移動平台使用 Expo 的重定向 URI
+        redirectUrl = makeRedirectUri({
+          scheme: 'fintranzo',
+          path: 'auth',
+        });
+        console.log('📱 Mobile 重定向 URL:', redirectUrl);
+      }
+
       console.log('🌐 開啟 Google OAuth 頁面...');
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -249,44 +259,57 @@ export const authService = {
       }
 
       if (data.url) {
-        console.log('🌐 開啟 Google OAuth 頁面...');
+        console.log('🌐 OAuth URL:', data.url);
 
-        // 開啟瀏覽器進行 OAuth 流程
-        const result = await WebBrowser.openAuthSessionAsync(
-          data.url,
-          redirectUrl
-        );
+        if (Platform.OS === 'web') {
+          // Web 平台：直接重定向到 Google OAuth 頁面
+          console.log('🌐 Web 平台：重定向到 Google OAuth');
+          window.location.href = data.url;
 
-        console.log('📱 OAuth 結果:', result);
-
-        if (result.type === 'success' && result.url) {
-          // 從 URL 中提取 session 資訊
-          const url = new URL(result.url);
-          const accessToken = url.searchParams.get('access_token');
-          const refreshToken = url.searchParams.get('refresh_token');
-
-          console.log('🔑 Access Token 存在:', !!accessToken);
-
-          if (accessToken) {
-            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken || '',
-            });
-
-            if (sessionError) {
-              console.error('❌ Session 設置錯誤:', sessionError);
-              return { data: { user: null, session: null }, error: sessionError };
-            }
-
-            console.log('✅ Google 登錄成功');
-            return { data: sessionData, error: null };
-          }
-        } else if (result.type === 'cancel') {
-          console.log('⚠️ 用戶取消登錄');
+          // 返回一個 pending 狀態，因為頁面會重定向
           return {
             data: { user: null, session: null },
-            error: new AuthError('用戶取消登錄')
+            error: null
           };
+        } else {
+          // 移動平台：使用 WebBrowser
+          console.log('📱 移動平台：開啟 WebBrowser');
+          const result = await WebBrowser.openAuthSessionAsync(
+            data.url,
+            redirectUrl
+          );
+
+          console.log('📱 OAuth 結果:', result);
+
+          if (result.type === 'success' && result.url) {
+            // 從 URL 中提取 session 資訊
+            const url = new URL(result.url);
+            const accessToken = url.searchParams.get('access_token');
+            const refreshToken = url.searchParams.get('refresh_token');
+
+            console.log('🔑 Access Token 存在:', !!accessToken);
+
+            if (accessToken) {
+              const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken || '',
+              });
+
+              if (sessionError) {
+                console.error('❌ Session 設置錯誤:', sessionError);
+                return { data: { user: null, session: null }, error: sessionError };
+              }
+
+              console.log('✅ Google 登錄成功');
+              return { data: sessionData, error: null };
+            }
+          } else if (result.type === 'cancel') {
+            console.log('⚠️ 用戶取消登錄');
+            return {
+              data: { user: null, session: null },
+              error: new AuthError('用戶取消登錄')
+            };
+          }
         }
       }
 

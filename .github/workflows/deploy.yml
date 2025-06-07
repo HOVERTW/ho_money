@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ main, master ]
 
+# 添加權限設定
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
