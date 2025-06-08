@@ -35,6 +35,8 @@ jobs:
         EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
         EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         EXPO_PUBLIC_REDIRECT_URL: https://19930913.xyz
+        EXPO_PUBLIC_WEB_URL: https://19930913.xyz
+        NODE_ENV: production
 
     - name: Add CNAME file
       run: echo "19930913.xyz" > ./dist/CNAME

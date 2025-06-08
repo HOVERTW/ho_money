@@ -324,9 +324,61 @@ class TransactionDataService {
    * 刪除交易
    */
   async deleteTransaction(id: string): Promise<void> {
-    this.transactions = this.transactions.filter(t => t.id !== id);
-    await this.saveToStorage();
-    this.notifyListeners();
+    try {
+      console.log('🗑️ 開始刪除交易記錄:', id);
+
+      // 從本地數據中移除
+      this.transactions = this.transactions.filter(t => t.id !== id);
+
+      // 保存到本地存儲
+      await this.saveToStorage();
+
+      // 同步刪除到 Supabase
+      await this.syncDeleteToSupabase(id);
+
+      // 通知監聽器
+      this.notifyListeners();
+
+      console.log('✅ 交易記錄刪除成功');
+    } catch (error) {
+      console.error('❌ 刪除交易記錄失敗:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 同步刪除到 Supabase
+   */
+  private async syncDeleteToSupabase(transactionId: string): Promise<void> {
+    try {
+      console.log('🔄 同步刪除交易到雲端:', transactionId);
+
+      // 檢查用戶是否已登錄
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('📝 用戶未登錄，跳過雲端刪除同步');
+        return;
+      }
+
+      console.log('✅ 用戶已登錄，開始刪除雲端交易記錄');
+
+      // 從 Supabase 刪除交易記錄
+      const { error: deleteError } = await supabase
+        .from(TABLES.TRANSACTIONS)
+        .delete()
+        .eq('id', transactionId)
+        .eq('user_id', user.id);
+
+      if (deleteError) {
+        console.error('❌ 刪除雲端交易記錄失敗:', deleteError);
+        console.error('❌ 錯誤詳情:', deleteError.message, deleteError.details, deleteError.hint);
+      } else {
+        console.log('✅ 雲端交易記錄刪除成功:', transactionId);
+      }
+
+    } catch (error) {
+      console.error('❌ 同步刪除交易到雲端異常:', error);
+    }
   }
 
   /**

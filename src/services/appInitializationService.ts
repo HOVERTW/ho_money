@@ -5,10 +5,8 @@
 import { transactionDataService, Transaction } from './transactionDataService';
 import { assetTransactionSyncService } from './assetTransactionSyncService';
 import { liabilityService } from './liabilityService';
-import { automaticPaymentService } from './automaticPaymentService';
 import { liabilityTransactionSyncService } from './liabilityTransactionSyncService';
 import { startDailyUpdates } from '../utils/dailyUpdateScheduler';
-import { dataResetService } from './dataResetService';
 
 class AppInitializationService {
   private isInitialized = false;
@@ -22,8 +20,7 @@ class AppInitializationService {
     console.log('🚀 開始初始化應用服務...');
 
     try {
-      // 0. 檢查是否需要清除舊的預設數據
-      await this.safeExecute('清除舊數據', () => this.checkAndClearOldData());
+      // 0. 檢查是否需要清除舊的預設數據（已移除）
 
       // 1. 初始化交易資料服務
       await this.safeExecute('交易服務', () => this.initializeTransactionService());
@@ -40,11 +37,7 @@ class AppInitializationService {
         console.log('✅ 負債服務已初始化（空列表）');
       });
 
-      // 4. 初始化自動還款服務
-      await this.safeExecute('自動還款服務', async () => {
-        automaticPaymentService.initialize();
-        console.log('✅ 自動還款服務已初始化');
-      });
+      // 4. 自動還款服務（已移除）
 
       // 5. 初始化負債循環交易同步服務
       await this.safeExecute('負債循環交易同步服務', async () => {
@@ -84,24 +77,11 @@ class AppInitializationService {
   }
 
   /**
-   * 檢查並清除舊的預設數據
+   * 檢查並清除舊的預設數據（已移除）
    */
   private async checkAndClearOldData(): Promise<void> {
-    try {
-      // 檢查是否有舊數據
-      const hasOldData = await dataResetService.hasOldData();
-
-      if (hasOldData) {
-        console.log('🔄 檢測到舊數據，正在清除預設數據...');
-        await dataResetService.clearDefaultDataOnly();
-        console.log('✅ 舊的預設數據已清除');
-      } else {
-        console.log('✅ 沒有檢測到舊數據');
-      }
-    } catch (error) {
-      console.error('❌ 清除舊數據失敗:', error);
-      // 不拋出錯誤，繼續初始化
-    }
+    // 功能已移除，保留方法以避免錯誤
+    console.log('✅ 舊數據清除功能已移除');
   }
 
   /**

@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RecurringFrequency } from '../types';
 import { getFrequencyDisplayName } from '../utils/recurringTransactions';
-import { bankAccountService } from '../services/bankAccountService';
+// import { bankAccountService } from '../services/bankAccountService'; // 暫時移除
 import { assetTransactionSyncService } from '../services/assetTransactionSyncService';
 import { transactionDataService } from '../services/transactionDataService';
 
@@ -114,10 +114,15 @@ export default function AddTransactionModal({ visible, onClose, onAdd, selectedD
     const updateAssets = () => {
       const assets = assetTransactionSyncService.getAssets();
       setAvailableAssets(assets);
+      console.log('📊 記帳頁面獲取資產:', assets.length, '項');
     };
 
-    // 初始化資產列表
-    updateAssets();
+    // 確保服務已初始化
+    const initAssets = async () => {
+      await assetTransactionSyncService.initialize();
+      updateAssets();
+    };
+    initAssets();
 
     // 監聽資產變化
     assetTransactionSyncService.addListener(updateAssets);
@@ -198,8 +203,9 @@ export default function AddTransactionModal({ visible, onClose, onAdd, selectedD
     return assetAccounts;
   }, [availableAssets]);
 
-  const bankAccounts = bankAccountService.getAllBankAccounts();
-  const shouldShowBankSelector = account === '銀行' && bankAccountService.shouldShowBankSelector();
+  // 移除預設銀行邏輯
+  const bankAccounts: any[] = []; // 不提供預設銀行
+  const shouldShowBankSelector = false; // 簡化：不顯示銀行選擇器
 
   // 循環頻率選項
   const frequencyOptions = [
@@ -347,18 +353,8 @@ export default function AddTransactionModal({ visible, onClose, onAdd, selectedD
       // 如果沒有填寫描述，使用空白而不是預設值
       const finalDescription = description.trim();
 
-      // 確定最終的帳戶名稱
-      let finalAccount = account;
-      if (account === '銀行') {
-        if (shouldShowBankSelector && selectedBankId) {
-          const selectedBank = bankAccountService.getBankAccountById(selectedBankId);
-          finalAccount = selectedBank ? selectedBank.name : '銀行';
-        } else if (!shouldShowBankSelector) {
-          // 如果只有一個銀行，使用該銀行名稱
-          const defaultBank = bankAccountService.getDefaultBankAccount();
-          finalAccount = defaultBank ? defaultBank.name : '銀行';
-        }
-      }
+      // 確定最終的帳戶名稱 - 直接使用用戶選擇的資產帳戶
+      const finalAccount = account;
 
       const transaction = {
         id: editingTransaction?.id || Date.now().toString(),
@@ -367,7 +363,7 @@ export default function AddTransactionModal({ visible, onClose, onAdd, selectedD
         description: finalDescription,
         category,
         account: finalAccount,
-        bank_account_id: account === '銀行' ? selectedBankId || bankAccountService.getDefaultBankAccount()?.id : undefined,
+        bank_account_id: undefined, // 移除銀行帳戶邏輯
         date: startDate.toISOString(), // 使用選中的日期，不管是單次還是循環交易
         // 循環交易相關欄位
         is_recurring: isRecurring,
@@ -654,12 +650,7 @@ export default function AddTransactionModal({ visible, onClose, onAdd, selectedD
                     <TouchableOpacity
                       key={acc.key}
                       style={[styles.categoryButton, account === acc.key && styles.activeCategoryButton]}
-                      onPress={() => {
-                        setAccount(acc.key);
-                        if (acc.key !== '銀行') {
-                          setSelectedBankId('');
-                        }
-                      }}
+                      onPress={() => setAccount(acc.key)}
                     >
                       <Text style={[styles.categoryButtonText, account === acc.key && styles.activeCategoryButtonText]}>
                         {acc.label}

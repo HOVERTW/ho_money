@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // 條件性導入，避免 Web 平台的問題
 let Haptics: any = null;
@@ -39,6 +40,7 @@ import { liabilityTransactionSyncService } from '../../services/liabilityTransac
 import { eventEmitter, EVENTS } from '../../services/eventEmitter';
 
 export default function TransactionsScreen() {
+  const insets = useSafeAreaInsets();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -217,8 +219,8 @@ export default function TransactionsScreen() {
             // 計算總加速度
             const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
 
-            // 搖動閾值（降低敏感度，只在記帳頁面生效）
-            const shakeThreshold = 3.5;
+            // 搖動閾值（加速度 8 以上才啟動功能，只在記帳頁面生效）
+            const shakeThreshold = 8.0;
 
             if (totalAcceleration > shakeThreshold) {
               const now = Date.now();
@@ -900,7 +902,12 @@ export default function TransactionsScreen() {
       <StatusBar style="dark" />
 
       {/* Content */}
-      <ScrollView style={styles.content}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={{
+          paddingBottom: Math.max(insets.bottom + 80, 100), // 確保底部有足夠空間
+        }}
+      >
         <Animated.View
           style={{
             opacity: fadeAnim,

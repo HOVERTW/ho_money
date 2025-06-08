@@ -1,12 +1,57 @@
 import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { appInitializationService } from './src/services/appInitializationService';
 import AppNavigator from './src/navigation/AppNavigator';
 // import { DiagnosticsService } from './src/utils/diagnostics';
+
+// 錯誤邊界組件
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('❌ 應用錯誤邊界捕獲錯誤:', error, errorInfo);
+
+    // 在 iOS 上，如果是按 r 導致的錯誤，嘗試重新載入
+    if (Platform.OS === 'ios' && error.message.includes('reload')) {
+      console.log('🔄 檢測到 iOS 重新載入錯誤，嘗試恢復...');
+      setTimeout(() => {
+        this.setState({ hasError: false, error: undefined });
+      }, 1000);
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={errorStyles.errorContainer}>
+          <Text style={errorStyles.errorTitle}>應用發生錯誤</Text>
+          <Text style={errorStyles.errorMessage}>
+            {this.state.error?.message || '未知錯誤'}
+          </Text>
+          <Text style={errorStyles.errorHint}>
+            {Platform.OS === 'ios' ? '請重新啟動應用程式或等待自動恢復' : '請重新啟動應用程式'}
+          </Text>
+        </View>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function AppContent() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -79,14 +124,44 @@ const styles = StyleSheet.create({
   },
 });
 
+const errorStyles = StyleSheet.create({
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    padding: 20,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FF3B30',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  errorHint: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+  },
+});
+
 export default function App() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <StatusBar style="auto" />
-        <AppContent />
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <StatusBar style="auto" />
+          <AppContent />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
 

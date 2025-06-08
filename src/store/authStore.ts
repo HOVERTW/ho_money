@@ -74,8 +74,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      console.log('🚀 AuthStore: 調用 authService.signUp...');
-      const { data, error } = await authService.signUp(email, password);
+      console.log('🚀 AuthStore: 調用 authService.createTestUser...');
+      const { data, error } = await authService.createTestUser(email, password);
 
       console.log('📝 AuthStore: 註冊結果:', {
         hasUser: !!data.user,

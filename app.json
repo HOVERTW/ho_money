@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -16,24 +16,48 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.hovertw.fintranzo",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      },
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.hovertw.fintranzo",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "extra": {
       "eas": {
         "projectId": "6c2ae12e-bf69-4c90-905e-bbd39a5a7553"
       }
     },
-    "scheme": "fintranzo"
+    "scheme": "fintranzo",
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "newArchEnabled": false
+          },
+          "android": {
+            "newArchEnabled": false
+          }
+        }
+      ]
+    ]
   }
 }

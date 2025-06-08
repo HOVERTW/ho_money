@@ -20,6 +20,7 @@ export default function LoginScreen({ navigation }: any) {
   const {
     signIn,
     signInWithGoogle,
+    signUp,
     loading,
     error,
     clearError
@@ -75,6 +76,31 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
+  // 開發環境測試功能
+  const handleCreateTestUser = async () => {
+    const testEmail = 'test@example.com';
+    const testPassword = 'test123456';
+
+    console.log('🧪 創建測試用戶:', testEmail);
+    clearError();
+
+    try {
+      await signUp(testEmail, testPassword);
+
+      // 等待一下再嘗試登錄
+      setTimeout(async () => {
+        console.log('🔐 嘗試登錄測試用戶...');
+        setEmail(testEmail);
+        setPassword(testPassword);
+        await signIn(testEmail, testPassword);
+      }, 1000);
+
+    } catch (err) {
+      console.error('💥 測試用戶創建失敗:', err);
+      Alert.alert('測試用戶創建失敗', '請檢查控制台日誌');
+    }
+  };
+
 
 
   return (
@@ -83,9 +109,11 @@ export default function LoginScreen({ navigation }: any) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar style="dark" />
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces={false}
       >
         <View style={styles.header}>
           <Text style={styles.title}>FinTranzo</Text>
@@ -152,6 +180,18 @@ export default function LoginScreen({ navigation }: any) {
             <Ionicons name="logo-google" size={20} color="#fff" />
             <Text style={styles.socialButtonText}>使用 Google 登錄</Text>
           </TouchableOpacity>
+
+          {/* 開發環境測試按鈕 */}
+          {__DEV__ && (
+            <TouchableOpacity
+              style={[styles.socialButton, styles.testButton]}
+              onPress={handleCreateTestUser}
+              disabled={loading}
+            >
+              <Ionicons name="flask" size={20} color="#fff" />
+              <Text style={styles.socialButtonText}>創建測試用戶</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.footer}>
@@ -175,6 +215,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
     paddingVertical: 40,
+    minHeight: '100%',
   },
   header: {
     alignItems: 'center',
@@ -275,6 +316,9 @@ const styles = StyleSheet.create({
   },
   googleButton: {
     backgroundColor: '#DB4437',
+  },
+  testButton: {
+    backgroundColor: '#FF9500',
   },
   socialButtonText: {
     color: '#fff',

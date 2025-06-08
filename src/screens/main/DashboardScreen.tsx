@@ -13,12 +13,13 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { LineChart } from 'react-native-chart-kit';
+// import { LineChart } from 'react-native-chart-kit'; // 移除不兼容的圖表庫
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { transactionDataService, Transaction } from '../../services/transactionDataService';
 import { assetTransactionSyncService, AssetData } from '../../services/assetTransactionSyncService';
 import { liabilityService, LiabilityData } from '../../services/liabilityService';
-import { currentMonthCalculationService } from '../../services/currentMonthCalculationService';
+// import { currentMonthCalculationService } from '../../services/currentMonthCalculationService'; // 已移除
 import { eventEmitter, EVENTS } from '../../services/eventEmitter';
 import { recurringTransactionService } from '../../services/recurringTransactionService';
 import { FinancialCalculator } from '../../utils/financialCalculator';
@@ -27,10 +28,13 @@ import { userProfileService, UserProfile } from '../../services/userProfileServi
 import ErrorBoundary from '../../components/ErrorBoundary';
 import { clearAllStorage } from '../../utils/storageManager';
 import { useAuthStore } from '../../store/authStore';
+import { userDataSyncService } from '../../services/userDataSyncService';
+// import { SupabaseTableChecker } from '../../utils/supabaseTableChecker';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function DashboardScreen() {
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [assets, setAssets] = useState<AssetData[]>([]);
@@ -62,18 +66,32 @@ export default function DashboardScreen() {
     clearError
   } = useAuthStore();
 
-  // 初始化用戶資料服務
+  // 初始化用戶資料服務和資產同步
   useEffect(() => {
     const initUserProfile = async () => {
       try {
         await userProfileService.initialize();
         setUserProfile(userProfileService.getProfile());
+
+        // 啟動資產自動同步（使用原本的服務）
+        console.log('✅ 使用原本的資產服務');
       } catch (error) {
         console.error('❌ 用戶資料初始化失敗:', error);
       }
     };
     initUserProfile();
   }, []);
+
+  // 監聽用戶登錄狀態變化，自動觸發數據同步
+  useEffect(() => {
+    if (user) {
+      console.log('👤 檢測到用戶登錄，自動觸發數據同步...');
+      // 延遲執行，確保登錄流程完成
+      setTimeout(() => {
+        handleSyncToSupabase();
+      }, 2000);
+    }
+  }, [user]);
 
   // 監聽所有資料變化
   useEffect(() => {
@@ -300,11 +318,11 @@ export default function DashboardScreen() {
 
           const monthIncome = monthTransactions
             .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + t.amount, 0);
+            .reduce((sum, t) => sum + (t.amount || 0), 0);
 
           const monthExpense = monthTransactions
             .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + t.amount, 0);
+            .reduce((sum, t) => sum + (t.amount || 0), 0);
 
           const currentAssets = safeAssets.reduce((sum, asset) => sum + (asset?.current_value || 0), 0);
           const currentLiabilities = safeLiabilities.reduce((sum, liability) => sum + (liability?.balance || 0), 0);
@@ -327,15 +345,17 @@ export default function DashboardScreen() {
 
             const futureNetChange = futureTransactions
               .filter(t => t.type === 'income')
-              .reduce((sum, t) => sum + t.amount, 0) -
+              .reduce((sum, t) => sum + (t.amount || 0), 0) -
               futureTransactions
               .filter(t => t.type === 'expense')
-              .reduce((sum, t) => sum + t.amount, 0);
+              .reduce((sum, t) => sum + (t.amount || 0), 0);
 
             monthNetWorth = currentNetWorth - futureNetChange + (monthIncome - monthExpense);
           }
 
-          data.push(monthNetWorth);
+          // 確保 monthNetWorth 是有效數字
+          const safeMonthNetWorth = isNaN(monthNetWorth) ? 0 : monthNetWorth;
+          data.push(safeMonthNetWorth);
         } catch (error) {
           labels.push(`${i}月`);
           data.push(0);
@@ -387,11 +407,11 @@ export default function DashboardScreen() {
 
     const monthlyIncome = currentMonthTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
 
     const monthlyExpenses = currentMonthTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
 
     const totalAssets = safeAssets.reduce((sum, asset) => sum + (asset?.current_value || 0), 0);
     const totalLiabilities = safeLiabilities.reduce((sum, liability) => sum + (liability?.balance || 0), 0);
@@ -579,82 +599,93 @@ export default function DashboardScreen() {
     clearError();
   };
 
-  // 同步到 Supabase
+  // 手動觸發數據同步到 Supabase
   const handleSyncToSupabase = async () => {
+    if (!user) {
+      console.log('❌ 用戶未登錄，無法同步');
+      return;
+    }
+
+    try {
+      console.log('🔄 開始手動同步數據到 Supabase...');
+
+      // 觸發用戶數據同步
+      await userDataSyncService.initializeUserData(user);
+
+      console.log('✅ 手動同步完成');
+      window.alert('同步完成！數據已成功同步到雲端。');
+
+    } catch (error) {
+      console.error('❌ 手動同步失敗:', error);
+      window.alert(`同步失敗：${error.message || '未知錯誤'}`);
+    }
+  };
+
+  // 診斷 Supabase 表結構
+  const handleDiagnoseSupabase = async () => {
     if (!user) {
       Alert.alert('錯誤', '請先登錄');
       return;
     }
 
     try {
-      Alert.alert(
-        '開始同步',
-        '正在將本地數據同步到雲端...',
-        [{ text: '確定' }]
-      );
+      console.log('🔍 開始診斷 Supabase 表結構...');
+      Alert.alert('診斷功能', '診斷功能暫時停用，請查看控制台日誌');
 
-      console.log('🔄 開始同步數據到 Supabase...');
-      console.log('👤 當前用戶:', user.email);
-
-      // 模擬同步過程
-      setTimeout(() => {
-        Alert.alert(
-          '同步完成',
-          '您的數據已成功同步到雲端！',
-          [{ text: '確定' }]
-        );
-      }, 2000);
+      // TODO: 重新啟用診斷功能
+      // const tableStatus = await SupabaseTableChecker.checkAllTables();
+      // const userDataCounts = await SupabaseTableChecker.checkUserData();
+      // const insertionTest = await SupabaseTableChecker.testDataInsertion();
+      // const assetInsertionTest = await SupabaseTableChecker.testAssetInsertion();
 
     } catch (error) {
-      console.error('❌ 同步失敗:', error);
-      Alert.alert('同步失敗', '數據同步時發生錯誤，請稍後再試。');
+      console.error('❌ 診斷失敗:', error);
+      Alert.alert('診斷失敗', `診斷過程中發生錯誤：${error.message || '未知錯誤'}`);
     }
   };
 
   // 一鍵清除所有資料功能
-  const handleClearAllData = () => {
-    Alert.alert(
-      '清除所有資料',
-      '確定要清除所有資料？\n\n此操作將刪除：\n• 所有交易記錄\n• 資產負債數據\n• 用戶設定\n• 其他應用數據\n\n此操作無法撤銷！',
-      [
-        {
-          text: '取消',
-          style: 'cancel',
-        },
-        {
-          text: '確定清除',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('🧹 開始清除所有資料...');
+  const handleClearAllData = async () => {
+    console.log('🗑️ 刪除按鈕被點擊');
 
-              // 使用存儲管理工具清除所有數據
-              const success = await clearAllStorage();
-
-              if (success) {
-                Alert.alert(
-                  '清除完成',
-                  '所有資料已清除完成！\n\n請完全關閉應用程式並重新啟動，以重置到初始狀態。',
-                  [
-                    {
-                      text: '確定',
-                      onPress: () => {
-                        console.log('✅ 用戶確認清除完成');
-                      }
-                    }
-                  ]
-                );
-              } else {
-                Alert.alert('錯誤', '清除資料失敗，請稍後再試。');
-              }
-            } catch (error) {
-              console.error('❌ 清除資料時發生錯誤:', error);
-              Alert.alert('錯誤', '清除資料時發生錯誤，請稍後再試。');
-            }
-          },
-        },
-      ]
+    // 使用瀏覽器原生確認對話框
+    const confirmed = window.confirm(
+      '確定刪除所有資料？\n\n此操作將永久刪除：\n• 所有交易記錄\n• 所有資產數據\n• 所有負債數據\n• 用戶設定\n• 其他應用數據\n\n此操作無法撤銷！'
     );
+
+    if (!confirmed) {
+      console.log('用戶取消刪除操作');
+      return;
+    }
+
+    try {
+      console.log('🧹 用戶確認，開始清除所有資料...');
+
+      const success = await clearAllStorage();
+
+      if (success) {
+        console.log('✅ 所有資料清除成功');
+
+        // 重置所有本地狀態
+        setTransactions([]);
+        setAssets([]);
+        setLiabilities([]);
+        setForceRefresh(prev => prev + 10);
+
+        // 重新初始化所有服務
+        await transactionDataService.initialize();
+        await assetTransactionSyncService.initialize();
+        await liabilityService.initialize();
+
+        window.alert('清除完成！所有資料已清除完成！應用程式已重新初始化。');
+      } else {
+        console.error('❌ 清除資料失敗');
+        window.alert('錯誤：清除資料失敗，請稍後再試。');
+      }
+    } catch (error) {
+      console.error('❌ 清除資料時發生錯誤:', error);
+      window.alert(`錯誤：清除資料時發生錯誤：${error.message || '未知錯誤'}`);
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -685,22 +716,37 @@ export default function DashboardScreen() {
         <StatusBar style="dark" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top + 8, 16) }]}>
         <View style={styles.userInfo}>
           <View style={styles.greetingContainer}>
             <Text style={styles.greeting}>您好，</Text>
             <TouchableOpacity onPress={handleEditName} style={styles.editNameButton}>
               <Ionicons name="create-outline" size={16} color="#007AFF" />
             </TouchableOpacity>
+
+            {/* 顯示登錄狀態 - 緊貼編輯按鈕右側 */}
+            {user ? (
+              <View style={[styles.loginStatusContainer, styles.loggedInContainer]}>
+                <Ionicons name="checkmark-circle" size={12} color="#34C759" />
+                <Text style={styles.loginStatusText}>{user.email}</Text>
+              </View>
+            ) : (
+              <View style={[styles.loginStatusContainer, styles.loggedOutContainer]}>
+                <Ionicons name="alert-circle-outline" size={12} color="#FF9500" />
+                <Text style={styles.logoutStatusText}>未登錄</Text>
+              </View>
+            )}
           </View>
           <Text style={styles.userName}>{userProfile?.displayName || '小富翁'}</Text>
         </View>
 
         <View style={styles.headerButtons}>
-          {/* 上傳按鈕 */}
-          <TouchableOpacity onPress={handleUploadClick} style={styles.uploadButton}>
-            <Ionicons name="cloud-upload-outline" size={20} color="#007AFF" />
-          </TouchableOpacity>
+          {/* Supabase 診斷按鈕 - 只在已登錄時顯示 */}
+          {user && (
+            <TouchableOpacity onPress={handleDiagnoseSupabase} style={styles.diagnoseButton}>
+              <Ionicons name="medical-outline" size={20} color="#007AFF" />
+            </TouchableOpacity>
+          )}
 
           {/* 一鍵清除按鈕 */}
           <TouchableOpacity onPress={handleClearAllData} style={styles.clearDataButton}>
@@ -728,6 +774,9 @@ export default function DashboardScreen() {
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={{
+          paddingBottom: Math.max(insets.bottom + 80, 100), // 確保底部有足夠空間
+        }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -741,38 +790,73 @@ export default function DashboardScreen() {
           ]}>
             {formatCurrency(realSummary.netWorth)}
           </Text>
-          {/* 根據平台顯示圖表 - 生產環境安全版本 */}
-          {Platform.OS === 'web' ? (
-            <View style={styles.chartPlaceholder}>
-              <Text style={styles.chartPlaceholderText}>圖表功能在 Web 版暫不可用</Text>
-              <Text style={styles.chartPlaceholderSubtext}>請使用手機版查看圖表</Text>
-            </View>
-          ) : (
-            <View style={styles.chart}>
-              {(() => {
-                try {
-                  return (
-                    <LineChart
-                      data={netWorthData}
-                      width={screenWidth - 48}
-                      height={200}
-                      chartConfig={chartConfig}
-                      bezier
-                      style={styles.chart}
-                    />
-                  );
-                } catch (error) {
-                  console.error('圖表渲染失敗:', error);
-                  return (
-                    <View style={styles.chartPlaceholder}>
-                      <Text style={styles.chartPlaceholderText}>圖表載入中...</Text>
-                      <Text style={styles.chartPlaceholderSubtext}>請稍候</Text>
-                    </View>
-                  );
-                }
-              })()}
-            </View>
-          )}
+          {/* 實際的資產變化圖表 */}
+          <View style={styles.chartContainer}>
+            {(() => {
+              const yearlyData = generateYearlyNetWorthData();
+              if (yearlyData.labels.length === 0 || yearlyData.datasets[0].data.length === 0) {
+                return (
+                  <View style={styles.chartPlaceholder}>
+                    <Text style={styles.chartPlaceholderText}>暫無資產變化數據</Text>
+                    <Text style={styles.chartPlaceholderSubtext}>
+                      開始記帳後將顯示資產變化趨勢
+                    </Text>
+                  </View>
+                );
+              }
+
+              // 簡化的圖表顯示
+              const latestValue = yearlyData.datasets[0].data[yearlyData.datasets[0].data.length - 1];
+              const firstValue = yearlyData.datasets[0].data[0];
+              const change = latestValue - firstValue;
+              const changePercent = firstValue !== 0 ? ((change / firstValue) * 100).toFixed(1) : '0';
+
+              return (
+                <View style={styles.chartDataContainer}>
+                  <View style={styles.chartSummaryRow}>
+                    <Text style={styles.chartSummaryLabel}>年度變化</Text>
+                    <Text style={[
+                      styles.chartSummaryValue,
+                      change >= 0 ? styles.positiveChange : styles.negativeChange
+                    ]}>
+                      {change >= 0 ? '+' : ''}{formatCurrency(change)} ({changePercent}%)
+                    </Text>
+                  </View>
+                  <View style={styles.chartTrendContainer}>
+                    {yearlyData.datasets[0].data.map((value, index) => {
+                      // 安全的高度計算，避免 NaN
+                      const maxValue = Math.max(...yearlyData.datasets[0].data.map(v => Math.abs(v || 0)));
+                      const safeValue = value || 0;
+                      const height = maxValue > 0
+                        ? Math.max(4, Math.abs(safeValue) / maxValue * 40)
+                        : 4;
+
+                      // 確保高度是有效數字
+                      const finalHeight = isNaN(height) ? 4 : height;
+
+                      return (
+                        <View
+                          key={index}
+                          style={[
+                            styles.chartBar,
+                            {
+                              height: finalHeight,
+                              backgroundColor: safeValue >= 0 ? '#34C759' : '#FF3B30'
+                            }
+                          ]}
+                        />
+                      );
+                    })}
+                  </View>
+                  <View style={styles.chartLabelsContainer}>
+                    <Text style={styles.chartLabel}>{yearlyData.labels[0]}</Text>
+                    <Text style={styles.chartLabel}>{yearlyData.labels[Math.floor(yearlyData.labels.length / 2)]}</Text>
+                    <Text style={styles.chartLabel}>{yearlyData.labels[yearlyData.labels.length - 1]}</Text>
+                  </View>
+                </View>
+              );
+            })()}
+          </View>
         </View>
 
         {/* Bento Grid Layout */}
@@ -944,6 +1028,12 @@ export default function DashboardScreen() {
                   <Ionicons name="checkmark-circle" size={48} color="#34C759" style={styles.successIcon} />
                   <Text style={styles.loggedInText}>您已成功登錄</Text>
                   <Text style={styles.userEmailText}>{user.email}</Text>
+
+                  <View style={styles.autoSyncInfo}>
+                    <Ionicons name="sync" size={16} color="#007AFF" />
+                    <Text style={styles.autoSyncText}>數據已自動同步到雲端</Text>
+                  </View>
+
                   <TouchableOpacity onPress={signOut} style={styles.signOutButton}>
                     <Text style={styles.signOutButtonText}>登出</Text>
                   </TouchableOpacity>
@@ -951,18 +1041,18 @@ export default function DashboardScreen() {
               ) : (
                 // 未登錄狀態
                 <View>
-                  {/* Google 登錄按鈕 */}
+                  {/* Google 登錄按鈕 - Development build 中暫時禁用 */}
                   <TouchableOpacity
                     onPress={handleGoogleLogin}
                     style={[
                       styles.googleLoginButton,
-                      Platform.OS !== 'web' && { opacity: 0.5 }
+                      { opacity: 0.3 }
                     ]}
-                    disabled={authLoading || Platform.OS !== 'web'}
+                    disabled={true}
                   >
                     <Ionicons name="logo-google" size={20} color="#fff" />
                     <Text style={styles.googleLoginText}>
-                      {authLoading ? '登錄中...' : Platform.OS !== 'web' ? 'Google 登錄（開發中）' : '使用 Google 登錄'}
+                      Google 登錄（Development build 中暫不可用）
                     </Text>
                   </TouchableOpacity>
 
@@ -1051,7 +1141,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 60,
     paddingBottom: 20,
     backgroundColor: '#fff',
   },
@@ -1062,6 +1151,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
+    gap: 8,
   },
   greeting: {
     fontSize: 16,
@@ -1075,6 +1165,35 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 4,
+  },
+  loginStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  loginStatusText: {
+    fontSize: 10,
+    color: '#34C759',
+    fontWeight: '500',
+  },
+  logoutStatusText: {
+    fontSize: 10,
+    color: '#FF9500',
+    fontWeight: '500',
+  },
+  loggedInContainer: {
+    borderColor: '#34C759',
+    backgroundColor: '#F0FFF4',
+  },
+  loggedOutContainer: {
+    borderColor: '#FF9500',
+    backgroundColor: '#FFF8F0',
   },
   headerButtons: {
     flexDirection: 'row',
@@ -1090,11 +1209,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   clearDataButton: {
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#FFE5E5',
+    borderWidth: 2,
+    borderColor: '#FF3B30',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 40,
+    minHeight: 40,
+  },
+  diagnoseButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#F0F8FF',
     borderWidth: 1,
-    borderColor: '#FFE5E5',
+    borderColor: '#E5F3FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1191,6 +1321,71 @@ const styles = StyleSheet.create({
   chartPlaceholderSubtext: {
     fontSize: 12,
     color: '#999',
+    marginBottom: 8,
+  },
+  chartContainer: {
+    marginTop: 8,
+  },
+  chartDataContainer: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+  },
+  chartSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  chartSummaryLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  chartSummaryValue: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  positiveChange: {
+    color: '#34C759',
+  },
+  negativeChange: {
+    color: '#FF3B30',
+  },
+  chartTrendContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: 40,
+    marginBottom: 8,
+  },
+  chartBar: {
+    width: 6,
+    borderRadius: 3,
+    minHeight: 4,
+  },
+  chartLabelsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  chartLabel: {
+    fontSize: 10,
+    color: '#999',
+  },
+  chartDataSummary: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e1e5e9',
+  },
+  chartDataText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    textAlign: 'center',
   },
   bentoGrid: {
     marginBottom: 24,
@@ -1441,6 +1636,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 20,
+  },
+  autoSyncInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F0F8FF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5F3FF',
+  },
+  autoSyncText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: '500',
   },
   signOutButton: {
     paddingHorizontal: 24,

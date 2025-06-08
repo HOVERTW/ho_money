@@ -4,6 +4,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase, TABLES } from './supabase';
+import { eventEmitter, EVENTS } from './eventEmitter';
 
 // 本地存儲的鍵名
 const STORAGE_KEYS = {
@@ -54,18 +56,19 @@ class AssetTransactionSyncService {
 
   constructor() {
     // 不在構造函數中初始化，改為異步初始化
+
+    // 暫時停用事件監聽以避免循環依賴
+    // eventEmitter.on(EVENTS.DATA_SYNC_COMPLETED, this.handleDataSyncCompleted.bind(this));
   }
 
   /**
    * 異步初始化資產服務
    */
   async initialize(): Promise<void> {
-    if (this.isInitialized) return;
-
     try {
       await this.loadFromStorage();
       this.isInitialized = true;
-      console.log('✅ 資產服務已初始化（空列表）');
+      console.log(`✅ 資產服務已初始化，加載了 ${this.assets.length} 項資產`);
     } catch (error) {
       console.error('❌ 資產服務初始化失敗:', error);
       // 如果加載失敗，使用空列表
@@ -73,6 +76,23 @@ class AssetTransactionSyncService {
       this.isInitialized = true;
     }
     this.notifyListeners();
+  }
+
+  /**
+   * 強制重新加載數據（用於雲端同步後）
+   */
+  async forceReload(): Promise<void> {
+    console.log('🔄 強制重新加載資產數據...');
+    this.isInitialized = false;
+    await this.initialize();
+  }
+
+  /**
+   * 處理數據同步完成事件
+   */
+  private async handleDataSyncCompleted(): Promise<void> {
+    console.log('📡 收到數據同步完成事件，重新加載資產數據...');
+    await this.forceReload();
   }
 
   /**
@@ -96,14 +116,121 @@ class AssetTransactionSyncService {
   }
 
   /**
-   * 保存資產數據到本地存儲
+   * 保存資產數據到本地存儲和雲端
    */
   private async saveToStorage(): Promise<void> {
     try {
+      // 1. 保存到本地存儲
       await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
       console.log('💾 資產數據已保存到本地存儲');
+
+      // 2. 如果用戶已登錄，同時保存到雲端
+      await this.syncToSupabase();
     } catch (error) {
-      console.error('❌ 保存資產數據到本地存儲失敗:', error);
+      console.error('❌ 保存資產數據失敗:', error);
+    }
+  }
+
+  /**
+   * 同步資產數據到 Supabase
+   */
+  private async syncToSupabase(): Promise<void> {
+    try {
+      console.log('🔄 syncToSupabase 被調用');
+
+      // 檢查用戶是否已登錄
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('📝 用戶未登錄，跳過雲端同步');
+        return;
+      }
+
+      console.log('✅ 用戶已登錄:', user.email);
+      console.log('🔄 開始同步資產數據到雲端...');
+      console.log('📊 當前資產數量:', this.assets.length);
+      console.log('📊 當前資產列表:', this.assets);
+
+      // 轉換資產數據格式以匹配 Supabase 表結構
+      const convertedAssets = this.assets.map((asset: AssetData) => {
+        const converted = {
+          user_id: user.id,
+          name: asset.name || '未命名資產',
+          type: asset.type || 'other',
+          value: Number(asset.current_value || asset.cost_basis || 0),
+          quantity: Number(asset.quantity || 1),
+          purchase_price: Number(asset.cost_basis || asset.purchase_price || 0),
+          current_price: Number(asset.current_price || asset.current_value || asset.cost_basis || 0),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        console.log('📝 轉換資產數據:', {
+          原始: {
+            name: asset.name,
+            type: asset.type,
+            current_value: asset.current_value,
+            cost_basis: asset.cost_basis,
+            quantity: asset.quantity
+          },
+          轉換後: converted
+        });
+
+        return converted;
+      });
+
+      // 先清除用戶的現有資產數據
+      console.log('🧹 開始清除舊資產數據...');
+      const { error: deleteError } = await supabase
+        .from(TABLES.ASSETS)
+        .delete()
+        .eq('user_id', user.id);
+
+      if (deleteError) {
+        console.error('❌ 清除舊資產數據失敗:', deleteError);
+        console.error('❌ 刪除錯誤詳情:', deleteError.message, deleteError.details, deleteError.hint);
+        return;
+      } else {
+        console.log('✅ 舊資產數據清除成功');
+      }
+
+      // 插入新的資產數據
+      if (convertedAssets.length > 0) {
+        console.log('📝 準備插入的資產數據:', convertedAssets);
+        console.log('📝 插入到表:', TABLES.ASSETS);
+
+        const { data: insertResult, error: insertError } = await supabase
+          .from(TABLES.ASSETS)
+          .insert(convertedAssets)
+          .select();
+
+        if (insertError) {
+          console.error('❌ 同步資產數據到雲端失敗:', insertError);
+          console.error('❌ 錯誤詳情:', insertError.message, insertError.details, insertError.hint);
+          console.error('❌ 錯誤代碼:', insertError.code);
+        } else {
+          console.log(`✅ 已同步 ${convertedAssets.length} 筆資產數據到雲端`);
+          console.log('✅ 插入結果:', insertResult);
+
+          // 立即驗證數據是否真的插入了
+          setTimeout(async () => {
+            const { data: verifyData, error: verifyError } = await supabase
+              .from(TABLES.ASSETS)
+              .select('*')
+              .eq('user_id', user.id);
+
+            if (verifyError) {
+              console.error('❌ 驗證插入失敗:', verifyError);
+            } else {
+              console.log('🔍 驗證結果: 雲端現有', verifyData?.length || 0, '筆資產記錄');
+            }
+          }, 1000);
+        }
+      } else {
+        console.log('📝 沒有資產數據需要同步');
+      }
+
+    } catch (error) {
+      console.error('❌ 同步資產數據到雲端異常:', error);
     }
   }
 

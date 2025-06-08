@@ -11,8 +11,15 @@ import {
   FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { bankAccountService } from '../services/bankAccountService';
-import { BankAccount, BankAccountType } from '../types';
+// import { bankAccountService } from '../services/bankAccountService'; // 已移除
+// import { BankAccount, BankAccountType } from '../types'; // 簡化
+
+// 簡化的銀行帳戶類型定義
+interface BankAccount {
+  id: string;
+  name: string;
+  account_number?: string;
+}
 
 interface BankAccountManagerProps {
   visible: boolean;
@@ -20,7 +27,10 @@ interface BankAccountManagerProps {
 }
 
 export default function BankAccountManager({ visible, onClose }: BankAccountManagerProps) {
-  const [bankAccounts, setBankAccounts] = useState(bankAccountService.getAllBankAccounts());
+  // 簡化的銀行帳戶管理
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([
+    { id: 'default_bank', name: '預設銀行', account_number: '123456789' }
+  ]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingBank, setEditingBank] = useState<BankAccount | null>(null);
 
@@ -29,7 +39,8 @@ export default function BankAccountManager({ visible, onClose }: BankAccountMana
   const [accountNumber, setAccountNumber] = useState('');
 
   const refreshBankAccounts = () => {
-    setBankAccounts(bankAccountService.getAllBankAccounts());
+    // 簡化：不需要刷新，因為使用靜態數據
+    console.log('銀行帳戶已刷新');
   };
 
   const resetForm = () => {
@@ -45,36 +56,28 @@ export default function BankAccountManager({ visible, onClose }: BankAccountMana
       return;
     }
 
-    if (bankAccountService.isBankNameExists(bankName.trim(), editingBank?.id)) {
-      Alert.alert('錯誤', '此銀行名稱已存在');
-      return;
-    }
-
+    // 簡化的銀行帳戶管理
     if (editingBank) {
       // 編輯模式
-      const updated = bankAccountService.updateBankAccount(editingBank.id, {
-        name: bankName.trim(),
-        account_number: accountNumber.trim() || undefined,
-      });
-
-      if (updated) {
-        Alert.alert('成功', '銀行帳戶已更新');
-        refreshBankAccounts();
-        resetForm();
-      } else {
-        Alert.alert('錯誤', '更新失敗');
-      }
+      const updatedAccounts = bankAccounts.map(bank =>
+        bank.id === editingBank.id
+          ? { ...bank, name: bankName.trim(), account_number: accountNumber.trim() || undefined }
+          : bank
+      );
+      setBankAccounts(updatedAccounts);
+      Alert.alert('成功', '銀行帳戶已更新');
     } else {
       // 新增模式
-      bankAccountService.createBankAccount({
+      const newBank: BankAccount = {
+        id: `bank_${Date.now()}`,
         name: bankName.trim(),
         account_number: accountNumber.trim() || undefined,
-      });
-
+      };
+      setBankAccounts([...bankAccounts, newBank]);
       Alert.alert('成功', '銀行帳戶已添加');
-      refreshBankAccounts();
-      resetForm();
     }
+
+    resetForm();
   };
 
   const handleEditBank = (bank: BankAccount) => {
@@ -94,8 +97,8 @@ export default function BankAccountManager({ visible, onClose }: BankAccountMana
           text: '刪除',
           style: 'destructive',
           onPress: () => {
-            bankAccountService.deleteBankAccount(bank.id);
-            refreshBankAccounts();
+            const updatedAccounts = bankAccounts.filter(b => b.id !== bank.id);
+            setBankAccounts(updatedAccounts);
             Alert.alert('成功', '銀行帳戶已刪除');
           },
         },

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Swipeable } from 'react-native-gesture-handler';
 import AddAssetModal from '../../components/AddAssetModal';
 import AddLiabilityModal from '../../components/AddLiabilityModal';
@@ -22,6 +23,7 @@ import { eventEmitter, EVENTS } from '../../services/eventEmitter';
 import { retrySyncWithBackoff, getCurrentDataState } from '../../utils/forceRefreshManager';
 
 export default function BalanceSheetScreen() {
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [showAddAssetModal, setShowAddAssetModal] = useState(false);
   const [showAddLiabilityModal, setShowAddLiabilityModal] = useState(false);
@@ -33,8 +35,12 @@ export default function BalanceSheetScreen() {
 
   // 初始化資產數據和監聽器
   useEffect(() => {
-    // 直接獲取已初始化的資產資料
-    setAssets(assetTransactionSyncService.getAssets());
+    // 初始化資產服務
+    const initAssets = async () => {
+      await assetTransactionSyncService.initialize();
+      setAssets(assetTransactionSyncService.getAssets());
+    };
+    initAssets();
 
     // 添加監聽器
     const handleAssetsUpdate = (updatedAssets: AssetData[]) => {
@@ -396,6 +402,9 @@ export default function BalanceSheetScreen() {
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={{
+          paddingBottom: Math.max(insets.bottom + 80, 100), // 確保底部有足夠空間
+        }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }

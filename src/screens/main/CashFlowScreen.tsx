@@ -9,12 +9,14 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { transactionDataService, Transaction, Category, Account } from '../../services/transactionDataService';
-import { currentMonthCalculationService } from '../../services/currentMonthCalculationService';
+// import { currentMonthCalculationService } from '../../services/currentMonthCalculationService'; // 已移除
 import { FinancialCalculator } from '../../utils/financialCalculator';
 import { eventEmitter, EVENTS } from '../../services/eventEmitter';
 
 export default function CashFlowScreen() {
+  const insets = useSafeAreaInsets();
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all'); // 新增：類別篩選
@@ -409,6 +411,9 @@ export default function CashFlowScreen() {
         renderItem={renderTransactionItem}
         keyExtractor={(item) => item.id}
         style={styles.transactionsList}
+        contentContainerStyle={{
+          paddingBottom: Math.max(insets.bottom + 80, 100), // 確保底部有足夠空間
+        }}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="document-text-outline" size={48} color="#999" />

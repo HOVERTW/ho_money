@@ -3,7 +3,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
@@ -45,6 +46,8 @@ function AuthNavigator() {
 
 // Main Tab Navigator
 function MainNavigator() {
+  const insets = useSafeAreaInsets();
+
   return (
     <MainTab.Navigator
       screenOptions={({ route }) => ({
@@ -83,9 +86,13 @@ function MainNavigator() {
           backgroundColor: '#fff',
           borderTopWidth: 1,
           borderTopColor: '#E5E5E5',
-          paddingBottom: 5,
+          paddingBottom: Math.max(insets.bottom, 5),
           paddingTop: 5,
-          height: 60,
+          height: Platform.OS === 'ios' ? 60 + insets.bottom : 60,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -196,13 +203,12 @@ export default function AppNavigator() {
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             try {
               console.log('🔄 開始初始化用戶數據...');
-              // 暫時跳過數據同步，直接完成登錄
-              // await userDataSyncService.initializeUserData(session.user);
-              console.log('✅ 用戶數據初始化完成（暫時跳過同步）');
+              await userDataSyncService.initializeUserData(session.user);
+              console.log('✅ 用戶數據初始化完成');
             } catch (error) {
               console.error('❌ 用戶數據初始化失敗:', error);
               // 不阻止用戶繼續使用應用，但記錄錯誤
-              console.log('⚠️ 繼續使用應用，跳過數據初始化');
+              console.log('⚠️ 繼續使用應用，但數據同步可能有問題');
             }
           }
         } else {

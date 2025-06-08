@@ -99,8 +99,8 @@ class UserDataSyncService {
       // 遷移交易記錄
       await this.migrateTransactions();
 
-      // 遷移資產
-      await this.migrateAssets();
+      // 遷移資產（使用新的同步服務）
+      await this.migrateAssetsNew();
 
       // 遷移負債
       await this.migrateLiabilities();
@@ -127,12 +127,31 @@ class UserDataSyncService {
       if (localTransactions) {
         const transactions = JSON.parse(localTransactions);
         if (transactions.length > 0) {
-          // 批量插入交易記錄
-          const { error } = await dbService.createUserData(TABLES.TRANSACTIONS, transactions);
-          if (!error) {
-            console.log(`✅ 已遷移 ${transactions.length} 筆交易記錄`);
+          console.log(`🔄 準備遷移 ${transactions.length} 筆交易記錄...`);
+
+          // 轉換交易數據格式以匹配 Supabase 表結構
+          const convertedTransactions = transactions.map((transaction: any) => ({
+            user_id: null, // 將在 createUserData 中自動設置
+            account_id: null, // 可以為空
+            amount: transaction.amount || 0,
+            description: transaction.description || '',
+            category: transaction.category || '',
+            date: transaction.date || new Date().toISOString().split('T')[0],
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }));
+
+          console.log('📝 轉換後的交易數據示例:', convertedTransactions[0]);
+
+          const { error } = await dbService.createUserData(TABLES.TRANSACTIONS, convertedTransactions);
+          if (error) {
+            console.error('❌ 交易記錄遷移錯誤:', error);
+          } else {
+            console.log(`✅ 已遷移 ${convertedTransactions.length} 筆交易記錄`);
           }
         }
+      } else {
+        console.log('📝 沒有本地交易數據需要遷移');
       }
     } catch (error) {
       console.error('❌ 遷移交易記錄失敗:', error);
@@ -140,7 +159,21 @@ class UserDataSyncService {
   }
 
   /**
-   * 遷移資產
+   * 遷移資產（新版本）
+   */
+  private async migrateAssetsNew(): Promise<void> {
+    try {
+      // 使用新的資產同步服務
+      const { assetSyncService } = await import('./assetSyncService');
+      await assetSyncService.syncToCloud();
+      console.log('✅ 資產遷移完成（使用新同步服務）');
+    } catch (error) {
+      console.error('❌ 遷移資產失敗:', error);
+    }
+  }
+
+  /**
+   * 遷移資產（舊版本，保留作為備用）
    */
   private async migrateAssets(): Promise<void> {
     try {
@@ -148,11 +181,32 @@ class UserDataSyncService {
       if (localAssets) {
         const assets = JSON.parse(localAssets);
         if (assets.length > 0) {
-          const { error } = await dbService.createUserData(TABLES.ASSETS, assets);
-          if (!error) {
-            console.log(`✅ 已遷移 ${assets.length} 筆資產記錄`);
+          console.log(`🔄 準備遷移 ${assets.length} 筆資產記錄...`);
+
+          // 轉換資產數據格式以匹配 Supabase 表結構
+          const convertedAssets = assets.map((asset: any) => ({
+            user_id: null, // 將在 createUserData 中自動設置
+            name: asset.name,
+            type: asset.type,
+            value: asset.current_value || asset.cost_basis || 0,
+            quantity: asset.quantity || 1,
+            purchase_price: asset.cost_basis || asset.purchase_price || 0,
+            current_price: asset.current_price || asset.current_value || asset.cost_basis || 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }));
+
+          console.log('📝 轉換後的資產數據示例:', convertedAssets[0]);
+
+          const { error } = await dbService.createUserData(TABLES.ASSETS, convertedAssets);
+          if (error) {
+            console.error('❌ 資產遷移錯誤:', error);
+          } else {
+            console.log(`✅ 已遷移 ${convertedAssets.length} 筆資產記錄`);
           }
         }
+      } else {
+        console.log('📝 沒有本地資產數據需要遷移');
       }
     } catch (error) {
       console.error('❌ 遷移資產失敗:', error);
@@ -236,25 +290,60 @@ class UserDataSyncService {
       ]);
 
       // 更新本地存儲
-      if (transactions.data) {
+      if (transactions.data && transactions.data.length > 0) {
+        console.log(`📥 同步 ${transactions.data.length} 筆交易記錄到本地`);
         await AsyncStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions.data));
       }
-      if (assets.data) {
-        await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(assets.data));
+
+      // 使用新的資產同步服務處理資產數據
+      try {
+        const { assetSyncService } = await import('./assetSyncService');
+        await assetSyncService.syncFromCloud();
+        console.log('✅ 資產數據同步完成（使用新同步服務）');
+      } catch (error) {
+        console.error('❌ 資產數據同步失敗:', error);
       }
-      if (liabilities.data) {
+
+      if (liabilities.data && liabilities.data.length > 0) {
+        console.log(`📥 同步 ${liabilities.data.length} 筆負債記錄到本地`);
         await AsyncStorage.setItem(STORAGE_KEYS.LIABILITIES, JSON.stringify(liabilities.data));
       }
-      if (accounts.data) {
+
+      if (accounts.data && accounts.data.length > 0) {
+        console.log(`📥 同步 ${accounts.data.length} 筆帳戶記錄到本地`);
         await AsyncStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts.data));
       }
-      if (categories.data) {
+
+      if (categories.data && categories.data.length > 0) {
+        console.log(`📥 同步 ${categories.data.length} 筆分類記錄到本地`);
         await AsyncStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories.data));
       }
+
+      // 通知服務重新加載數據 (暫時停用以避免循環依賴)
+      // await this.notifyServicesToReload();
 
       console.log('✅ 雲端數據同步完成');
     } catch (error) {
       console.error('❌ 雲端數據同步失敗:', error);
+    }
+  }
+
+  /**
+   * 通知各個服務重新加載數據
+   */
+  private async notifyServicesToReload(): Promise<void> {
+    try {
+      console.log('🔄 通知服務重新加載數據...');
+
+      // 使用事件系統通知服務重新加載，避免循環依賴
+      const { eventEmitter, EVENTS } = await import('./eventEmitter');
+
+      // 發送重新加載事件
+      eventEmitter.emit(EVENTS.DATA_SYNC_COMPLETED);
+      console.log('✅ 已發送數據同步完成事件');
+
+    } catch (error) {
+      console.error('❌ 通知服務重新加載失敗:', error);
     }
   }
 

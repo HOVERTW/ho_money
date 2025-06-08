@@ -10,15 +10,17 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { PieChart, LineChart, BarChart } from 'react-native-chart-kit';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// import { PieChart, LineChart, BarChart } from 'react-native-chart-kit'; // 移除不兼容的圖表庫
 import { transactionDataService, Transaction } from '../../services/transactionDataService';
-import { currentMonthCalculationService } from '../../services/currentMonthCalculationService';
+// import { currentMonthCalculationService } from '../../services/currentMonthCalculationService'; // 已移除
 
 const { width: screenWidth } = Dimensions.get('window');
 
 type TimeRange = 'week' | 'month' | 'quarter' | 'year' | 'all';
 
 export default function ChartsScreen() {
+  const insets = useSafeAreaInsets();
   const [selectedChart, setSelectedChart] = useState<'spending' | 'income' | 'assets'>('spending');
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('month');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -249,24 +251,10 @@ export default function ChartsScreen() {
           <View style={styles.chartWithLegendContainer}>
             {/* 根據平台顯示圓餅圖 */}
             <View style={styles.pieChartFrame}>
-              {Platform.OS === 'web' ? (
-                <View style={styles.chartPlaceholder}>
-                  <Text style={styles.chartPlaceholderText}>圓餅圖在 Web 版暫不可用</Text>
-                  <Text style={styles.chartPlaceholderSubtext}>請使用手機版查看圖表</Text>
-                </View>
-              ) : (
-                <PieChart
-                  data={spendingData}
-                  width={screenWidth * 0.8}
-                  height={200}
-                  chartConfig={chartConfig}
-                  accessor="value"
-                  backgroundColor="transparent"
-                  paddingLeft="80"
-                  center={[0, 0]}
-                  hasLegend={false}
-                />
-              )}
+              <View style={styles.chartPlaceholder}>
+                <Text style={styles.chartPlaceholderText}>支出分析圖表</Text>
+                <Text style={styles.chartPlaceholderSubtext}>圖表功能正在優化中</Text>
+              </View>
             </View>
 
             {/* 文字圖例 Frame */}
@@ -291,17 +279,10 @@ export default function ChartsScreen() {
           <View style={styles.chartWithLegendContainer}>
             {/* 圓餅圖 Frame */}
             <View style={styles.pieChartFrame}>
-              <PieChart
-                data={assetData}
-                width={screenWidth * 0.8}
-                height={200}
-                chartConfig={chartConfig}
-                accessor="value"
-                backgroundColor="transparent"
-                paddingLeft="80"
-                center={[0, 0]}
-                hasLegend={false}
-              />
+              <View style={styles.chartPlaceholder}>
+                <Text style={styles.chartPlaceholderText}>資產配置圖表</Text>
+                <Text style={styles.chartPlaceholderSubtext}>圖表功能正在優化中</Text>
+              </View>
             </View>
 
             {/* 文字圖例 Frame */}
@@ -326,17 +307,10 @@ export default function ChartsScreen() {
           <View style={styles.chartWithLegendContainer}>
             {/* 圓餅圖 Frame */}
             <View style={styles.pieChartFrame}>
-              <PieChart
-                data={incomeData}
-                width={screenWidth * 0.8}
-                height={200}
-                chartConfig={chartConfig}
-                accessor="value"
-                backgroundColor="transparent"
-                paddingLeft="80"
-                center={[0, 0]}
-                hasLegend={false}
-              />
+              <View style={styles.chartPlaceholder}>
+                <Text style={styles.chartPlaceholderText}>收入分析圖表</Text>
+                <Text style={styles.chartPlaceholderSubtext}>圖表功能正在優化中</Text>
+              </View>
             </View>
 
             {/* 文字圖例 Frame */}
@@ -381,7 +355,12 @@ export default function ChartsScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      <ScrollView style={styles.content}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={{
+          paddingBottom: Math.max(insets.bottom + 80, 100), // 確保底部有足夠空間
+        }}
+      >
         {/* Chart Type Selector */}
         <View style={styles.selectorContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>

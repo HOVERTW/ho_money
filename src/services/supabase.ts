@@ -165,7 +165,31 @@ export const authService = {
 
     try {
       const result = await supabase.auth.signInWithPassword({ email, password });
-      console.log('📝 Supabase signIn 結果:', result);
+
+      console.log('📝 Supabase signIn 詳細結果:', {
+        user: result.data.user ? {
+          id: result.data.user.id,
+          email: result.data.user.email,
+          email_confirmed_at: result.data.user.email_confirmed_at,
+          created_at: result.data.user.created_at
+        } : null,
+        session: result.data.session ? 'exists' : 'null',
+        error: result.error ? {
+          message: result.error.message,
+          status: result.error.status
+        } : null
+      });
+
+      // 如果有錯誤，提供更詳細的錯誤信息
+      if (result.error) {
+        if (result.error.message.includes('Invalid login credentials')) {
+          console.log('❌ 登錄憑證無效 - 可能原因:');
+          console.log('1. 郵箱或密碼錯誤');
+          console.log('2. 帳號需要郵件確認');
+          console.log('3. 帳號不存在');
+        }
+      }
+
       return result;
     } catch (error) {
       console.error('💥 Supabase signIn 錯誤:', error);
@@ -208,6 +232,77 @@ export const authService = {
     } catch (error) {
       console.error('💥 Supabase signUp 錯誤:', error);
       throw error;
+    }
+  },
+
+  // 開發環境測試用戶創建（跳過郵件確認）
+  createTestUser: async (email: string, password: string): Promise<AuthResponse> => {
+    console.log('🧪 創建測試用戶:', email);
+
+    try {
+      // 首先嘗試直接登錄，看看用戶是否已存在
+      const loginResult = await supabase.auth.signInWithPassword({ email, password });
+
+      if (loginResult.data.user && !loginResult.error) {
+        console.log('✅ 測試用戶已存在，直接登錄成功');
+        return loginResult;
+      }
+
+      // 如果登錄失敗，嘗試創建新用戶
+      console.log('🔧 用戶不存在，創建新的測試用戶...');
+
+      const signUpResult = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: process.env.EXPO_PUBLIC_REDIRECT_URL || 'https://yrryyapzkgrsahranzvo.supabase.co/auth/v1/callback'
+        }
+      });
+
+      console.log('📝 測試用戶創建結果:', {
+        user: signUpResult.data.user ? {
+          id: signUpResult.data.user.id,
+          email: signUpResult.data.user.email,
+          email_confirmed_at: signUpResult.data.user.email_confirmed_at
+        } : null,
+        error: signUpResult.error?.message
+      });
+
+      // 如果創建成功但需要郵件確認，提供提示
+      if (signUpResult.data.user && !signUpResult.data.user.email_confirmed_at) {
+        console.log('⚠️ 用戶已創建但需要郵件確認');
+        console.log('💡 建議: 在 Supabase Dashboard 中手動確認用戶郵箱');
+      }
+
+      return signUpResult;
+    } catch (error) {
+      console.error('💥 測試用戶創建錯誤:', error);
+      throw error;
+    }
+  },
+
+  // 手動確認用戶郵箱（開發環境使用）
+  confirmUserEmail: async (email: string): Promise<{ success: boolean; message: string }> => {
+    console.log('✉️ 手動確認用戶郵箱:', email);
+
+    try {
+      // 這個功能需要在 Supabase Dashboard 中手動操作
+      // 或者使用 Admin API（需要 service_role key）
+      console.log('💡 請在 Supabase Dashboard 中手動確認用戶郵箱:');
+      console.log('1. 前往 Authentication > Users');
+      console.log('2. 找到用戶:', email);
+      console.log('3. 點擊用戶，然後點擊 "Confirm email"');
+
+      return {
+        success: true,
+        message: '請在 Supabase Dashboard 中手動確認用戶郵箱'
+      };
+    } catch (error) {
+      console.error('💥 郵箱確認錯誤:', error);
+      return {
+        success: false,
+        message: '郵箱確認失敗'
+      };
     }
   },
 
@@ -470,7 +565,7 @@ export const dbService = {
     }
   },
 
-  // 創建用戶數據 - 自動添加 user_id
+  // 創建用戶數據 - 自動添加 user_id (支援單個對象或數組)
   createUserData: async (table: string, data: any) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -479,10 +574,17 @@ export const dbService = {
         return { data: null, error: new Error('用戶未登錄') };
       }
 
-      const dataWithUserId = {
-        ...data,
+      // 處理數組或單個對象
+      const isArray = Array.isArray(data);
+      const dataArray = isArray ? data : [data];
+
+      // 為每個項目添加 user_id
+      const dataWithUserId = dataArray.map(item => ({
+        ...item,
         user_id: user.id,
-      };
+      }));
+
+      console.log(`📝 準備插入 ${dataWithUserId.length} 筆 ${table} 記錄`);
 
       const { data: result, error } = await supabase
         .from(table)
@@ -494,7 +596,8 @@ export const dbService = {
         return { data: null, error };
       }
 
-      return { data: result, error: null };
+      console.log(`✅ 成功插入 ${result?.length || 0} 筆 ${table} 記錄`);
+      return { data: isArray ? result : result?.[0], error: null };
     } catch (error) {
       console.error(`❌ 創建用戶 ${table} 異常:`, error);
       return { data: null, error };

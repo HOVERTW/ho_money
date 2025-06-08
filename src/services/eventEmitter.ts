@@ -74,4 +74,6 @@ export const EVENTS = {
   FORCE_REFRESH_TRANSACTIONS: 'force_refresh_transactions',
   FORCE_REFRESH_CASHFLOW: 'force_refresh_cashflow',
   FORCE_REFRESH_CHARTS: 'force_refresh_charts',
+  // 🔥 新增：數據同步事件
+  DATA_SYNC_COMPLETED: 'data_sync_completed',
 } as const;

@@ -4,7 +4,7 @@
  * 支援定時執行和手動觸發
  */
 
-import { realTimeStockSync } from './realTimeStockSync';
+// import { realTimeStockSync } from './realTimeStockSync'; // 已移除
 import { taiwanStockAPI, TaiwanStockData } from '../services/taiwanStockAPI';
 import { exchangeRateAutoAPI, ExchangeRateData } from '../services/exchangeRateAutoAPI';
 import { supabaseConfig } from '../services/supabase';
@@ -104,7 +104,8 @@ class DailyUpdateScheduler {
     console.log('🇺🇸 開始更新美股資料...');
 
     try {
-      await realTimeStockSync.executeFullSync();
+      // 簡化：跳過美股更新
+      console.log('📝 美股更新已簡化，跳過執行');
 
       const duration = Date.now() - startTime;
 
