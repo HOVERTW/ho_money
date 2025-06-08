@@ -7,29 +7,86 @@ import {
   TouchableOpacity,
   FlatList,
   Animated,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { DeviceMotion } from 'expo-sensors';
-import { Calendar } from 'react-native-calendars';
+
+// 條件性導入，避免 Web 平台的問題
+let Haptics: any = null;
+let DeviceMotion: any = null;
+let Calendar: any = null;
+
+// 只在非 Web 平台導入這些模組
+if (Platform.OS !== 'web') {
+  try {
+    Haptics = require('expo-haptics');
+    DeviceMotion = require('expo-sensors').DeviceMotion;
+    Calendar = require('react-native-calendars').Calendar;
+  } catch (error) {
+    console.log('⚠️ 某些模組在當前平台不可用:', error);
+  }
+}
+
 import AddTransactionModal from '../../components/AddTransactionModal';
 import SwipeableTransactionItem from '../../components/SwipeableTransactionItem';
 import DatePickerModal from '../../components/DatePickerModal';
-import { recurringTransactionService } from '../../services/recurringTransactionService';
-import { assetTransactionSyncService } from '../../services/assetTransactionSyncService';
-import { transactionDataService, Transaction } from '../../services/transactionDataService';
-import { liabilityService } from '../../services/liabilityService';
-import { liabilityTransactionSyncService } from '../../services/liabilityTransactionSyncService';
-import { RecurringFrequency } from '../../types';
-import { eventEmitter, EVENTS } from '../../services/eventEmitter';
+
+// 延遲導入服務，避免循環依賴
+let transactionDataService: any = null;
+let recurringTransactionService: any = null;
+let assetTransactionSyncService: any = null;
+let liabilityService: any = null;
+let liabilityTransactionSyncService: any = null;
+let eventEmitter: any = null;
+let EVENTS: any = null;
+
+// 動態導入服務
+const initializeServices = async () => {
+  try {
+    const transactionModule = await import('../../services/transactionDataService');
+    transactionDataService = transactionModule.transactionDataService;
+
+    const recurringModule = await import('../../services/recurringTransactionService');
+    recurringTransactionService = recurringModule.recurringTransactionService;
+
+    const assetModule = await import('../../services/assetTransactionSyncService');
+    assetTransactionSyncService = assetModule.assetTransactionSyncService;
+
+    const liabilityModule = await import('../../services/liabilityService');
+    liabilityService = liabilityModule.liabilityService;
+
+    const liabilityTransactionModule = await import('../../services/liabilityTransactionSyncService');
+    liabilityTransactionSyncService = liabilityTransactionModule.liabilityTransactionSyncService;
+
+    const eventModule = await import('../../services/eventEmitter');
+    eventEmitter = eventModule.eventEmitter;
+    EVENTS = eventModule.EVENTS;
+
+    console.log('✅ TransactionsScreen 服務初始化完成');
+  } catch (error) {
+    console.error('❌ TransactionsScreen 服務初始化失敗:', error);
+  }
+};
 
 export default function TransactionsScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<any>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().split('T')[0]);
+  const [servicesInitialized, setServicesInitialized] = useState(false);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [futureRecurringTransactions, setFutureRecurringTransactions] = useState<any[]>([]);
+
+  // 初始化服務
+  useEffect(() => {
+    const init = async () => {
+      await initializeServices();
+      setServicesInitialized(true);
+    };
+    init();
+  }, []);
 
   // 動畫相關
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -41,46 +98,55 @@ export default function TransactionsScreen() {
     console.log('Current month state changed to:', currentMonth);
   }, [currentMonth]);
 
-  // 設置搖動檢測
+  // 設置搖動檢測（僅在非 Web 平台）
   useEffect(() => {
+    if (Platform.OS === 'web' || !DeviceMotion || !servicesInitialized) {
+      console.log('🔄 跳過搖動檢測設置（Web 平台或服務未初始化）');
+      return;
+    }
+
     let subscription: any;
 
     const setupShakeDetection = async () => {
-      // 檢查設備運動傳感器是否可用
-      const isAvailable = await DeviceMotion.isAvailableAsync();
-      if (!isAvailable) {
-        console.log('🔄 設備運動傳感器不可用');
-        return;
-      }
+      try {
+        // 檢查設備運動傳感器是否可用
+        const isAvailable = await DeviceMotion.isAvailableAsync();
+        if (!isAvailable) {
+          console.log('🔄 設備運動傳感器不可用');
+          return;
+        }
 
-      console.log('🔄 設置搖動檢測');
+        console.log('🔄 設置搖動檢測');
 
-      // 設置更新間隔
-      DeviceMotion.setUpdateInterval(100);
+        // 設置更新間隔
+        DeviceMotion.setUpdateInterval(100);
 
-      // 訂閱設備運動事件
-      subscription = DeviceMotion.addListener((motionData) => {
-        const { acceleration } = motionData;
-        if (acceleration) {
-          const { x, y, z } = acceleration;
+        // 訂閱設備運動事件
+        subscription = DeviceMotion.addListener((motionData) => {
+          const { acceleration } = motionData;
+          if (acceleration) {
+            const { x, y, z } = acceleration;
 
-          // 計算總加速度
-          const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
+            // 計算總加速度
+            const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
 
-          // 搖動閾值（降低敏感度，只在記帳頁面生效）
-          const shakeThreshold = 3.5;
+            // 搖動閾值（降低敏感度，只在記帳頁面生效）
+            const shakeThreshold = 3.5;
 
-          if (totalAcceleration > shakeThreshold) {
-            const now = Date.now();
-            // 防抖：至少間隔500ms才能觸發下一次搖動檢測（降低敏感度）
-            if (now - lastShakeDetectionTime.current > 500) {
-              lastShakeDetectionTime.current = now;
-              console.log('🔄 檢測到搖動，加速度:', totalAcceleration.toFixed(2));
-              handleShake();
+            if (totalAcceleration > shakeThreshold) {
+              const now = Date.now();
+              // 防抖：至少間隔500ms才能觸發下一次搖動檢測（降低敏感度）
+              if (now - lastShakeDetectionTime.current > 500) {
+                lastShakeDetectionTime.current = now;
+                console.log('🔄 檢測到搖動，加速度:', totalAcceleration.toFixed(2));
+                handleShake();
+              }
             }
           }
-        }
-      });
+        });
+      } catch (error) {
+        console.error('❌ 搖動檢測設置失敗:', error);
+      }
     };
 
     setupShakeDetection();
@@ -95,7 +161,7 @@ export default function TransactionsScreen() {
         clearTimeout(shakeTimeoutRef.current);
       }
     };
-  }, [handleShake]); // 依賴 handleShake 以確保函數是最新的
+  }, [handleShake, servicesInitialized]); // 依賴服務初始化狀態
 
   // 搖動檢測相關
   const [shakeCount, setShakeCount] = useState(0);
@@ -108,8 +174,14 @@ export default function TransactionsScreen() {
     const today = new Date().toISOString().split('T')[0];
     console.log('🔄 搖晃檢測：回到當前月份:', today);
 
-    // 觸覺反饋
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // 觸覺反饋（僅在支援的平台）
+    if (Haptics && Platform.OS !== 'web') {
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (error) {
+        console.log('⚠️ 觸覺反饋不可用:', error);
+      }
+    }
 
     setCurrentMonth(today);
     setSelectedDate(today);
@@ -158,11 +230,15 @@ export default function TransactionsScreen() {
 
     lastShakeTime.current = now;
   }, [shakeCount, goToCurrentMonth]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [futureRecurringTransactions, setFutureRecurringTransactions] = useState<any[]>([]);
-
   // 初始化交易資料服務和處理循環交易的生成
   useEffect(() => {
+    if (!servicesInitialized || !transactionDataService) {
+      console.log('⚠️ 服務尚未初始化，跳過交易數據載入');
+      return;
+    }
+
+    console.log('✅ 開始初始化交易數據');
+
     // 直接獲取已初始化的交易資料
     setTransactions(transactionDataService.getTransactions());
 
@@ -268,14 +344,18 @@ export default function TransactionsScreen() {
 
     return () => {
       clearTimeout(timeoutId);
-      transactionDataService.removeListener(handleTransactionsUpdate);
-      eventEmitter.off(EVENTS.RECURRING_TRANSACTION_CREATED, handleRecurringTransactionCreated);
-      eventEmitter.off(EVENTS.LIABILITY_ADDED, handleLiabilityAdded);
-      eventEmitter.off(EVENTS.LIABILITY_DELETED, handleLiabilityAdded); // 🔥 修復4：清理負債刪除監聽器
-      eventEmitter.off(EVENTS.FORCE_REFRESH_ALL, handleForceRefreshAll);
-      eventEmitter.off(EVENTS.FORCE_REFRESH_TRANSACTIONS, handleForceRefreshAll);
+      if (transactionDataService) {
+        transactionDataService.removeListener(handleTransactionsUpdate);
+      }
+      if (eventEmitter && EVENTS) {
+        eventEmitter.off(EVENTS.RECURRING_TRANSACTION_CREATED, handleRecurringTransactionCreated);
+        eventEmitter.off(EVENTS.LIABILITY_ADDED, handleLiabilityAdded);
+        eventEmitter.off(EVENTS.LIABILITY_DELETED, handleLiabilityAdded);
+        eventEmitter.off(EVENTS.FORCE_REFRESH_ALL, handleForceRefreshAll);
+        eventEmitter.off(EVENTS.FORCE_REFRESH_TRANSACTIONS, handleForceRefreshAll);
+      }
     };
-  }, []);
+  }, [servicesInitialized]); // 依賴服務初始化狀態
 
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
@@ -633,8 +713,14 @@ export default function TransactionsScreen() {
 
   // 翻頁動畫效果
   const playPageFlipAnimation = () => {
-    // 觸覺反饋
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // 觸覺反饋（僅在支援的平台）
+    if (Haptics && Platform.OS !== 'web') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch (error) {
+        console.log('⚠️ 觸覺反饋不可用:', error);
+      }
+    }
 
     // 視覺動畫序列
     Animated.sequence([
@@ -694,8 +780,14 @@ export default function TransactionsScreen() {
   };
 
   const handleDatePickerSelect = (year: number, month: number) => {
-    // 播放選擇反饋
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // 播放選擇反饋（僅在支援的平台）
+    if (Haptics && Platform.OS !== 'web') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } catch (error) {
+        console.log('⚠️ 觸覺反饋不可用:', error);
+      }
+    }
 
     // 創建新的日期字符串，確保格式正確
     const monthStr = month.toString().padStart(2, '0');
@@ -752,8 +844,14 @@ export default function TransactionsScreen() {
     console.log('🔙 計算結果 - 新年:', newYear, '新月:', newMonth);
     console.log('🔙 目標月份:', dateString);
 
-    // 觸覺反饋
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // 觸覺反饋（僅在支援的平台）
+    if (Haptics && Platform.OS !== 'web') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch (error) {
+        console.log('⚠️ 觸覺反饋不可用:', error);
+      }
+    }
 
     setCurrentMonth(dateString);
     setSelectedDate(dateString);
@@ -802,8 +900,14 @@ export default function TransactionsScreen() {
     console.log('🔜 計算結果 - 新年:', newYear, '新月:', newMonth);
     console.log('🔜 目標月份:', dateString);
 
-    // 觸覺反饋
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // 觸覺反饋（僅在支援的平台）
+    if (Haptics && Platform.OS !== 'web') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch (error) {
+        console.log('⚠️ 觸覺反饋不可用:', error);
+      }
+    }
 
     setCurrentMonth(dateString);
     setSelectedDate(dateString);
@@ -1089,6 +1193,16 @@ export default function TransactionsScreen() {
     };
   }
 
+  // 如果服務尚未初始化，顯示載入畫面
+  if (!servicesInitialized) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar style="dark" />
+        <Text style={{ fontSize: 16, color: '#666' }}>正在載入記帳功能...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -1137,7 +1251,14 @@ export default function TransactionsScreen() {
                 <TouchableOpacity
                   style={styles.monthTitle}
                   onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    // 觸覺反饋（僅在支援的平台）
+                    if (Haptics && Platform.OS !== 'web') {
+                      try {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      } catch (error) {
+                        console.log('⚠️ 觸覺反饋不可用:', error);
+                      }
+                    }
                     setShowDatePicker(true);
                   }}
                 >
