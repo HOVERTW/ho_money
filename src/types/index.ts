@@ -221,7 +221,7 @@ export type MainTabParamList = {
   CashFlow: undefined;
   Charts: undefined;
   // CategoryTest: undefined;
-  StockManagement: undefined;
+  // StockManagement: undefined; // 已移除
 };
 
 export type AuthStackParamList = {

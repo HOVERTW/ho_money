@@ -21,7 +21,7 @@ import BalanceSheetScreen from '../screens/main/BalanceSheetScreen';
 import CashFlowScreen from '../screens/main/CashFlowScreen';
 import ChartsScreen from '../screens/main/ChartsScreen';
 
-import StockManagementScreen from '../screens/StockManagementScreen';
+// import StockManagementScreen from '../screens/StockManagementScreen'; // 已移除
 
 const RootStack = createStackNavigator<RootStackParamList>();
 const AuthStack = createStackNavigator<AuthStackParamList>();
@@ -68,9 +68,9 @@ function MainNavigator() {
               iconName = focused ? 'bar-chart' : 'bar-chart-outline';
               break;
 
-            case 'StockManagement':
-              iconName = focused ? 'trending-up' : 'trending-up-outline';
-              break;
+            // case 'StockManagement': // 已移除
+            //   iconName = focused ? 'trending-up' : 'trending-up-outline';
+            //   break;
             default:
               iconName = 'help-outline';
           }
@@ -132,11 +132,11 @@ function MainNavigator() {
         options={{ title: '圖表分析' }}
       />
 
-      <MainTab.Screen
+      {/* <MainTab.Screen
         name="StockManagement"
         component={StockManagementScreen}
         options={{ title: '台股管理' }}
-      />
+      /> */}
     </MainTab.Navigator>
   );
 }
