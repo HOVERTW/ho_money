@@ -25,9 +25,9 @@ function AppContent() {
 
         console.log('🚀 開始初始化應用服務...');
 
-        // 添加超時保護
+        // 添加超時保護，但縮短時間
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('初始化超時')), 15000);
+          setTimeout(() => reject(new Error('初始化超時')), 10000);
         });
 
         const initPromise = appInitializationService.initializeApp();

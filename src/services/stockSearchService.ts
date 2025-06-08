@@ -4,6 +4,7 @@
  */
 
 import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from '@env';
+import { supabase } from './supabase';
 
 export interface StockInfo {
   code: string;
@@ -169,7 +170,7 @@ export class StockSearchService {
 
       if (data && data.length > 0) {
         console.log(`✅ 獲取 ${data.length} 檔熱門股票`);
-        return data.map(item => ({
+        return data.map((item: any) => ({
           code: item.code,
           name: item.name,
           closing_price: item.closing_price,

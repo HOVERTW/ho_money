@@ -272,42 +272,61 @@ export const authService = {
             error: null
           };
         } else {
-          // 移動平台：使用 WebBrowser
-          console.log('📱 移動平台：開啟 WebBrowser');
-          const result = await WebBrowser.openAuthSessionAsync(
-            data.url,
-            redirectUrl
-          );
+          // 移動平台：使用 AuthSession 替代 WebBrowser
+          console.log('📱 移動平台：開啟 AuthSession');
 
-          console.log('📱 OAuth 結果:', result);
+          try {
+            const result = await WebBrowser.openAuthSessionAsync(
+              data.url,
+              redirectUrl,
+              {
+                // 使用系統瀏覽器而不是應用內瀏覽器
+                preferEphemeralSession: false,
+                showInRecents: true,
+              }
+            );
 
-          if (result.type === 'success' && result.url) {
-            // 從 URL 中提取 session 資訊
-            const url = new URL(result.url);
-            const accessToken = url.searchParams.get('access_token');
-            const refreshToken = url.searchParams.get('refresh_token');
+            console.log('📱 OAuth 結果:', result);
 
-            console.log('🔑 Access Token 存在:', !!accessToken);
+            if (result.type === 'success' && result.url) {
+              console.log('✅ OAuth 成功，處理回調 URL:', result.url);
 
-            if (accessToken) {
-              const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken || '',
-              });
+              // 使用 Supabase 的內建方法處理 OAuth 回調
+              const { data: sessionData, error: sessionError } = await supabase.auth.getSessionFromUrl(result.url);
 
               if (sessionError) {
-                console.error('❌ Session 設置錯誤:', sessionError);
+                console.error('❌ Session 處理錯誤:', sessionError);
                 return { data: { user: null, session: null }, error: sessionError };
               }
 
-              console.log('✅ Google 登錄成功');
-              return { data: sessionData, error: null };
+              if (sessionData.session) {
+                console.log('✅ Google 登錄成功');
+                return { data: sessionData, error: null };
+              } else {
+                console.log('⚠️ 未獲得有效 session');
+                return {
+                  data: { user: null, session: null },
+                  error: new AuthError('未獲得有效的登錄會話')
+                };
+              }
+            } else if (result.type === 'cancel') {
+              console.log('⚠️ 用戶取消登錄');
+              return {
+                data: { user: null, session: null },
+                error: new AuthError('用戶取消登錄')
+              };
+            } else {
+              console.log('⚠️ OAuth 流程異常結束:', result.type);
+              return {
+                data: { user: null, session: null },
+                error: new AuthError('OAuth 流程異常結束')
+              };
             }
-          } else if (result.type === 'cancel') {
-            console.log('⚠️ 用戶取消登錄');
+          } catch (authError) {
+            console.error('❌ AuthSession 錯誤:', authError);
             return {
               data: { user: null, session: null },
-              error: new AuthError('用戶取消登錄')
+              error: new AuthError(authError instanceof Error ? authError.message : 'AuthSession 失敗')
             };
           }
         }

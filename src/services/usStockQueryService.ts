@@ -395,7 +395,7 @@ class USStockQueryService {
 
       const sectors = [...new Set(data.map((item: any) => item.sector))].filter(Boolean);
       console.log(`✅ 獲取 ${sectors.length} 個行業`);
-      return sectors;
+      return sectors as string[];
     } catch (error) {
       console.error('❌ 獲取行業列表失敗:', error);
       return ['Technology', 'Healthcare', 'Financials', 'Consumer Discretionary', 'Communication Services'];

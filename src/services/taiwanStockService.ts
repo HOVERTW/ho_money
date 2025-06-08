@@ -1,4 +1,5 @@
 import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from '@env';
+import { supabase } from './supabase';
 
 // 台股資料介面
 export interface TaiwanStock {

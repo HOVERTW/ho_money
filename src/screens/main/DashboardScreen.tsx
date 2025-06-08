@@ -65,129 +65,106 @@ export default function DashboardScreen() {
   // 初始化用戶資料服務
   useEffect(() => {
     const initUserProfile = async () => {
-      await userProfileService.initialize();
-      setUserProfile(userProfileService.getProfile());
+      try {
+        await userProfileService.initialize();
+        setUserProfile(userProfileService.getProfile());
+      } catch (error) {
+        console.error('❌ 用戶資料初始化失敗:', error);
+      }
     };
     initUserProfile();
   }, []);
 
   // 監聽所有資料變化
   useEffect(() => {
-    // 初始化資料
-    setTransactions(transactionDataService.getTransactions());
-    setAssets(assetTransactionSyncService.getAssets());
-    setLiabilities(liabilityService.getLiabilities());
-
-    // 添加監聽器
-    const handleTransactionsUpdate = () => {
-      setTransactions(transactionDataService.getTransactions());
-    };
-    const handleAssetsUpdate = (updatedAssets: AssetData[]) => {
-      setAssets(updatedAssets);
-    };
-    const handleLiabilitiesUpdate = (updatedLiabilities: LiabilityData[]) => {
-      setLiabilities(updatedLiabilities);
-    };
-
-    transactionDataService.addListener(handleTransactionsUpdate);
-    assetTransactionSyncService.addListener(handleAssetsUpdate);
-    liabilityService.addListener(handleLiabilitiesUpdate);
-
-    // 添加財務數據更新事件監聽器
-    const handleFinancialDataUpdate = (data: any) => {
-      console.log('📡 DashboardScreen 收到財務數據更新事件:', data);
-      // 強制刷新所有數據
+    try {
+      // 初始化資料
       setTransactions(transactionDataService.getTransactions());
       setAssets(assetTransactionSyncService.getAssets());
       setLiabilities(liabilityService.getLiabilities());
-      setForceRefresh(prev => prev + 1);
-      console.log('✅ DashboardScreen 數據已強制刷新');
-    };
 
-    const handleDebtPaymentAdded = (data: any) => {
-      console.log('📡 DashboardScreen 收到負債還款添加事件:', data);
-      // 強制刷新
-      handleFinancialDataUpdate(data);
-    };
-
-    // 🔥 方法8：增強的負債添加事件監聽器
-    const handleLiabilityAdded = (liability: any) => {
-      console.log('🔥 方法8 - DashboardScreen 收到負債添加事件:', liability.name);
-      console.log('🔥 方法8 - 立即刷新所有數據');
-
-      // 立即刷新所有數據
-      setLiabilities(liabilityService.getLiabilities());
-      setTransactions(transactionDataService.getTransactions());
-      setAssets(assetTransactionSyncService.getAssets());
-      setForceRefresh(prev => prev + 1);
-
-      // 延遲再次刷新確保數據同步
-      setTimeout(() => {
-        console.log('🔥 方法8 - 延遲刷新數據');
-        setLiabilities(liabilityService.getLiabilities());
+      // 添加監聽器
+      const handleTransactionsUpdate = () => {
         setTransactions(transactionDataService.getTransactions());
-        setAssets(assetTransactionSyncService.getAssets());
-        setForceRefresh(prev => prev + 1);
-      }, 500);
-    };
+      };
+      const handleAssetsUpdate = (updatedAssets: AssetData[]) => {
+        setAssets(updatedAssets);
+      };
+      const handleLiabilitiesUpdate = (updatedLiabilities: LiabilityData[]) => {
+        setLiabilities(updatedLiabilities);
+      };
 
-    const handleForceRefreshAll = (data: any) => {
-      console.log('🔥 方法8 - DashboardScreen 收到強制刷新事件:', data);
-      console.log('🔥 方法8 - 立即刷新所有數據');
+      transactionDataService.addListener(handleTransactionsUpdate);
+      assetTransactionSyncService.addListener(handleAssetsUpdate);
+      liabilityService.addListener(handleLiabilitiesUpdate);
 
-      setTransactions(transactionDataService.getTransactions());
-      setAssets(assetTransactionSyncService.getAssets());
-      setLiabilities(liabilityService.getLiabilities());
-      setForceRefresh(prev => prev + 1);
-
-      // 延遲再次刷新
-      setTimeout(() => {
-        console.log('🔥 方法8 - 延遲刷新數據');
+      // 添加財務數據更新事件監聽器
+      const handleFinancialDataUpdate = (data: any) => {
+        console.log('📡 DashboardScreen 收到財務數據更新事件:', data);
+        // 強制刷新所有數據
         setTransactions(transactionDataService.getTransactions());
         setAssets(assetTransactionSyncService.getAssets());
         setLiabilities(liabilityService.getLiabilities());
         setForceRefresh(prev => prev + 1);
-      }, 300);
-    };
+        console.log('✅ DashboardScreen 數據已強制刷新');
+      };
 
-    eventEmitter.on(EVENTS.FINANCIAL_DATA_UPDATED, handleFinancialDataUpdate);
-    eventEmitter.on(EVENTS.DEBT_PAYMENT_ADDED, handleDebtPaymentAdded);
-    eventEmitter.on(EVENTS.LIABILITY_ADDED, handleLiabilityAdded);
-    eventEmitter.on(EVENTS.LIABILITY_DELETED, handleLiabilityAdded); // 🔥 修復4：負債刪除也需要刷新
-    eventEmitter.on(EVENTS.FORCE_REFRESH_ALL, handleForceRefreshAll);
-    eventEmitter.on(EVENTS.FORCE_REFRESH_DASHBOARD, handleForceRefreshAll);
+      const handleLiabilityAdded = (liability: any) => {
+        console.log('🔥 DashboardScreen 收到負債添加事件:', liability.name);
+        // 立即刷新所有數據
+        setLiabilities(liabilityService.getLiabilities());
+        setTransactions(transactionDataService.getTransactions());
+        setAssets(assetTransactionSyncService.getAssets());
+        setForceRefresh(prev => prev + 1);
+      };
 
-    // 清理函數
-    return () => {
-      transactionDataService.removeListener(handleTransactionsUpdate);
-      assetTransactionSyncService.removeListener(handleAssetsUpdate);
-      liabilityService.removeListener(handleLiabilitiesUpdate);
-      eventEmitter.off(EVENTS.FINANCIAL_DATA_UPDATED, handleFinancialDataUpdate);
-      eventEmitter.off(EVENTS.DEBT_PAYMENT_ADDED, handleDebtPaymentAdded);
-      eventEmitter.off(EVENTS.LIABILITY_ADDED, handleLiabilityAdded);
-      eventEmitter.off(EVENTS.LIABILITY_DELETED, handleLiabilityAdded); // 🔥 修復4：清理負債刪除監聽器
-      eventEmitter.off(EVENTS.FORCE_REFRESH_ALL, handleForceRefreshAll);
-      eventEmitter.off(EVENTS.FORCE_REFRESH_DASHBOARD, handleForceRefreshAll);
-    };
+      eventEmitter.on(EVENTS.FINANCIAL_DATA_UPDATED, handleFinancialDataUpdate);
+      eventEmitter.on(EVENTS.LIABILITY_ADDED, handleLiabilityAdded);
+      eventEmitter.on(EVENTS.LIABILITY_DELETED, handleLiabilityAdded);
+      eventEmitter.on(EVENTS.FORCE_REFRESH_ALL, handleFinancialDataUpdate);
+      eventEmitter.on(EVENTS.FORCE_REFRESH_DASHBOARD, handleFinancialDataUpdate);
+
+      // 清理函數
+      return () => {
+        transactionDataService.removeListener(handleTransactionsUpdate);
+        assetTransactionSyncService.removeListener(handleAssetsUpdate);
+        liabilityService.removeListener(handleLiabilitiesUpdate);
+        eventEmitter.off(EVENTS.FINANCIAL_DATA_UPDATED, handleFinancialDataUpdate);
+        eventEmitter.off(EVENTS.LIABILITY_ADDED, handleLiabilityAdded);
+        eventEmitter.off(EVENTS.LIABILITY_DELETED, handleLiabilityAdded);
+        eventEmitter.off(EVENTS.FORCE_REFRESH_ALL, handleFinancialDataUpdate);
+        eventEmitter.off(EVENTS.FORCE_REFRESH_DASHBOARD, handleFinancialDataUpdate);
+      };
+    } catch (error) {
+      console.error('❌ DashboardScreen 初始化失敗:', error);
+    }
   }, []);
 
-  // Mock data for demo
-  const mockUser = { email: 'demo@fintranzo.com' };
-  // 🔥 方法9：使用獨立計算器
+  // 使用獨立計算器
   const calculateSummary = () => {
-    console.log('🔥 方法9 - DashboardScreen 使用獨立計算器');
-
-    const summary = FinancialCalculator.calculateCurrentMonthSummary();
-
-    return {
-      net_worth: summary.netWorth,
-      total_assets: summary.totalAssets,
-      total_liabilities: summary.totalLiabilities,
-      monthly_income: summary.monthlyIncome,
-      monthly_expenses: summary.totalExpenses, // 使用總支出（包含還款）
-      savings_rate: summary.savingsRate,
-      monthly_debt_payments: summary.monthlyDebtPayments,
-    };
+    try {
+      const summary = FinancialCalculator.calculateCurrentMonthSummary();
+      return {
+        net_worth: summary.netWorth,
+        total_assets: summary.totalAssets,
+        total_liabilities: summary.totalLiabilities,
+        monthly_income: summary.monthlyIncome,
+        monthly_expenses: summary.totalExpenses,
+        savings_rate: summary.savingsRate,
+        monthly_debt_payments: summary.monthlyDebtPayments,
+      };
+    } catch (error) {
+      console.error('❌ 財務計算失敗:', error);
+      return {
+        net_worth: 0,
+        total_assets: 0,
+        total_liabilities: 0,
+        monthly_income: 0,
+        monthly_expenses: 0,
+        savings_rate: 0,
+        monthly_debt_payments: 0,
+      };
+    }
   };
 
   // 使用 useMemo 確保在 forceRefresh 變化時重新計算
@@ -220,163 +197,245 @@ export default function DashboardScreen() {
     return { startDate, endDate: now };
   };
 
-  // 🔥 方法9：使用獨立計算器計算資產變化
+  // 計算收入支出分析
   const calculateTopIncomeExpense = () => {
-    console.log('🔥 方法9 - DashboardScreen 使用獨立計算器計算最大收入/支出');
+    try {
+      if (timeRange === 'month') {
+        const incomeExpenseAnalysis = FinancialCalculator.getTopIncomeExpenseAnalysis();
+        return {
+          topIncomes: incomeExpenseAnalysis.topIncomes,
+          topExpenses: incomeExpenseAnalysis.topExpenses,
+        };
+      } else {
+        const topIncomes: Array<{ id: string; name: string; amount: number; type: string }> = [];
+        const topExpenses: Array<{ id: string; name: string; amount: number; type: string }> = [];
+        const { startDate, endDate } = getDateRange();
 
-    if (timeRange === 'month') {
-      // 當月數據使用獨立計算器（僅計算記帳頁交易資料）
-      const incomeExpenseAnalysis = FinancialCalculator.getTopIncomeExpenseAnalysis();
+        const rangeTransactions = transactionDataService.getTransactionsByDateRange(startDate, endDate);
+
+        // 按類別統計收入和支出
+        const incomeByCategory: { [key: string]: number } = {};
+        const expenseByCategory: { [key: string]: number } = {};
+
+        rangeTransactions.forEach(transaction => {
+          if (transaction.type === 'income') {
+            incomeByCategory[transaction.category] = (incomeByCategory[transaction.category] || 0) + transaction.amount;
+          } else if (transaction.type === 'expense') {
+            expenseByCategory[transaction.category] = (expenseByCategory[transaction.category] || 0) + transaction.amount;
+          }
+        });
+
+        // 添加收入類別到最大收入列表
+        Object.entries(incomeByCategory).forEach(([category, amount]) => {
+          if (amount > 0) {
+            topIncomes.push({
+              id: `income_${category}`,
+              name: category,
+              amount: amount,
+              type: '記帳收入',
+            });
+          }
+        });
+
+        // 添加支出類別到最大支出列表
+        Object.entries(expenseByCategory).forEach(([category, amount]) => {
+          if (amount > 0) {
+            topExpenses.push({
+              id: `expense_${category}`,
+              name: category,
+              amount: amount,
+              type: '記帳支出',
+            });
+          }
+        });
+
+        // 排序並取前5名
+        topIncomes.sort((a, b) => b.amount - a.amount);
+        topExpenses.sort((a, b) => b.amount - a.amount);
+
+        return {
+          topIncomes: topIncomes.slice(0, 5),
+          topExpenses: topExpenses.slice(0, 5),
+        };
+      }
+    } catch (error) {
+      console.error('❌ 收支分析計算失敗:', error);
       return {
-        topIncomes: incomeExpenseAnalysis.topIncomes,
-        topExpenses: incomeExpenseAnalysis.topExpenses,
-      };
-    } else {
-      // 其他時間範圍也改為收入/支出分析（僅計算記帳頁交易資料）
-      const topIncomes: Array<{ id: string; name: string; amount: number; type: string }> = [];
-      const topExpenses: Array<{ id: string; name: string; amount: number; type: string }> = [];
-      const { startDate, endDate } = getDateRange();
-
-      // 添加基於交易記錄的分類統計
-      const rangeTransactions = transactionDataService.getTransactionsByDateRange(startDate, endDate);
-
-      // 按類別統計收入和支出
-      const incomeByCategory: { [key: string]: number } = {};
-      const expenseByCategory: { [key: string]: number } = {};
-
-      rangeTransactions.forEach(transaction => {
-        if (transaction.type === 'income') {
-          incomeByCategory[transaction.category] = (incomeByCategory[transaction.category] || 0) + transaction.amount;
-        } else if (transaction.type === 'expense') {
-          expenseByCategory[transaction.category] = (expenseByCategory[transaction.category] || 0) + transaction.amount;
-        }
-      });
-
-      // 添加收入類別到最大收入列表
-      Object.entries(incomeByCategory).forEach(([category, amount]) => {
-        if (amount > 0) {
-          topIncomes.push({
-            id: `income_${category}`,
-            name: category,
-            amount: amount,
-            type: '記帳收入',
-          });
-        }
-      });
-
-      // 添加支出類別到最大支出列表
-      Object.entries(expenseByCategory).forEach(([category, amount]) => {
-        if (amount > 0) {
-          topExpenses.push({
-            id: `expense_${category}`,
-            name: category,
-            amount: amount,
-            type: '記帳支出',
-          });
-        }
-      });
-
-      // 排序並取前5名
-      topIncomes.sort((a, b) => b.amount - a.amount);
-      topExpenses.sort((a, b) => b.amount - a.amount);
-
-      return {
-        topIncomes: topIncomes.slice(0, 5),
-        topExpenses: topExpenses.slice(0, 5),
+        topIncomes: [],
+        topExpenses: [],
       };
     }
   };
 
-  // 獲取時間範圍標籤
-  const getTimeRangeLabel = () => {
-    switch (timeRange) {
-      case 'today': return '今日';
-      case 'week': return '本週';
-      case 'month': return '本月';
-      case 'total': return '累積';
-      default: return '';
+  // 生成近12個月的資產變化數據
+  const generateYearlyNetWorthData = () => {
+    try {
+      const currentDate = new Date();
+      const labels: string[] = [];
+      const data: number[] = [];
+
+      // 確保數據存在且為陣列
+      const safeTransactions = Array.isArray(transactions) ? transactions : [];
+      const safeAssets = Array.isArray(assets) ? assets : [];
+      const safeLiabilities = Array.isArray(liabilities) ? liabilities : [];
+
+      // 生成近12個月的標籤和數據
+      for (let i = 11; i >= 0; i--) {
+        try {
+          const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i + 1, 1);
+          const month = date.getMonth() + 1;
+          labels.push(`${month}月`);
+
+          // 計算該月的實際資產變化
+          const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+          const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+          monthEnd.setHours(23, 59, 59, 999);
+
+          const monthTransactions = safeTransactions.filter(t => {
+            if (!t || !t.date) return false;
+            const tDate = new Date(t.date);
+            if (isNaN(tDate.getTime())) return false;
+            return tDate >= monthStart && tDate <= monthEnd;
+          });
+
+          const monthIncome = monthTransactions
+            .filter(t => t.type === 'income')
+            .reduce((sum, t) => sum + t.amount, 0);
+
+          const monthExpense = monthTransactions
+            .filter(t => t.type === 'expense')
+            .reduce((sum, t) => sum + t.amount, 0);
+
+          const currentAssets = safeAssets.reduce((sum, asset) => sum + (asset?.current_value || 0), 0);
+          const currentLiabilities = safeLiabilities.reduce((sum, liability) => sum + (liability?.balance || 0), 0);
+          const currentNetWorth = currentAssets - currentLiabilities;
+
+          const todayDate = new Date();
+          const isCurrentMonth = date.getFullYear() === todayDate.getFullYear() &&
+                                date.getMonth() === todayDate.getMonth();
+
+          let monthNetWorth;
+          if (isCurrentMonth) {
+            monthNetWorth = currentNetWorth;
+          } else {
+            const futureTransactions = safeTransactions.filter(t => {
+              if (!t || !t.date) return false;
+              const tDate = new Date(t.date);
+              if (isNaN(tDate.getTime())) return false;
+              return tDate > monthEnd;
+            });
+
+            const futureNetChange = futureTransactions
+              .filter(t => t.type === 'income')
+              .reduce((sum, t) => sum + t.amount, 0) -
+              futureTransactions
+              .filter(t => t.type === 'expense')
+              .reduce((sum, t) => sum + t.amount, 0);
+
+            monthNetWorth = currentNetWorth - futureNetChange + (monthIncome - monthExpense);
+          }
+
+          data.push(monthNetWorth);
+        } catch (error) {
+          labels.push(`${i}月`);
+          data.push(0);
+        }
+      }
+
+      return {
+        labels,
+        datasets: [
+          {
+            data,
+            color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+            strokeWidth: 3,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+        datasets: [
+          {
+            data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+            strokeWidth: 3,
+          },
+        ],
+      };
     }
   };
 
+  const netWorthData = generateYearlyNetWorthData();
+
+  // 計算真實的財務摘要數據
+  const calculateRealFinancialSummary = () => {
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+
+    const safeTransactions = Array.isArray(transactions) ? transactions : [];
+    const safeAssets = Array.isArray(assets) ? assets : [];
+    const safeLiabilities = Array.isArray(liabilities) ? liabilities : [];
+
+    const currentMonthTransactions = safeTransactions.filter(t => {
+      if (!t || !t.date) return false;
+      const tDate = new Date(t.date);
+      if (isNaN(tDate.getTime())) return false;
+      return tDate.getFullYear() === currentYear && tDate.getMonth() === currentMonth;
+    });
+
+    const monthlyIncome = currentMonthTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const monthlyExpenses = currentMonthTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const totalAssets = safeAssets.reduce((sum, asset) => sum + (asset?.current_value || 0), 0);
+    const totalLiabilities = safeLiabilities.reduce((sum, liability) => sum + (liability?.balance || 0), 0);
+    const netWorth = totalAssets - totalLiabilities;
+
+    return {
+      monthlyIncome,
+      monthlyExpenses,
+      totalAssets,
+      totalLiabilities,
+      netWorth
+    };
+  };
+
+  const realSummary = calculateRealFinancialSummary();
   const { topIncomes, topExpenses } = calculateTopIncomeExpense();
 
-  // 🔄 強制更新類別
-  const forceUpdateCategories = async () => {
-    try {
-      await transactionDataService.forceUpdateCategories();
-      Alert.alert('成功', '類別已更新到最新版本！');
-    } catch (error) {
-      Alert.alert('錯誤', '更新類別失敗');
-      console.error('更新類別失敗:', error);
-    }
-  };
-
-  // 🔥 方法8：直接創建測試交易數據
-  const validateFinancialCalculations = async () => {
-    console.log('🔍 ===== 方法8：直接創建測試交易數據 =====');
-
-    const allTransactions = transactionDataService.getTransactions();
-    console.log('🔍 當前所有交易數據:', allTransactions.length);
-
-    const debtTransactions = allTransactions.filter(t => t.category === '還款');
-    console.log('🔍 當前還款交易數量:', debtTransactions.length);
-
-    // 如果沒有還款交易，直接創建一個
-    if (debtTransactions.length === 0) {
-      console.log('🔥 方法8：沒有還款交易，直接創建一個測試交易');
-
-      const currentDate = new Date();
-      const testDebtTransaction = {
-        id: `test_debt_payment_${Date.now()}`,
-        amount: 50000,
-        type: 'expense' as const,
-        description: '信用貸款',
-        category: '還款',
-        account: '銀行',
-        date: currentDate.toISOString(),
-        is_recurring: true,
-        recurring_frequency: 'monthly',
-        max_occurrences: 12,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      await transactionDataService.addTransaction(testDebtTransaction);
-      console.log('✅ 方法8：測試還款交易已創建:', testDebtTransaction);
-
-      // 強制刷新數據
-      setTransactions(transactionDataService.getTransactions());
-      setForceRefresh(prev => prev + 1);
-
-      console.log('✅ 方法8：數據已強制刷新');
-    } else {
-      console.log('✅ 方法8：已存在還款交易，數量:', debtTransactions.length);
-      debtTransactions.forEach(t => {
-        console.log('  - 還款交易:', {
-          id: t.id,
-          amount: t.amount,
-          description: t.description,
-          date: t.date
-        });
-      });
-    }
-
-    console.log('🔍 ===== 方法8檢查完成 =====');
+  const chartConfig = {
+    backgroundColor: '#ffffff',
+    backgroundGradientFrom: '#ffffff',
+    backgroundGradientTo: '#ffffff',
+    decimalPlaces: 0,
+    color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+    style: {
+      borderRadius: 16,
+    },
+    propsForDots: {
+      r: '4',
+      strokeWidth: '2',
+      stroke: '#007AFF',
+    },
+    propsForLabels: {
+      fontSize: 10,
+    },
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-
-    // 🔥 強制刷新所有數據
     console.log('🔄 DashboardScreen 強制刷新所有數據');
     setTransactions(transactionDataService.getTransactions());
     setAssets(assetTransactionSyncService.getAssets());
     setLiabilities(liabilityService.getLiabilities());
     setForceRefresh(prev => prev + 1);
-
-    // 🔥 執行財務計算驗證
-    validateFinancialCalculations();
-
     setTimeout(() => setRefreshing(false), 1000);
   };
 
@@ -534,9 +593,6 @@ export default function DashboardScreen() {
         [{ text: '確定' }]
       );
 
-      // 這裡可以添加實際的同步邏輯
-      // 例如：await userDataSyncService.syncAllDataToSupabase();
-
       console.log('🔄 開始同步數據到 Supabase...');
       console.log('👤 當前用戶:', user.email);
 
@@ -601,245 +657,26 @@ export default function DashboardScreen() {
     );
   };
 
-  // 生成近12個月的資產變化數據
-  const generateYearlyNetWorthData = () => {
-    try {
-      const currentDate = new Date();
-      const labels: string[] = [];
-      const data: number[] = [];
-
-      // 確保數據存在且為陣列
-      const safeTransactions = Array.isArray(transactions) ? transactions : [];
-      const safeAssets = Array.isArray(assets) ? assets : [];
-      const safeLiabilities = Array.isArray(liabilities) ? liabilities : [];
-
-    // 生成近12個月的標籤和數據
-    // 修復：從去年同月的下一個月開始，到當前月份結束
-    // 例如：現在是2025年6月，應該從2024年7月開始到2025年6月
-    for (let i = 11; i >= 0; i--) {
-      try {
-        // 修復：正確計算起始月份 - 從去年同月的下一個月開始
-        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i + 1, 1);
-        const month = date.getMonth() + 1;
-        const year = date.getFullYear();
-
-        // 只顯示月份，避免文字重疊
-        labels.push(`${month}月`);
-
-        // 計算該月的實際資產變化
-        const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-        const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-        monthEnd.setHours(23, 59, 59, 999);
-
-        const monthTransactions = safeTransactions.filter(t => {
-          // 確保交易有有效的日期
-          if (!t || !t.date) return false;
-
-          const tDate = new Date(t.date);
-          // 檢查日期是否有效
-          if (isNaN(tDate.getTime())) return false;
-
-          return tDate >= monthStart && tDate <= monthEnd;
-        });
-
-        const monthIncome = monthTransactions
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + t.amount, 0);
-
-        const monthExpense = monthTransactions
-          .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + t.amount, 0);
-
-        const netChange = monthIncome - monthExpense;
-
-        // 🔥 修復：正確計算歷史淨值
-        const currentAssets = safeAssets.reduce((sum, asset) => sum + (asset?.current_value || 0), 0);
-        const currentLiabilities = safeLiabilities.reduce((sum, liability) => sum + (liability?.balance || 0), 0);
-        const currentNetWorth = currentAssets - currentLiabilities;
-
-        // 如果是當前月份，直接使用當前淨值（已經包含所有交易影響）
-        const todayDate = new Date();
-        const isCurrentMonth = date.getFullYear() === todayDate.getFullYear() &&
-                              date.getMonth() === todayDate.getMonth();
-
-        let monthNetWorth;
-        if (isCurrentMonth) {
-          // 當前月份：直接使用當前淨值
-          monthNetWorth = currentNetWorth;
-        } else {
-          // 歷史月份：基於當前淨值反推歷史值
-          // 計算從該月到現在的累積淨變化
-          const futureTransactions = safeTransactions.filter(t => {
-            // 確保交易有有效的日期
-            if (!t || !t.date) return false;
-
-            const tDate = new Date(t.date);
-            // 檢查日期是否有效
-            if (isNaN(tDate.getTime())) return false;
-
-            return tDate > monthEnd;
-          });
-
-          const futureNetChange = futureTransactions
-            .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + t.amount, 0) -
-            futureTransactions
-            .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + t.amount, 0);
-
-          // 歷史淨值 = 當前淨值 - 未來累積變化 + 該月變化
-          monthNetWorth = currentNetWorth - futureNetChange + netChange;
-        }
-
-        // 修復：允許顯示負資產，不強制設為0
-        data.push(monthNetWorth);
-      } catch (error) {
-        // 添加默認值以防止崩潰
-        labels.push(`${i}月`);
-        data.push(0);
-      }
-    }
-
-    return {
-      labels,
-      datasets: [
-        {
-          data,
-          color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-          strokeWidth: 3,
-        },
-      ],
-    };
-    } catch (error) {
-      // 返回默認數據以防止崩潰
-      return {
-        labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
-        datasets: [
-          {
-            data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-            strokeWidth: 3,
-          },
-        ],
-      };
-    }
-  };
-
-  const netWorthData = generateYearlyNetWorthData();
-
-  // 🔥 計算真實的財務摘要數據
-  const calculateRealFinancialSummary = () => {
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth();
-
-    // 確保數據存在且為陣列
-    const safeTransactions = Array.isArray(transactions) ? transactions : [];
-    const safeAssets = Array.isArray(assets) ? assets : [];
-    const safeLiabilities = Array.isArray(liabilities) ? liabilities : [];
-
-    // 計算當月交易
-    const currentMonthTransactions = safeTransactions.filter(t => {
-      // 確保交易有有效的日期
-      if (!t || !t.date) return false;
-
-      const tDate = new Date(t.date);
-      // 檢查日期是否有效
-      if (isNaN(tDate.getTime())) return false;
-
-      return tDate.getFullYear() === currentYear && tDate.getMonth() === currentMonth;
-    });
-
-    const monthlyIncome = currentMonthTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const monthlyExpenses = currentMonthTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // 計算資產負債
-    const totalAssets = safeAssets.reduce((sum, asset) => sum + (asset?.current_value || 0), 0);
-    const totalLiabilities = safeLiabilities.reduce((sum, liability) => sum + (liability?.balance || 0), 0);
-    const netWorth = totalAssets - totalLiabilities;
-
-    return {
-      monthlyIncome,
-      monthlyExpenses,
-      totalAssets,
-      totalLiabilities,
-      netWorth
-    };
-  };
-
-  const realSummary = calculateRealFinancialSummary();
-
-  // 🔥 驗證數據綁定的測試函數
-  const validateDataBinding = () => {
-    console.log('🔍 ===== 驗證近一年資產變化數據綁定 =====');
-
-    console.log('📊 當前數據狀態:', {
-      transactionsCount: transactions.length,
-      assetsCount: assets.length,
-      liabilitiesCount: liabilities.length,
-      totalAssets: realSummary.totalAssets,
-      totalLiabilities: realSummary.totalLiabilities,
-      netWorth: realSummary.netWorth,
-      monthlyIncome: realSummary.monthlyIncome,
-      monthlyExpenses: realSummary.monthlyExpenses
-    });
-
-    // 檢查圖表數據
-    const chartData = generateYearlyNetWorthData();
-    console.log('📈 圖表數據:', {
-      labelsCount: chartData.labels.length,
-      dataPointsCount: chartData.datasets[0].data.length,
-      labels: chartData.labels,
-      firstDataPoint: chartData.datasets[0].data[0],
-      lastDataPoint: chartData.datasets[0].data[chartData.datasets[0].data.length - 1]
-    });
-
-    // 檢查數據是否真實綁定
-    const isRealData = !chartData.datasets[0].data.every(point => point === chartData.datasets[0].data[0]);
-    console.log('✅ 數據綁定檢查:', {
-      isUsingRealData: isRealData,
-      hasTransactions: transactions.length > 0,
-      hasAssets: assets.length > 0,
-      hasLiabilities: liabilities.length > 0,
-      netWorthCalculated: realSummary.netWorth !== 0
-    });
-
-    return isRealData;
-  };
-
-  const chartConfig = {
-    backgroundColor: '#ffffff',
-    backgroundGradientFrom: '#ffffff',
-    backgroundGradientTo: '#ffffff',
-    decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-    style: {
-      borderRadius: 16,
-    },
-    propsForDots: {
-      r: '4',
-      strokeWidth: '2',
-      stroke: '#007AFF',
-    },
-    propsForLabels: {
-      fontSize: 10, // 縮小2個字號 (原本約12)
-    },
-  };
-
-  // 使用真實的資產增長和減損資料
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('zh-TW', {
       style: 'currency',
       currency: 'TWD',
       minimumFractionDigits: 0,
     }).format(amount);
+  };
+
+  const formatPercentage = (value: number) => {
+    return `${(value * 100).toFixed(1)}%`;
+  };
+
+  const getTimeRangeText = () => {
+    switch (timeRange) {
+      case 'today': return '今日';
+      case 'week': return '本週';
+      case 'month': return '本月';
+      case 'total': return '總計';
+      default: return '本月';
+    }
   };
 
   return (
@@ -1117,12 +954,15 @@ export default function DashboardScreen() {
                   {/* Google 登錄按鈕 */}
                   <TouchableOpacity
                     onPress={handleGoogleLogin}
-                    style={styles.googleLoginButton}
-                    disabled={authLoading}
+                    style={[
+                      styles.googleLoginButton,
+                      Platform.OS !== 'web' && { opacity: 0.5 }
+                    ]}
+                    disabled={authLoading || Platform.OS !== 'web'}
                   >
                     <Ionicons name="logo-google" size={20} color="#fff" />
                     <Text style={styles.googleLoginText}>
-                      {authLoading ? '登錄中...' : '使用 Google 登錄'}
+                      {authLoading ? '登錄中...' : Platform.OS !== 'web' ? 'Google 登錄（開發中）' : '使用 Google 登錄'}
                     </Text>
                   </TouchableOpacity>
 

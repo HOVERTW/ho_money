@@ -259,8 +259,6 @@ class RealTimeStockSync {
       'SYF': 'Synchrony Financial',
       'ADS': 'Alliance Data Systems Corporation',
       'WU': 'The Western Union Company',
-      'MA': 'Mastercard Incorporated',
-      'V': 'Visa Inc.',
       'PYPL': 'PayPal Holdings Inc.',
       'SQ': 'Block Inc.',
       'AFRM': 'Affirm Holdings Inc.',
