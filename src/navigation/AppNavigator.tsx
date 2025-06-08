@@ -226,6 +226,10 @@ export default function AppNavigator() {
     return <LoadingScreen />;
   }
 
+  console.log('🎯 AppNavigator 渲染 - 新的儀表板優先流程');
+  console.log('👤 用戶狀態:', user ? `已登錄: ${user.email}` : '未登錄');
+  console.log('🔄 載入狀態:', isLoading);
+
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
