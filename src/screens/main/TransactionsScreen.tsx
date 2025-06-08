@@ -98,6 +98,64 @@ export default function TransactionsScreen() {
     console.log('Current month state changed to:', currentMonth);
   }, [currentMonth]);
 
+  // 翻頁動畫效果
+  const playPageFlipAnimation = () => {
+    // 觸覺反饋（僅在支援的平台）
+    if (Haptics && Platform.OS !== 'web') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch (error) {
+        console.log('⚠️ 觸覺反饋不可用:', error);
+      }
+    }
+
+    // 視覺動畫序列
+    Animated.sequence([
+      // 1. 輕微縮放和淡出
+      Animated.parallel([
+        Animated.timing(scaleAnim, {
+          toValue: 0.98,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0.8,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ]),
+      // 2. 恢復正常
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 300,
+          friction: 10,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+
+    // 滑動效果
+    Animated.sequence([
+      Animated.timing(slideAnim, {
+        toValue: 10,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 300,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   // 設置搖動檢測（僅在非 Web 平台）
   useEffect(() => {
     if (Platform.OS === 'web' || !DeviceMotion || !servicesInitialized) {
@@ -357,7 +415,7 @@ export default function TransactionsScreen() {
     };
   }, [servicesInitialized]); // 依賴服務初始化狀態
 
-  const handleEditTransaction = (transaction: Transaction) => {
+  const handleEditTransaction = (transaction: any) => {
     setEditingTransaction(transaction);
     setShowAddModal(true);
   };
@@ -581,8 +639,8 @@ export default function TransactionsScreen() {
     console.log('✅ 交易刪除完成');
   };
 
-  const mockAccounts = transactionDataService.getAccounts();
-  const mockCategories = transactionDataService.getCategories();
+  const mockAccounts = transactionDataService ? transactionDataService.getAccounts() : [];
+  const mockCategories = transactionDataService ? transactionDataService.getCategories() : [];
 
   const getTransactionsForDate = (date: string) => {
     // 合併實際交易和未來的循環交易，但避免重複
@@ -711,63 +769,7 @@ export default function TransactionsScreen() {
     );
   };
 
-  // 翻頁動畫效果
-  const playPageFlipAnimation = () => {
-    // 觸覺反饋（僅在支援的平台）
-    if (Haptics && Platform.OS !== 'web') {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch (error) {
-        console.log('⚠️ 觸覺反饋不可用:', error);
-      }
-    }
-
-    // 視覺動畫序列
-    Animated.sequence([
-      // 1. 輕微縮放和淡出
-      Animated.parallel([
-        Animated.timing(scaleAnim, {
-          toValue: 0.98,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 0.8,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-      ]),
-      // 2. 恢復正常
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 300,
-          friction: 10,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-
-    // 滑動效果
-    Animated.sequence([
-      Animated.timing(slideAnim, {
-        toValue: 10,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        tension: 300,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
+  // 重複的函數定義已移除
 
   const handleMonthChange = (month: any) => {
     console.log('Month changed to:', month.dateString);
@@ -926,7 +928,7 @@ export default function TransactionsScreen() {
   const renderTransactionItem = ({ item }: { item: any }) => {
     // 修復帳戶顯示邏輯：直接使用交易記錄中的account字段
     const account = { name: item.account };
-    const category = transactionDataService.getCategoryByName(item.category);
+    const category = transactionDataService ? transactionDataService.getCategoryByName(item.category) : { name: item.category, color: '#007AFF' };
     const isFutureTransaction = futureRecurringTransactions.some(ft => ft.id === item.id);
 
     return (
