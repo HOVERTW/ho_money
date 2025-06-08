@@ -873,6 +873,22 @@ export default function DashboardScreen() {
 
       </View>
 
+      {/* 登錄提示橫幅 - 只在未登錄時顯示 */}
+      {!user && (
+        <View style={styles.loginBanner}>
+          <View style={styles.loginBannerContent}>
+            <Ionicons name="cloud-outline" size={24} color="#007AFF" />
+            <View style={styles.loginBannerText}>
+              <Text style={styles.loginBannerTitle}>體驗雲端同步</Text>
+              <Text style={styles.loginBannerSubtitle}>登錄後可在多設備間同步您的財務數據</Text>
+            </View>
+            <TouchableOpacity onPress={handleUploadClick} style={styles.loginBannerButton}>
+              <Text style={styles.loginBannerButtonText}>登錄</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <ScrollView
         style={styles.content}
         refreshControl={
@@ -1241,6 +1257,44 @@ const styles = StyleSheet.create({
     borderColor: '#FFE5E5',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // 登錄橫幅樣式
+  loginBanner: {
+    backgroundColor: '#F0F8FF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5F3FF',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+  },
+  loginBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loginBannerText: {
+    flex: 1,
+  },
+  loginBannerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007AFF',
+    marginBottom: 2,
+  },
+  loginBannerSubtitle: {
+    fontSize: 12,
+    color: '#666',
+  },
+  loginBannerButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  loginBannerButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   content: {

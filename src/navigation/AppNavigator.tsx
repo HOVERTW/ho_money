@@ -229,11 +229,17 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {user ? (
-          <RootStack.Screen name="Main" component={MainNavigator} />
-        ) : (
-          <RootStack.Screen name="Auth" component={AuthNavigator} />
-        )}
+        {/* 總是顯示主應用，不管是否登錄 */}
+        <RootStack.Screen name="Main" component={MainNavigator} />
+        {/* 認證頁面作為 Modal 顯示 */}
+        <RootStack.Screen
+          name="Auth"
+          component={AuthNavigator}
+          options={{
+            presentation: 'modal',
+            headerShown: false
+          }}
+        />
       </RootStack.Navigator>
     </NavigationContainer>
   );
