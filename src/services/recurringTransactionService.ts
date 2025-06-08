@@ -273,12 +273,8 @@ export class RecurringTransactionService {
 
 
   /**
-   * 刪除循環交易模板
-   * @param id 循環交易ID
+   * 刪除循環交易模板（重複函數已移除）
    */
-  deleteRecurringTransaction(id: string): void {
-    this.recurringTransactions = this.recurringTransactions.filter(rt => rt.id !== id);
-  }
 }
 
 // 創建單例實例

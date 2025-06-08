@@ -293,7 +293,7 @@ class AssetTransactionSyncService {
 
     if (account === '現金') {
       targetAsset = this.assets.find(asset => asset.type === 'cash');
-    } else if (account === '銀行' || account.includes('銀行')) {
+    } else if (account === '銀行' || (account && account.includes('銀行'))) {
       targetAsset = this.assets.find(asset =>
         asset.type === 'bank' && (asset.name === account || asset.name === '銀行')
       );

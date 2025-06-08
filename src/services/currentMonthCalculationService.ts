@@ -194,7 +194,7 @@ class CurrentMonthCalculationService {
       netWorth,
       monthlyIncome,
       monthlyExpenses,
-      monthlyDebtPayments,
+      monthDebtPayments,
       netIncome,
       assetGrowth: assetChanges.growth,
       assetLoss: assetChanges.loss,

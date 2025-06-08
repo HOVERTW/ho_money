@@ -426,29 +426,8 @@ class TransactionDataService {
   }
 
   /**
-   * 清除所有數據（重置應用）
+   * 清除所有數據（重置應用）- 重複函數已移除
    */
-  async clearAllData(): Promise<void> {
-    try {
-      await Promise.all([
-        AsyncStorage.removeItem(STORAGE_KEYS.TRANSACTIONS),
-        AsyncStorage.removeItem(STORAGE_KEYS.CATEGORIES),
-        AsyncStorage.removeItem(STORAGE_KEYS.ACCOUNTS),
-        AsyncStorage.removeItem(STORAGE_KEYS.INITIALIZED)
-      ]);
-
-      this.transactions = [];
-      this.categories = [];
-      this.accounts = [];
-      this.isInitialized = false;
-
-      this.notifyListeners();
-      console.log('✅ 所有數據已清除');
-    } catch (error) {
-      console.error('❌ 清除數據失敗:', error);
-      throw error;
-    }
-  }
 
   /**
    * 獲取指定時間範圍的交易
