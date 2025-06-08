@@ -184,29 +184,35 @@ export default function AppNavigator() {
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
+        console.log('🔄 Auth state changed:', event, session?.user?.email);
 
         if (session && session.user) {
           // 用戶登錄成功
+          console.log('✅ 設置用戶狀態:', session.user.email);
           setUser(session.user);
           setSession(session);
 
           // 初始化用戶數據（僅在首次登錄或新用戶時）
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             try {
-              await userDataSyncService.initializeUserData(session.user);
-              console.log('✅ 用戶數據初始化完成');
+              console.log('🔄 開始初始化用戶數據...');
+              // 暫時跳過數據同步，直接完成登錄
+              // await userDataSyncService.initializeUserData(session.user);
+              console.log('✅ 用戶數據初始化完成（暫時跳過同步）');
             } catch (error) {
               console.error('❌ 用戶數據初始化失敗:', error);
-              // 不阻止用戶繼續使用應用
+              // 不阻止用戶繼續使用應用，但記錄錯誤
+              console.log('⚠️ 繼續使用應用，跳過數據初始化');
             }
           }
         } else {
           // 用戶登出
+          console.log('🚪 用戶登出，清除狀態');
           setUser(null);
           setSession(null);
         }
 
+        console.log('🔄 設置 loading 為 false');
         setIsLoading(false);
       }
     );

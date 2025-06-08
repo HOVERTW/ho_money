@@ -211,25 +211,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   clearRegistrationSuccess: () => set({ registrationSuccess: false }),
 }));
 
-// 設置認證狀態監聽器
-supabase.auth.onAuthStateChange((event, session) => {
-  console.log('🔄 認證狀態變化:', event, session?.user?.email);
-
-  const { setUser, setSession, setLoading } = useAuthStore.getState();
-
-  if (event === 'SIGNED_IN' && session) {
-    console.log('✅ 用戶已登錄:', session.user.email);
-    setUser(session.user);
-    setSession(session);
-    setLoading(false);
-  } else if (event === 'SIGNED_OUT') {
-    console.log('👋 用戶已登出');
-    setUser(null);
-    setSession(null);
-    setLoading(false);
-  } else if (event === 'TOKEN_REFRESHED' && session) {
-    console.log('🔄 Token 已刷新');
-    setUser(session.user);
-    setSession(session);
-  }
-});
+// 認證狀態監聽器已移至 AppNavigator.tsx 中統一處理
+// 避免重複監聽導致的狀態衝突
