@@ -310,9 +310,14 @@ class UserDataSyncService {
   }
 
   /**
-   * 遷移分類
+   * 遷移分類 - 已禁用
    */
   private async migrateCategories(): Promise<void> {
+    console.log('⚠️ migrateCategories 已被禁用，跳過分類遷移');
+    return;
+
+    // 以下代碼已禁用，因為有 UUID 格式錯誤
+    /*
     try {
       const localCategories = await AsyncStorage.getItem(STORAGE_KEYS.CATEGORIES);
       if (localCategories) {
@@ -327,6 +332,7 @@ class UserDataSyncService {
     } catch (error) {
       console.error('❌ 遷移分類失敗:', error);
     }
+    */
   }
 
   /**
@@ -447,12 +453,15 @@ class UserDataSyncService {
 
       console.log('✅ 已發送數據同步完成事件');
 
-      // 延遲發送額外的刷新事件
-      setTimeout(() => {
+      // 延遲發送額外的刷新事件 - 修復作用域問題
+      setTimeout(async () => {
         try {
+          // 重新導入以確保作用域正確
+          const { eventEmitter: delayedEventEmitter, EVENTS: delayedEVENTS } = await import('./eventEmitter');
+
           // 發送額外的刷新事件，確保 UI 更新
-          eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL);
-          eventEmitter.emit(EVENTS.FORCE_REFRESH_DASHBOARD);
+          delayedEventEmitter.emit(delayedEVENTS.FORCE_REFRESH_ALL);
+          delayedEventEmitter.emit(delayedEVENTS.FORCE_REFRESH_DASHBOARD);
           console.log('✅ 已發送延遲刷新事件');
         } catch (error) {
           console.error('❌ 延遲刷新事件發送失敗:', error);

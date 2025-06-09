@@ -755,9 +755,10 @@ export default function DashboardScreen() {
   // 診斷 Supabase 表結構
   const handleDiagnoseSupabase = async () => {
     try {
-      console.log('🚨 開始緊急診斷和修復...');
-      Alert.alert('開始診斷', '正在執行緊急修復，請查看控制台日誌...');
+      console.log('🚨 開始超級診斷和修復...');
+      Alert.alert('開始診斷', '正在執行超級修復，請查看控制台日誌...');
 
+      // 步驟 0: 檢查用戶登錄狀態
       const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
       console.log('👤 用戶狀態:', currentUser ? `已登錄 (${currentUser.email})` : '未登錄');
 
@@ -833,23 +834,39 @@ export default function DashboardScreen() {
         await AsyncStorage.setItem('fintranzo_assets', JSON.stringify(localAssets));
         console.log('✅ 已保存到本地存儲');
 
-        console.log('🔍 步驟 5: 更新 UI 狀態...');
+        console.log('🔍 步驟 5: 直接更新 UI 狀態...');
 
-        // 步驟 5: 更新狀態
+        // 步驟 5: 直接更新狀態，不依賴任何服務
         setAssets(localAssets);
         setForceRefresh(prev => prev + 1);
 
-        console.log('🔍 步驟 6: 強制刷新數據...');
+        console.log('🔍 步驟 6: 發送事件通知...');
 
-        // 步驟 6: 強制刷新
+        // 步驟 6: 發送事件通知（如果可能的話）
+        try {
+          const { eventEmitter, EVENTS } = await import('../../services/eventEmitter');
+          eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, {
+            source: 'emergency_fix',
+            assets: localAssets
+          });
+          eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL);
+          eventEmitter.emit(EVENTS.FORCE_REFRESH_DASHBOARD);
+          console.log('✅ 已發送事件通知');
+        } catch (eventError) {
+          console.log('⚠️ 事件發送失敗，但資產已更新');
+        }
+
+        console.log('🔍 步驟 7: 強制刷新數據...');
+
+        // 步驟 7: 強制刷新
         await refreshData();
 
         const totalValue = localAssets.reduce((sum, asset) => sum + asset.current_value, 0);
-        console.log(`✅ 修復完成！總價值: ${totalValue}`);
+        console.log(`✅ 超級修復完成！總價值: ${totalValue}`);
 
         Alert.alert(
-          '修復成功！',
-          `已成功獲取並設置 ${localAssets.length} 項資產。\n總價值: ${totalValue.toLocaleString()} 元\n\n請檢查資產負債表是否正確顯示。`
+          '超級修復成功！',
+          `已成功獲取並設置 ${localAssets.length} 項資產。\n總價值: ${totalValue.toLocaleString()} 元\n\n請檢查資產負債表是否正確顯示。\n\n如果還是沒有顯示，請手動刷新頁面。`
         );
 
       } else {
@@ -857,17 +874,21 @@ export default function DashboardScreen() {
 
         // 檢查是否有其他表的數據
         console.log('🔍 檢查其他表的數據...');
-        const { data: transactions } = await supabase
-          .from('transactions')
-          .select('count(*)')
-          .eq('user_id', currentUser.id);
+        try {
+          const { data: transactions } = await supabase
+            .from('transactions')
+            .select('count(*)')
+            .eq('user_id', currentUser.id);
 
-        const { data: liabilities } = await supabase
-          .from('liabilities')
-          .select('count(*)')
-          .eq('user_id', currentUser.id);
+          const { data: liabilities } = await supabase
+            .from('liabilities')
+            .select('count(*)')
+            .eq('user_id', currentUser.id);
 
-        console.log('📊 其他數據統計:', { transactions, liabilities });
+          console.log('📊 其他數據統計:', { transactions, liabilities });
+        } catch (checkError) {
+          console.log('⚠️ 檢查其他表失敗:', checkError);
+        }
 
         Alert.alert(
           '沒有資產數據',
@@ -876,7 +897,7 @@ export default function DashboardScreen() {
       }
 
     } catch (error) {
-      console.error('❌ 緊急修復失敗:', error);
+      console.error('❌ 超級修復失敗:', error);
       Alert.alert(
         '修復失敗',
         `修復過程中發生錯誤：\n${error.message || '未知錯誤'}\n\n請查看控制台日誌了解詳細信息。`
