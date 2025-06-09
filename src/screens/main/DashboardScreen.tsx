@@ -722,38 +722,17 @@ export default function DashboardScreen() {
     clearError();
   };
 
-  // 手動觸發數據同步到 Supabase
+  // 手動觸發數據同步到 Supabase - 暫時禁用
   const handleSyncToSupabase = async () => {
-    if (!user) {
-      console.log('❌ 用戶未登錄，無法同步');
-      return;
-    }
-
-    try {
-      console.log('🔄 開始手動同步數據到 Supabase...');
-
-      // 觸發用戶數據同步
-      await userDataSyncService.initializeUserData(user);
-
-      console.log('✅ 手動同步完成');
-
-      // 同步完成後強制刷新本地數據
-      setTimeout(() => {
-        console.log('🔄 同步完成，刷新本地數據...');
-        setTransactions(transactionDataService.getTransactions());
-        setAssets(assetTransactionSyncService.getAssets());
-        setLiabilities(liabilityService.getLiabilities());
-        console.log('✅ 本地數據已刷新');
-      }, 1000);
-
-    } catch (error) {
-      console.error('❌ 手動同步失敗:', error);
-      // 移除錯誤提示窗，只在控制台記錄
-    }
+    console.log('⚠️ 自動同步已暫時禁用，請使用診斷按鈕進行手動修復');
+    return;
   };
 
   // 診斷 Supabase 表結構
   const handleDiagnoseSupabase = async () => {
+    console.log('🔥 診斷按鈕被點擊！');
+    Alert.alert('診斷按鈕測試', '診斷按鈕正常工作！');
+
     try {
       console.log('🚨 開始超級診斷和修復...');
       Alert.alert('開始診斷', '正在執行超級修復，請查看控制台日誌...');
@@ -842,19 +821,8 @@ export default function DashboardScreen() {
 
         console.log('🔍 步驟 6: 發送事件通知...');
 
-        // 步驟 6: 發送事件通知（如果可能的話）
-        try {
-          const { eventEmitter, EVENTS } = await import('../../services/eventEmitter');
-          eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, {
-            source: 'emergency_fix',
-            assets: localAssets
-          });
-          eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL);
-          eventEmitter.emit(EVENTS.FORCE_REFRESH_DASHBOARD);
-          console.log('✅ 已發送事件通知');
-        } catch (eventError) {
-          console.log('⚠️ 事件發送失敗，但資產已更新');
-        }
+        // 步驟 6: 跳過事件通知，避免導入錯誤
+        console.log('⚠️ 跳過事件發送，避免導入錯誤');
 
         console.log('🔍 步驟 7: 強制刷新數據...');
 

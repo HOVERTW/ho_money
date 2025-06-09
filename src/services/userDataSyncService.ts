@@ -389,17 +389,8 @@ class UserDataSyncService {
           await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(convertedAssets));
           console.log(`✅ 已保存 ${convertedAssets.length} 項資產到本地存儲`);
 
-          // 直接發送事件通知，避免導入問題
-          try {
-            const { eventEmitter, EVENTS } = await import('./eventEmitter');
-            eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, {
-              source: 'asset_sync',
-              assets: convertedAssets
-            });
-            console.log('✅ 已發送資產更新事件');
-          } catch (serviceError) {
-            console.log('⚠️ 事件發送失敗，但本地存儲已保存');
-          }
+          // 跳過事件發送，避免導入問題
+          console.log('⚠️ 跳過事件發送，避免導入錯誤，但本地存儲已保存');
 
         } else {
           console.log('📝 Supabase 中沒有資產數據');
@@ -426,8 +417,8 @@ class UserDataSyncService {
       //   await AsyncStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories.data));
       // }
 
-      // 通知服務重新加載數據
-      await this.notifyServicesToReload();
+      // 跳過服務通知，避免導入錯誤
+      console.log('⚠️ 跳過服務通知，避免導入錯誤');
 
       console.log('✅ 雲端數據同步完成');
     } catch (error) {
