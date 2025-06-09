@@ -259,57 +259,57 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
     // 對於現金和銀行資產，數量預設為1，成本基礎就是金額
     if (type === 'cash' || type === 'bank') {
       if (!costBasis) {
-        Alert.alert('錯誤', '請填寫金額');
+        console.error('❌ 請填寫金額');
         return;
       }
     } else if (type !== 'vehicle' && type !== 'insurance') {
       // 汽車和保單不需要持有數量
       if (!quantity) {
-        Alert.alert('錯誤', '請填寫持有數量');
+        console.error('❌ 請填寫持有數量');
         return;
       }
 
       // 對於需要價格計算的資產類型，檢查買入成本價和現在市價
       if (needsPriceCalculation.includes(type)) {
         if (!buyPrice) {
-          Alert.alert('錯誤', '請填寫買入成本價');
+          console.error('❌ 請填寫買入成本價');
           return;
         }
         if (!currentPrice) {
-          Alert.alert('錯誤', '請填寫現在市價');
+          console.error('❌ 請填寫現在市價');
           return;
         }
 
         // 對於美股和加密貨幣，檢查匯率
         if (needsExchangeRate.includes(type)) {
           if (!buyExchangeRate) {
-            Alert.alert('錯誤', '請填寫買入匯率');
+            console.error('❌ 請填寫買入匯率');
             return;
           }
           if (!currentExchangeRate) {
-            Alert.alert('錯誤', '請填寫現在匯率');
+            console.error('❌ 請填寫現在匯率');
             return;
           }
         }
       } else {
         // 對於其他資產類型，檢查成本基礎和現在價值
         if (!costBasis) {
-          Alert.alert('錯誤', '請填寫成本基礎');
+          console.error('❌ 請填寫成本基礎');
           return;
         }
         if (needsCurrentValue.includes(type) && !currentValue) {
-          Alert.alert('錯誤', '請填寫現在價值');
+          console.error('❌ 請填寫現在價值');
           return;
         }
       }
     } else {
       // 對於汽車和保單，檢查成本基礎和現在價值
       if (!costBasis) {
-        Alert.alert('錯誤', '請填寫成本基礎');
+        console.error('❌ 請填寫成本基礎');
         return;
       }
       if (needsCurrentValue.includes(type) && !currentValue) {
-        Alert.alert('錯誤', '請填寫現在價值');
+        console.error('❌ 請填寫現在價值');
         return;
       }
     }
@@ -317,20 +317,20 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
     // 檢查費用來源
     if (!editingAsset && fundingSource === 'transfer') {
       if (!sourceAssetId) {
-        Alert.alert('錯誤', '請選擇費用來源資產');
+        console.error('❌ 請選擇費用來源資產');
         return;
       }
 
       // 檢查來源資產餘額是否足夠
       const sourceAsset = availableAssets.find(asset => asset.id === sourceAssetId);
       if (!sourceAsset) {
-        Alert.alert('錯誤', '找不到選中的來源資產');
+        console.error('❌ 找不到選中的來源資產');
         return;
       }
 
       const transferAmount = parseFloat(costBasis);
       if (sourceAsset.current_value < transferAmount) {
-        Alert.alert('錯誤', `來源資產餘額不足。可用餘額: ${sourceAsset.current_value.toLocaleString()}`);
+        console.error(`❌ 來源資產餘額不足。可用餘額: ${sourceAsset.current_value.toLocaleString()}`);
         return;
       }
     }
@@ -399,7 +399,7 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
     setSourceAssetId('');
 
     onClose();
-    Alert.alert('成功', editingAsset ? '資產已更新' : '資產已添加');
+    console.log('✅', editingAsset ? '資產已更新' : '資產已添加');
   };
 
   const selectedAssetType = assetTypes.find(t => t.key === type);

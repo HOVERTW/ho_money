@@ -228,28 +228,16 @@ export default function AddTransactionModal({ visible, onClose, onAdd, selectedD
   };
 
   const handleDeleteCategory = (categoryToDelete: string) => {
-    Alert.alert(
-      '刪除類別',
-      `確定要刪除類別「${categoryToDelete}」嗎？`,
-      [
-        { text: '取消', style: 'cancel' },
-        {
-          text: '刪除',
-          style: 'destructive',
-          onPress: () => {
-            const updatedCategories = {
-              ...editableCategories,
-              [type]: editableCategories[type].filter(cat => cat !== categoryToDelete)
-            };
-            setEditableCategories(updatedCategories);
-            // 如果刪除的是當前選中的類別，重置為第一個類別
-            if (category === categoryToDelete && updatedCategories[type].length > 0) {
-              setCategory(updatedCategories[type][0]);
-            }
-          }
-        }
-      ]
-    );
+    console.log(`🗑️ 刪除類別: ${categoryToDelete}`);
+    const updatedCategories = {
+      ...editableCategories,
+      [type]: editableCategories[type].filter(cat => cat !== categoryToDelete)
+    };
+    setEditableCategories(updatedCategories);
+    // 如果刪除的是當前選中的類別，重置為第一個類別
+    if (category === categoryToDelete && updatedCategories[type].length > 0) {
+      setCategory(updatedCategories[type][0]);
+    }
   };
 
   const handleMoveCategory = (categoryIndex: number, direction: 'up' | 'down') => {
@@ -287,41 +275,41 @@ export default function AddTransactionModal({ visible, onClose, onAdd, selectedD
 
   const handleSubmit = () => {
     if (!amount) {
-      Alert.alert('錯誤', '請填寫金額');
+      console.error('❌ 請填寫金額');
       return;
     }
 
     // 檢查是否有可用的帳戶
     if (type !== 'transfer' && accountOptions.length === 0) {
-      Alert.alert('錯誤', '請先創建資產作為交易帳戶');
+      console.error('❌ 請先創建資產作為交易帳戶');
       return;
     }
 
     // 檢查是否選擇了帳戶
     if (type !== 'transfer' && !account) {
-      Alert.alert('錯誤', '請選擇交易帳戶');
+      console.error('❌ 請選擇交易帳戶');
       return;
     }
 
     // 轉移類型的特殊驗證
     if (type === 'transfer') {
       if (accountOptions.length < 2) {
-        Alert.alert('錯誤', '轉移交易需要至少兩個資產帳戶');
+        console.error('❌ 轉移交易需要至少兩個資產帳戶');
         return;
       }
       if (fromAccount === toAccount) {
-        Alert.alert('錯誤', '轉出帳戶和轉入帳戶不能相同');
+        console.error('❌ 轉出帳戶和轉入帳戶不能相同');
         return;
       }
       if (!fromAccount || !toAccount) {
-        Alert.alert('錯誤', '請選擇轉出帳戶和轉入帳戶');
+        console.error('❌ 請選擇轉出帳戶和轉入帳戶');
         return;
       }
     }
 
     // 如果選擇銀行且有多個銀行，檢查是否選擇了具體銀行
     if (account === '銀行' && shouldShowBankSelector && !selectedBankId) {
-      Alert.alert('錯誤', '請選擇銀行帳戶');
+      console.error('❌ 請選擇銀行帳戶');
       return;
     }
 
@@ -395,7 +383,7 @@ export default function AddTransactionModal({ visible, onClose, onAdd, selectedD
 
     onClose();
     const successMessage = type === 'transfer' ? '轉移交易已添加' : (editingTransaction ? '交易記錄已更新' : (isRecurring ? '循環交易已設定' : '交易記錄已添加'));
-    Alert.alert('成功', successMessage);
+    console.log('✅', successMessage);
   };
 
   return (
@@ -756,28 +744,9 @@ export default function AddTransactionModal({ visible, onClose, onAdd, selectedD
                     <TouchableOpacity
                       style={styles.changeDateButton}
                       onPress={() => {
-                        Alert.alert(
-                          '更改日期',
-                          '您可以在月曆上點選其他日期，或選擇以下選項：',
-                          [
-                            {
-                              text: '今天',
-                              onPress: () => setStartDate(new Date()),
-                            },
-                            {
-                              text: '明天',
-                              onPress: () => {
-                                const tomorrow = new Date();
-                                tomorrow.setDate(tomorrow.getDate() + 1);
-                                setStartDate(tomorrow);
-                              },
-                            },
-                            {
-                              text: '取消',
-                              style: 'cancel',
-                            },
-                          ]
-                        );
+                        console.log('📅 更改日期選項');
+                        // 簡化為直接設置今天
+                        setStartDate(new Date());
                       }}
                     >
                       <Text style={styles.changeDateButtonText}>更改日期</Text>

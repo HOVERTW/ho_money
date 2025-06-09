@@ -275,6 +275,37 @@ export class RecurringTransactionService {
   /**
    * 刪除循環交易模板（重複函數已移除）
    */
+
+  /**
+   * 初始化服務
+   */
+  async initialize(): Promise<void> {
+    try {
+      console.log('🔄 初始化循環交易服務...');
+      // 循環交易服務目前不需要從存儲加載數據
+      // 所有數據都是運行時生成的
+      console.log('✅ 循環交易服務初始化完成');
+    } catch (error) {
+      console.error('❌ 循環交易服務初始化失敗:', error);
+    }
+  }
+
+  /**
+   * 清除所有數據並重置為空狀態
+   */
+  async clearAllData(): Promise<void> {
+    try {
+      console.log('🧹 清除循環交易服務的所有數據...');
+
+      // 清除內存數據
+      this.recurringTransactions = [];
+      this.generatedTransactions = [];
+
+      console.log('✅ 循環交易服務數據清除完成');
+    } catch (error) {
+      console.error('❌ 清除循環交易服務數據失敗:', error);
+    }
+  }
 }
 
 // 創建單例實例

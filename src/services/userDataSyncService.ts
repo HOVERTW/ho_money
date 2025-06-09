@@ -108,8 +108,8 @@ class UserDataSyncService {
       // 遷移帳戶
       await this.migrateAccounts();
 
-      // 遷移分類
-      await this.migrateCategories();
+      // 遷移分類 - 暫時禁用，因為有 400 錯誤
+      // await this.migrateCategories();
 
       console.log('✅ 本地數據遷移完成');
     } catch (error) {
@@ -129,15 +129,36 @@ class UserDataSyncService {
         if (transactions.length > 0) {
           console.log(`🔄 準備遷移 ${transactions.length} 筆交易記錄...`);
 
+          // 過濾掉無效的交易記錄
+          const validTransactions = transactions.filter((transaction: any) =>
+            transaction &&
+            transaction.type &&
+            transaction.type !== 'undefined' &&
+            transaction.type !== '' &&
+            transaction.amount !== undefined &&
+            transaction.amount !== null
+          );
+
+          console.log(`🔍 過濾後有效交易數量: ${validTransactions.length} / ${transactions.length}`);
+
           // 轉換交易數據格式以匹配 Supabase 表結構
-          const convertedTransactions = transactions.map((transaction: any) => ({
+          const convertedTransactions = validTransactions.map((transaction: any) => ({
+            id: transaction.id, // 保留原始 ID 避免重複
             user_id: null, // 將在 createUserData 中自動設置
             account_id: null, // 可以為空
             amount: transaction.amount || 0,
+            type: transaction.type, // 確保包含 type 字段
             description: transaction.description || '',
             category: transaction.category || '',
+            account: transaction.account || '',
+            from_account: transaction.from_account || null,
+            to_account: transaction.to_account || null,
             date: transaction.date || new Date().toISOString().split('T')[0],
-            created_at: new Date().toISOString(),
+            is_recurring: transaction.is_recurring || false,
+            recurring_frequency: transaction.recurring_frequency || null,
+            max_occurrences: transaction.max_occurrences || null,
+            start_date: transaction.start_date || null,
+            created_at: transaction.created_at || new Date().toISOString(),
             updated_at: new Date().toISOString(),
           }));
 
@@ -159,14 +180,49 @@ class UserDataSyncService {
   }
 
   /**
-   * 遷移資產（新版本）
+   * 遷移資產（修復版本）
    */
   private async migrateAssetsNew(): Promise<void> {
     try {
-      // 使用新的資產同步服務
-      const { assetSyncService } = await import('./assetSyncService');
-      await assetSyncService.syncToCloud();
-      console.log('✅ 資產遷移完成（使用新同步服務）');
+      console.log('🔄 開始遷移資產...');
+
+      // 直接從本地存儲獲取資產
+      const localAssets = await AsyncStorage.getItem(STORAGE_KEYS.ASSETS);
+      if (localAssets) {
+        const assets = JSON.parse(localAssets);
+        if (assets.length > 0) {
+          console.log(`📤 準備遷移 ${assets.length} 項資產到雲端`);
+
+          // 轉換為 Supabase 格式
+          const supabaseAssets = assets.map((asset: any) => ({
+            id: asset.id,
+            name: asset.name,
+            type: asset.type,
+            value: asset.current_value || asset.cost_basis || 0,
+            current_value: asset.current_value || asset.cost_basis || 0,
+            cost_basis: asset.cost_basis || asset.current_value || 0,
+            quantity: asset.quantity || 1,
+            stock_code: asset.stock_code,
+            purchase_price: asset.purchase_price || 0,
+            current_price: asset.current_price || 0,
+            sort_order: asset.sort_order || 0,
+            user_id: (await supabase.auth.getUser()).data.user?.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }));
+
+          // 直接插入到 Supabase
+          const { error } = await supabase
+            .from('assets')
+            .upsert(supabaseAssets, { onConflict: 'id' });
+
+          if (error) {
+            console.error('❌ 資產遷移失敗:', error);
+          } else {
+            console.log(`✅ 成功遷移 ${supabaseAssets.length} 項資產`);
+          }
+        }
+      }
     } catch (error) {
       console.error('❌ 遷移資產失敗:', error);
     }
@@ -280,13 +336,13 @@ class UserDataSyncService {
     try {
       console.log('🔄 同步雲端數據到本地...');
 
-      // 獲取用戶的所有數據
-      const [transactions, assets, liabilities, accounts, categories] = await Promise.all([
+      // 獲取用戶的所有數據 - 暫時跳過 categories
+      const [transactions, assets, liabilities, accounts] = await Promise.all([
         dbService.readUserData(TABLES.TRANSACTIONS),
         dbService.readUserData(TABLES.ASSETS),
         dbService.readUserData(TABLES.LIABILITIES),
         dbService.readUserData(TABLES.ACCOUNTS),
-        dbService.readUserData(TABLES.CATEGORIES),
+        // dbService.readUserData(TABLES.CATEGORIES), // 暫時禁用
       ]);
 
       // 更新本地存儲
@@ -295,13 +351,57 @@ class UserDataSyncService {
         await AsyncStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions.data));
       }
 
-      // 使用新的資產同步服務處理資產數據
+      // 直接處理資產數據 - 最簡單可靠的方法
       try {
-        const { assetSyncService } = await import('./assetSyncService');
-        await assetSyncService.syncFromCloud();
-        console.log('✅ 資產數據同步完成（使用新同步服務）');
+        console.log('🔥 開始直接資產數據同步...');
+
+        if (assets.data && assets.data.length > 0) {
+          console.log(`📥 從 Supabase 獲得 ${assets.data.length} 項資產`);
+          console.log('📊 原始資產數據:', assets.data);
+
+          // 直接轉換並保存到本地存儲
+          const convertedAssets = assets.data.map((asset: any) => {
+            const converted = {
+              id: asset.id,
+              name: asset.name || '未命名資產',
+              type: asset.type || 'other',
+              quantity: Number(asset.quantity) || 1,
+              cost_basis: Number(asset.cost_basis || asset.value || asset.current_value || 0),
+              current_value: Number(asset.current_value || asset.value || asset.cost_basis || 0),
+              stock_code: asset.stock_code,
+              purchase_price: Number(asset.purchase_price || 0),
+              current_price: Number(asset.current_price || 0),
+              last_updated: asset.updated_at || asset.created_at,
+              sort_order: Number(asset.sort_order) || 0
+            };
+
+            console.log(`✅ 轉換資產: ${converted.name} = ${converted.current_value}`);
+            return converted;
+          });
+
+          // 直接保存到本地存儲
+          await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(convertedAssets));
+          console.log(`✅ 已保存 ${convertedAssets.length} 項資產到本地存儲`);
+
+          // 直接發送事件通知，避免導入問題
+          try {
+            const { eventEmitter, EVENTS } = await import('./eventEmitter');
+            eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, {
+              source: 'asset_sync',
+              assets: convertedAssets
+            });
+            console.log('✅ 已發送資產更新事件');
+          } catch (serviceError) {
+            console.log('⚠️ 事件發送失敗，但本地存儲已保存');
+          }
+
+        } else {
+          console.log('📝 Supabase 中沒有資產數據');
+        }
+
+        console.log('✅ 直接資產數據同步完成');
       } catch (error) {
-        console.error('❌ 資產數據同步失敗:', error);
+        console.error('❌ 直接資產數據同步失敗:', error);
       }
 
       if (liabilities.data && liabilities.data.length > 0) {
@@ -314,13 +414,14 @@ class UserDataSyncService {
         await AsyncStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts.data));
       }
 
-      if (categories.data && categories.data.length > 0) {
-        console.log(`📥 同步 ${categories.data.length} 筆分類記錄到本地`);
-        await AsyncStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories.data));
-      }
+      // 暫時跳過 categories 同步，因為有 400 錯誤
+      // if (categories.data && categories.data.length > 0) {
+      //   console.log(`📥 同步 ${categories.data.length} 筆分類記錄到本地`);
+      //   await AsyncStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories.data));
+      // }
 
-      // 通知服務重新加載數據 (暫時停用以避免循環依賴)
-      // await this.notifyServicesToReload();
+      // 通知服務重新加載數據
+      await this.notifyServicesToReload();
 
       console.log('✅ 雲端數據同步完成');
     } catch (error) {
@@ -338,9 +439,25 @@ class UserDataSyncService {
       // 使用事件系統通知服務重新加載，避免循環依賴
       const { eventEmitter, EVENTS } = await import('./eventEmitter');
 
-      // 發送重新加載事件
+      // 發送多個重新加載事件確保所有組件都能收到
       eventEmitter.emit(EVENTS.DATA_SYNC_COMPLETED);
+      eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'cloud_sync' });
+      eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL);
+      eventEmitter.emit(EVENTS.FORCE_REFRESH_DASHBOARD);
+
       console.log('✅ 已發送數據同步完成事件');
+
+      // 延遲發送額外的刷新事件
+      setTimeout(() => {
+        try {
+          // 發送額外的刷新事件，確保 UI 更新
+          eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL);
+          eventEmitter.emit(EVENTS.FORCE_REFRESH_DASHBOARD);
+          console.log('✅ 已發送延遲刷新事件');
+        } catch (error) {
+          console.error('❌ 延遲刷新事件發送失敗:', error);
+        }
+      }, 500);
 
     } catch (error) {
       console.error('❌ 通知服務重新加載失敗:', error);

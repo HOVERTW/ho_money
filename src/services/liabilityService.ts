@@ -406,6 +406,31 @@ class LiabilityService {
 
     return true;
   }
+
+  /**
+   * 清除所有數據並重置為空狀態
+   */
+  async clearAllData(): Promise<void> {
+    try {
+      console.log('🧹 清除負債服務的所有數據...');
+
+      // 清除內存數據
+      this.liabilities = [];
+
+      // 清除本地存儲
+      await AsyncStorage.removeItem(STORAGE_KEYS.LIABILITIES);
+
+      // 重置初始化狀態
+      this.isInitialized = false;
+
+      // 通知監聽器
+      this.notifyListeners();
+
+      console.log('✅ 負債服務數據清除完成');
+    } catch (error) {
+      console.error('❌ 清除負債服務數據失敗:', error);
+    }
+  }
 }
 
 // 創建單例實例

@@ -391,11 +391,12 @@ export default function TransactionsScreen() {
   };
 
   const handleAddTransaction = async (newTransaction: any) => {
-    // 處理交易對資產的影響
-    assetTransactionSyncService.processTransaction(newTransaction);
+    console.log('💰 處理新交易:', newTransaction);
 
     // 如果是循環交易，創建循環交易模板並立即生成第一筆交易
     if (newTransaction.is_recurring) {
+      console.log('🔄 處理循環交易:', newTransaction);
+
       // 確保 startDate 是 Date 對象
       const startDate = newTransaction.start_date instanceof Date
         ? newTransaction.start_date
@@ -418,13 +419,24 @@ export default function TransactionsScreen() {
         ...newTransaction,
         id: `first_${Date.now()}`, // 確保ID唯一
       };
+
+      // 先添加交易到服務中
       await transactionDataService.addTransaction(firstTransaction);
+
+      // 然後處理交易對資產和負債的影響
+      console.log('💰 處理第一筆交易對資產的影響:', firstTransaction);
+      assetTransactionSyncService.processTransaction(firstTransaction);
+      liabilityTransactionSyncService.processTransaction(firstTransaction);
 
       // 處理循環交易，生成後續的交易記錄（如果有到期的）
       const generatedTransactions = recurringTransactionService.processRecurringTransactions();
       if (generatedTransactions.length > 0) {
         for (const transaction of generatedTransactions) {
           await transactionDataService.addTransaction(transaction as any);
+          // 處理每筆生成的交易對資產和負債的影響
+          console.log('💰 處理生成交易對資產的影響:', transaction);
+          assetTransactionSyncService.processTransaction(transaction);
+          liabilityTransactionSyncService.processTransaction(transaction);
         }
       }
 
@@ -432,9 +444,20 @@ export default function TransactionsScreen() {
       const futureTransactions = recurringTransactionService.generateFutureRecurringTransactions(12);
       setFutureRecurringTransactions(futureTransactions);
     } else {
-      // 普通交易直接添加到服務中
+      // 普通交易：先添加到服務中，然後處理資產影響
       await transactionDataService.addTransaction(newTransaction);
+
+      // 處理交易對資產的影響
+      console.log('💰 處理普通交易對資產的影響:', newTransaction);
+      assetTransactionSyncService.processTransaction(newTransaction);
+
+      // 處理交易對負債的影響
+      liabilityTransactionSyncService.processTransaction(newTransaction);
     }
+
+    // 發送事件通知其他組件刷新
+    eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'transaction_added' });
+    console.log('✅ 交易處理完成，已發送刷新事件');
   };
 
   const handleDeleteTransaction = async (item: any, deleteType?: 'single' | 'future' | 'all') => {

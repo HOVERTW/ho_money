@@ -5,6 +5,13 @@ import 'react-native-url-polyfill/auto';
 import { Buffer } from 'buffer';
 global.Buffer = Buffer;
 
+// Chrome 擴展錯誤修復（在 Web 環境中）
+if (typeof window !== 'undefined') {
+  import('./src/utils/chromeExtensionFix').then(({ chromeExtensionFix }) => {
+    chromeExtensionFix.initialize();
+  });
+}
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';

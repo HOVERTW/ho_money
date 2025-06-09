@@ -20,7 +20,8 @@ class AppInitializationService {
     console.log('🚀 開始初始化應用服務...');
 
     try {
-      // 0. 檢查是否需要清除舊的預設數據（已移除）
+      // 0. 清除舊的預設數據
+      await this.safeExecute('清除舊數據', () => this.clearOldDefaultData());
 
       // 1. 初始化交易資料服務
       await this.safeExecute('交易服務', () => this.initializeTransactionService());
@@ -77,11 +78,51 @@ class AppInitializationService {
   }
 
   /**
-   * 檢查並清除舊的預設數據（已移除）
+   * 清除舊的預設數據
    */
-  private async checkAndClearOldData(): Promise<void> {
-    // 功能已移除，保留方法以避免錯誤
-    console.log('✅ 舊數據清除功能已移除');
+  private async clearOldDefaultData(): Promise<void> {
+    try {
+      console.log('🧹 檢查並清除舊的預設數據...');
+
+      // 檢查是否有舊的預設資產
+      const { AsyncStorage } = await import('@react-native-async-storage/async-storage');
+      const assetsData = await AsyncStorage.getItem('fintranzo_assets');
+
+      if (assetsData) {
+        const assets = JSON.parse(assetsData);
+        const hasOldDefaults = assets.some((asset: any) =>
+          (asset.name === '現金' && asset.current_value === 5000) ||
+          (asset.name === '銀行存款' && asset.current_value === 10000) ||
+          asset.id === 'default_cash' ||
+          asset.id === 'default_bank'
+        );
+
+        if (hasOldDefaults) {
+          console.log('🧹 發現舊的預設資產，正在清除...');
+          await AsyncStorage.removeItem('fintranzo_assets');
+          console.log('✅ 舊的預設資產已清除');
+        }
+      }
+
+      // 檢查並清除其他可能的舊數據
+      const keysToCheck = [
+        'asset_data',
+        'default_assets',
+        'initial_assets'
+      ];
+
+      for (const key of keysToCheck) {
+        const data = await AsyncStorage.getItem(key);
+        if (data) {
+          await AsyncStorage.removeItem(key);
+          console.log(`🧹 已清除舊數據: ${key}`);
+        }
+      }
+
+      console.log('✅ 舊數據清除檢查完成');
+    } catch (error) {
+      console.error('❌ 清除舊數據失敗:', error);
+    }
   }
 
   /**

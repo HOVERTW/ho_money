@@ -540,11 +540,15 @@ export const dbService = {
   // 用戶專用方法 - 只獲取當前用戶的數據
   readUserData: async (table: string, query?: string) => {
     try {
+      console.log(`🔍 開始讀取用戶 ${table} 數據...`);
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
+        console.log('❌ 用戶未登錄，無法讀取數據');
         return { data: null, error: new Error('用戶未登錄') };
       }
+
+      console.log(`👤 用戶 ID: ${user.id}, 讀取表: ${table}`);
 
       let queryBuilder = supabase
         .from(table)
@@ -556,6 +560,11 @@ export const dbService = {
       if (error) {
         console.error(`❌ 讀取用戶 ${table} 失敗:`, error);
         return { data: null, error };
+      }
+
+      console.log(`✅ 成功讀取 ${data?.length || 0} 筆 ${table} 記錄`);
+      if (data && data.length > 0) {
+        console.log(`📊 ${table} 數據示例:`, data[0]);
       }
 
       return { data, error: null };
@@ -584,11 +593,15 @@ export const dbService = {
         user_id: user.id,
       }));
 
-      console.log(`📝 準備插入 ${dataWithUserId.length} 筆 ${table} 記錄`);
+      console.log(`📝 準備 upsert ${dataWithUserId.length} 筆 ${table} 記錄`);
 
+      // 使用 upsert 避免重複資料，根據 id 和 user_id 進行衝突檢測
       const { data: result, error } = await supabase
         .from(table)
-        .insert(dataWithUserId)
+        .upsert(dataWithUserId, {
+          onConflict: 'id,user_id',
+          ignoreDuplicates: false
+        })
         .select();
 
       if (error) {
@@ -596,7 +609,7 @@ export const dbService = {
         return { data: null, error };
       }
 
-      console.log(`✅ 成功插入 ${result?.length || 0} 筆 ${table} 記錄`);
+      console.log(`✅ 成功 upsert ${result?.length || 0} 筆 ${table} 記錄`);
       return { data: isArray ? result : result?.[0], error: null };
     } catch (error) {
       console.error(`❌ 創建用戶 ${table} 異常:`, error);

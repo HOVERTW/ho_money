@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { appInitializationService } from './src/services/appInitializationService';
 import AppNavigator from './src/navigation/AppNavigator';
+import { errorHandler } from './src/utils/errorHandler';
 // import { DiagnosticsService } from './src/utils/diagnostics';
 
 // 錯誤邊界組件
@@ -67,6 +68,10 @@ function AppContent() {
         console.log('🌐 環境變量檢查:');
         console.log('- SUPABASE_URL:', process.env.EXPO_PUBLIC_SUPABASE_URL ? '✅ 已設置' : '❌ 未設置');
         console.log('- SUPABASE_KEY:', process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ? '✅ 已設置' : '❌ 未設置');
+
+        // 初始化錯誤處理器
+        console.log('🛡️ 初始化全局錯誤處理器...');
+        // errorHandler 已經在 import 時自動初始化
 
         console.log('🚀 開始初始化應用服務...');
 

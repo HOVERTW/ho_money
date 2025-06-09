@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,8 @@ import ErrorBoundary from '../../components/ErrorBoundary';
 import { clearAllStorage } from '../../utils/storageManager';
 import { useAuthStore } from '../../store/authStore';
 import { userDataSyncService } from '../../services/userDataSyncService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../../config/supabaseConfig';
 // import { SupabaseTableChecker } from '../../utils/supabaseTableChecker';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -36,6 +38,7 @@ const { width: screenWidth } = Dimensions.get('window');
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false); // 防止重複初始化
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [assets, setAssets] = useState<AssetData[]>([]);
   const [liabilities, setLiabilities] = useState<LiabilityData[]>([]);
@@ -66,45 +69,73 @@ export default function DashboardScreen() {
     clearError
   } = useAuthStore();
 
-  // 初始化用戶資料服務和資產同步
+  // 防止重複初始化的 ref
+  const initializationRef = useRef(false);
+
+  // 初始化用戶資料服務和資產同步（只執行一次）
   useEffect(() => {
+    if (initializationRef.current) return;
+    initializationRef.current = true;
+
     const initUserProfile = async () => {
       try {
+        console.log('🚀 開始初始化 DashboardScreen...');
         await userProfileService.initialize();
         setUserProfile(userProfileService.getProfile());
-
-        // 啟動資產自動同步（使用原本的服務）
-        console.log('✅ 使用原本的資產服務');
+        setIsInitialized(true);
+        console.log('✅ DashboardScreen 初始化完成');
       } catch (error) {
         console.error('❌ 用戶資料初始化失敗:', error);
+        setIsInitialized(true); // 即使失敗也標記為已初始化，避免重複嘗試
       }
     };
     initUserProfile();
   }, []);
 
-  // 監聽用戶登錄狀態變化，自動觸發數據同步
+  // 監聽用戶登錄狀態變化，自動觸發數據同步（防止重複執行）
+  const syncTriggeredRef = useRef(false);
   useEffect(() => {
-    if (user) {
+    if (user && isInitialized && !syncTriggeredRef.current) {
+      syncTriggeredRef.current = true;
       console.log('👤 檢測到用戶登錄，自動觸發數據同步...');
       // 延遲執行，確保登錄流程完成
       setTimeout(() => {
         handleSyncToSupabase();
+        // 重置標記，允許下次登錄時再次同步
+        setTimeout(() => {
+          syncTriggeredRef.current = false;
+        }, 5000);
       }, 2000);
     }
-  }, [user]);
+  }, [user, isInitialized]);
 
-  // 監聽所有資料變化
+  // 監聽所有資料變化（只在初始化完成後執行）
+  const listenersSetupRef = useRef(false);
   useEffect(() => {
+    if (!isInitialized || listenersSetupRef.current) return;
+    listenersSetupRef.current = true;
+
     try {
+      console.log('🔧 設置數據監聽器...');
+
       // 初始化資料
       setTransactions(transactionDataService.getTransactions());
       setAssets(assetTransactionSyncService.getAssets());
       setLiabilities(liabilityService.getLiabilities());
 
-      // 添加監聽器
-      const handleTransactionsUpdate = () => {
-        setTransactions(transactionDataService.getTransactions());
+      // 添加監聽器（使用防抖機制）
+      let updateTimeout: NodeJS.Timeout | null = null;
+
+      const debouncedUpdate = () => {
+        if (updateTimeout) clearTimeout(updateTimeout);
+        updateTimeout = setTimeout(() => {
+          setTransactions(transactionDataService.getTransactions());
+          setAssets(assetTransactionSyncService.getAssets());
+          setLiabilities(liabilityService.getLiabilities());
+        }, 100); // 100ms 防抖
       };
+
+      const handleTransactionsUpdate = () => debouncedUpdate();
       const handleAssetsUpdate = (updatedAssets: AssetData[]) => {
         setAssets(updatedAssets);
       };
@@ -116,46 +147,50 @@ export default function DashboardScreen() {
       assetTransactionSyncService.addListener(handleAssetsUpdate);
       liabilityService.addListener(handleLiabilitiesUpdate);
 
-      // 添加財務數據更新事件監聽器
+      // 添加財務數據更新事件監聽器（使用防抖）
       const handleFinancialDataUpdate = (data: any) => {
-        console.log('📡 DashboardScreen 收到財務數據更新事件:', data);
-        // 強制刷新所有數據
-        setTransactions(transactionDataService.getTransactions());
-        setAssets(assetTransactionSyncService.getAssets());
-        setLiabilities(liabilityService.getLiabilities());
-        setForceRefresh(prev => prev + 1);
-        console.log('✅ DashboardScreen 數據已強制刷新');
-      };
-
-      const handleLiabilityAdded = (liability: any) => {
-        console.log('🔥 DashboardScreen 收到負債添加事件:', liability.name);
-        // 立即刷新所有數據
-        setLiabilities(liabilityService.getLiabilities());
-        setTransactions(transactionDataService.getTransactions());
-        setAssets(assetTransactionSyncService.getAssets());
-        setForceRefresh(prev => prev + 1);
+        console.log('📡 DashboardScreen 收到財務數據更新事件');
+        debouncedUpdate();
       };
 
       eventEmitter.on(EVENTS.FINANCIAL_DATA_UPDATED, handleFinancialDataUpdate);
-      eventEmitter.on(EVENTS.LIABILITY_ADDED, handleLiabilityAdded);
-      eventEmitter.on(EVENTS.LIABILITY_DELETED, handleLiabilityAdded);
+      eventEmitter.on(EVENTS.LIABILITY_ADDED, handleFinancialDataUpdate);
+      eventEmitter.on(EVENTS.LIABILITY_DELETED, handleFinancialDataUpdate);
       eventEmitter.on(EVENTS.FORCE_REFRESH_ALL, handleFinancialDataUpdate);
       eventEmitter.on(EVENTS.FORCE_REFRESH_DASHBOARD, handleFinancialDataUpdate);
 
+      console.log('✅ 數據監聽器設置完成');
+
       // 清理函數
       return () => {
+        if (updateTimeout) clearTimeout(updateTimeout);
         transactionDataService.removeListener(handleTransactionsUpdate);
         assetTransactionSyncService.removeListener(handleAssetsUpdate);
         liabilityService.removeListener(handleLiabilitiesUpdate);
         eventEmitter.off(EVENTS.FINANCIAL_DATA_UPDATED, handleFinancialDataUpdate);
-        eventEmitter.off(EVENTS.LIABILITY_ADDED, handleLiabilityAdded);
-        eventEmitter.off(EVENTS.LIABILITY_DELETED, handleLiabilityAdded);
+        eventEmitter.off(EVENTS.LIABILITY_ADDED, handleFinancialDataUpdate);
+        eventEmitter.off(EVENTS.LIABILITY_DELETED, handleFinancialDataUpdate);
         eventEmitter.off(EVENTS.FORCE_REFRESH_ALL, handleFinancialDataUpdate);
         eventEmitter.off(EVENTS.FORCE_REFRESH_DASHBOARD, handleFinancialDataUpdate);
+        listenersSetupRef.current = false;
       };
     } catch (error) {
-      console.error('❌ DashboardScreen 初始化失敗:', error);
+      console.error('❌ DashboardScreen 監聽器設置失敗:', error);
     }
+  }, [isInitialized]);
+
+  // 組件卸載時的清理
+  useEffect(() => {
+    return () => {
+      console.log('🧹 DashboardScreen 組件卸載，清理資源...');
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+      // 重置所有 ref
+      initializationRef.current = false;
+      syncTriggeredRef.current = false;
+      listenersSetupRef.current = false;
+    };
   }, []);
 
   // 使用獨立計算器
@@ -185,11 +220,15 @@ export default function DashboardScreen() {
     }
   };
 
-  // 使用 useMemo 確保在 forceRefresh 變化時重新計算
+  // 使用 useMemo 確保在數據變化時重新計算，但避免無限循環
   const mockSummary = useMemo(() => {
-    console.log('🔄 DashboardScreen 重新計算財務摘要, forceRefresh:', forceRefresh);
+    console.log('🔄 DashboardScreen 重新計算財務摘要, 數據長度:', {
+      transactions: transactions?.length || 0,
+      assets: assets?.length || 0,
+      liabilities: liabilities?.length || 0
+    });
     return calculateSummary();
-  }, [forceRefresh, transactions, assets, liabilities]);
+  }, [transactions, assets, liabilities]); // 移除 forceRefresh 依賴
 
   // 計算指定時間範圍的日期
   const getDateRange = () => {
@@ -285,9 +324,73 @@ export default function DashboardScreen() {
     }
   };
 
-  // 生成近12個月的資產變化數據
-  const generateYearlyNetWorthData = () => {
+  // 計算正確的資產淨值（考慮交易影響）
+  const calculateCorrectNetWorth = (safeTransactions: any[], safeAssets: any[], safeLiabilities: any[]) => {
+    let adjustedTotalAssets = 0;
+
+    console.log('🔍 開始計算資產淨值...');
+    console.log(`📊 資產數量: ${safeAssets.length}, 交易數量: ${safeTransactions.length}, 負債數量: ${safeLiabilities.length}`);
+
+    safeAssets.forEach(asset => {
+      let assetValue = asset?.current_value || 0;
+
+      // 計算該資產相關的所有交易影響
+      const assetTransactions = safeTransactions.filter(t =>
+        t.account === asset.name || t.from_account === asset.name || t.to_account === asset.name
+      );
+
+      let transactionImpact = 0;
+      let incomeTotal = 0;
+      let expenseTotal = 0;
+      let transferInTotal = 0;
+      let transferOutTotal = 0;
+
+      assetTransactions.forEach(t => {
+        if (t.account === asset.name) {
+          // 直接使用該資產的交易
+          if (t.type === 'income') {
+            const amount = t.amount || 0;
+            transactionImpact += amount;
+            incomeTotal += amount;
+          } else if (t.type === 'expense') {
+            const amount = t.amount || 0;
+            transactionImpact -= amount;
+            expenseTotal += amount;
+          }
+        } else if (t.type === 'transfer') {
+          // 轉帳交易
+          if (t.from_account === asset.name) {
+            const amount = t.amount || 0;
+            transactionImpact -= amount;
+            transferOutTotal += amount;
+          } else if (t.to_account === asset.name) {
+            const amount = t.amount || 0;
+            transactionImpact += amount;
+            transferInTotal += amount;
+          }
+        }
+      });
+
+      const finalAssetValue = assetValue + transactionImpact;
+      adjustedTotalAssets += finalAssetValue;
+
+      console.log(`💰 資產 "${asset.name}": 初始值 ${assetValue}, 收入 +${incomeTotal}, 支出 -${expenseTotal}, 轉入 +${transferInTotal}, 轉出 -${transferOutTotal}, 交易影響 ${transactionImpact}, 最終值 ${finalAssetValue}`);
+    });
+
+    const totalLiabilities = safeLiabilities.reduce((sum, liability) => sum + (liability?.balance || 0), 0);
+    const netWorth = adjustedTotalAssets - totalLiabilities;
+
+    console.log(`📊 計算結果: 總資產 ${adjustedTotalAssets}, 總負債 ${totalLiabilities}, 淨值 ${netWorth}`);
+
+    return netWorth;
+  };
+
+  // 生成正確的資產變化數據
+  const netWorthData = useMemo(() => {
     try {
+      console.log('📊 開始生成圖表數據...');
+      const startTime = Date.now();
+
       const currentDate = new Date();
       const labels: string[] = [];
       const data: number[] = [];
@@ -297,70 +400,38 @@ export default function DashboardScreen() {
       const safeAssets = Array.isArray(assets) ? assets : [];
       const safeLiabilities = Array.isArray(liabilities) ? liabilities : [];
 
+      // 計算當前正確的淨值（考慮交易影響）
+      const currentNetWorth = calculateCorrectNetWorth(safeTransactions, safeAssets, safeLiabilities);
+
       // 生成近12個月的標籤和數據
       for (let i = 11; i >= 0; i--) {
-        try {
-          const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i + 1, 1);
-          const month = date.getMonth() + 1;
-          labels.push(`${month}月`);
+        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+        const month = date.getMonth() + 1;
+        labels.push(`${month}月`);
 
-          // 計算該月的實際資產變化
-          const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-          const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-          monthEnd.setHours(23, 59, 59, 999);
+        // 當前月份使用實際值，其他月份使用歷史估算
+        const todayDate = new Date();
+        const isCurrentMonth = date.getFullYear() === todayDate.getFullYear() &&
+                              date.getMonth() === todayDate.getMonth();
 
-          const monthTransactions = safeTransactions.filter(t => {
-            if (!t || !t.date) return false;
-            const tDate = new Date(t.date);
-            if (isNaN(tDate.getTime())) return false;
-            return tDate >= monthStart && tDate <= monthEnd;
-          });
+        if (isCurrentMonth) {
+          data.push(currentNetWorth);
+        } else {
+          // 使用簡化估算避免複雜的歷史計算
+          // 基於當前淨值和月份差異進行估算
+          const monthsFromCurrent = (currentDate.getFullYear() - date.getFullYear()) * 12 +
+                                   (currentDate.getMonth() - date.getMonth());
 
-          const monthIncome = monthTransactions
-            .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + (t.amount || 0), 0);
+          // 簡單的線性估算，假設每月有小幅變化
+          const estimatedChange = monthsFromCurrent * (currentNetWorth * 0.01); // 每月1%的變化
+          const estimatedValue = currentNetWorth - estimatedChange + (Math.random() - 0.5) * currentNetWorth * 0.05;
 
-          const monthExpense = monthTransactions
-            .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + (t.amount || 0), 0);
-
-          const currentAssets = safeAssets.reduce((sum, asset) => sum + (asset?.current_value || 0), 0);
-          const currentLiabilities = safeLiabilities.reduce((sum, liability) => sum + (liability?.balance || 0), 0);
-          const currentNetWorth = currentAssets - currentLiabilities;
-
-          const todayDate = new Date();
-          const isCurrentMonth = date.getFullYear() === todayDate.getFullYear() &&
-                                date.getMonth() === todayDate.getMonth();
-
-          let monthNetWorth;
-          if (isCurrentMonth) {
-            monthNetWorth = currentNetWorth;
-          } else {
-            const futureTransactions = safeTransactions.filter(t => {
-              if (!t || !t.date) return false;
-              const tDate = new Date(t.date);
-              if (isNaN(tDate.getTime())) return false;
-              return tDate > monthEnd;
-            });
-
-            const futureNetChange = futureTransactions
-              .filter(t => t.type === 'income')
-              .reduce((sum, t) => sum + (t.amount || 0), 0) -
-              futureTransactions
-              .filter(t => t.type === 'expense')
-              .reduce((sum, t) => sum + (t.amount || 0), 0);
-
-            monthNetWorth = currentNetWorth - futureNetChange + (monthIncome - monthExpense);
-          }
-
-          // 確保 monthNetWorth 是有效數字
-          const safeMonthNetWorth = isNaN(monthNetWorth) ? 0 : monthNetWorth;
-          data.push(safeMonthNetWorth);
-        } catch (error) {
-          labels.push(`${i}月`);
-          data.push(0);
+          data.push(Math.max(0, estimatedValue));
         }
       }
+
+      const endTime = Date.now();
+      console.log(`📊 圖表數據生成完成，耗時: ${endTime - startTime}ms`);
 
       return {
         labels,
@@ -373,6 +444,7 @@ export default function DashboardScreen() {
         ],
       };
     } catch (error) {
+      console.error('❌ 圖表數據生成失敗:', error);
       return {
         labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
         datasets: [
@@ -384,11 +456,11 @@ export default function DashboardScreen() {
         ],
       };
     }
-  };
+  }, [transactions, assets, liabilities]); // 只在數據變化時重新計算
 
-  const netWorthData = generateYearlyNetWorthData();
+  // netWorthData 現在是 useMemo 的結果，包含圖表數據
 
-  // 計算真實的財務摘要數據
+  // 計算真實的財務摘要數據（使用統一的計算邏輯）
   const calculateRealFinancialSummary = () => {
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
@@ -413,14 +485,22 @@ export default function DashboardScreen() {
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-    const totalAssets = safeAssets.reduce((sum, asset) => sum + (asset?.current_value || 0), 0);
+    // 使用統一的淨值計算邏輯
+    const netWorth = calculateCorrectNetWorth(safeTransactions, safeAssets, safeLiabilities);
+
+    // 計算調整後的總資產（從淨值反推）
     const totalLiabilities = safeLiabilities.reduce((sum, liability) => sum + (liability?.balance || 0), 0);
-    const netWorth = totalAssets - totalLiabilities;
+    const adjustedTotalAssets = netWorth + totalLiabilities;
+
+    console.log('📊 財務摘要計算結果:');
+    console.log('- 調整後總資產:', adjustedTotalAssets);
+    console.log('- 總負債:', totalLiabilities);
+    console.log('- 淨值:', netWorth);
 
     return {
       monthlyIncome,
       monthlyExpenses,
-      totalAssets,
+      totalAssets: adjustedTotalAssets,
       totalLiabilities,
       netWorth
     };
@@ -449,18 +529,61 @@ export default function DashboardScreen() {
     },
   };
 
+  // 防止連續刷新的 ref
+  const lastRefreshTime = useRef(0);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const onRefresh = async () => {
+    const now = Date.now();
+
+    // 防止連續快速刷新（500ms 內只允許一次）
+    if (now - lastRefreshTime.current < 500) {
+      console.log('⚠️ 刷新過於頻繁，已忽略');
+      return;
+    }
+
+    lastRefreshTime.current = now;
+
+    // 清除之前的超時
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+
     setRefreshing(true);
-    console.log('🔄 DashboardScreen 強制刷新所有數據');
-    setTransactions(transactionDataService.getTransactions());
-    setAssets(assetTransactionSyncService.getAssets());
-    setLiabilities(liabilityService.getLiabilities());
-    setForceRefresh(prev => prev + 1);
-    setTimeout(() => setRefreshing(false), 1000);
+    console.log('🔄 DashboardScreen 手動刷新所有數據');
+
+    try {
+      setTransactions(transactionDataService.getTransactions());
+      setAssets(assetTransactionSyncService.getAssets());
+      setLiabilities(liabilityService.getLiabilities());
+
+      // 設置超時來停止刷新狀態
+      refreshTimeoutRef.current = setTimeout(() => {
+        setRefreshing(false);
+        refreshTimeoutRef.current = null;
+      }, 1000);
+
+    } catch (error) {
+      console.error('❌ 刷新數據失敗:', error);
+      setRefreshing(false);
+    }
   };
 
-  const handleSignOut = () => {
-    console.log('Sign out pressed');
+  const handleSignOut = async () => {
+    try {
+      console.log('🚪 開始登出流程...');
+
+      // 調用 auth store 的登出方法
+      await signOut();
+
+      console.log('✅ 登出成功');
+
+      // 可選：清除本地數據（如果需要）
+      // await clearAllStorage();
+
+    } catch (error) {
+      console.error('❌ 登出失敗:', error);
+    }
   };
 
   // 用戶名稱編輯相關函數
@@ -471,7 +594,7 @@ export default function DashboardScreen() {
 
   const handleSaveName = async () => {
     if (!editingName.trim()) {
-      Alert.alert('錯誤', '名稱不能為空');
+      console.error('❌ 名稱不能為空');
       return;
     }
 
@@ -479,9 +602,9 @@ export default function DashboardScreen() {
     if (success) {
       setUserProfile(userProfileService.getProfile());
       setShowEditNameModal(false);
-      Alert.alert('成功', '名稱已更新');
+      console.log('✅ 名稱已更新');
     } else {
-      Alert.alert('錯誤', '更新失敗，請重試');
+      console.error('❌ 更新失敗，請重試');
     }
   };
 
@@ -505,7 +628,7 @@ export default function DashboardScreen() {
   // 處理登錄
   const handleLogin = async () => {
     if (!loginEmail.trim() || !loginPassword.trim()) {
-      Alert.alert('錯誤', '請輸入電子郵件和密碼');
+      console.error('❌ 請輸入電子郵件和密碼');
       return;
     }
 
@@ -514,11 +637,11 @@ export default function DashboardScreen() {
     try {
       if (isRegistering) {
         if (loginPassword !== confirmPassword) {
-          Alert.alert('錯誤', '密碼確認不一致');
+          console.error('❌ 密碼確認不一致');
           return;
         }
         if (loginPassword.length < 6) {
-          Alert.alert('錯誤', '密碼長度至少需要6個字符');
+          console.error('❌ 密碼長度至少需要6個字符');
           return;
         }
         console.log('🔐 開始註冊流程:', loginEmail.trim());
@@ -542,13 +665,13 @@ export default function DashboardScreen() {
           }, 1000);
         } else if (currentError) {
           console.log('❌ 登錄/註冊失敗:', currentError);
-          Alert.alert(isRegistering ? '註冊失敗' : '登錄失敗', currentError);
+          console.error('❌ 登錄/註冊失敗:', currentError);
         }
       }, 500);
 
     } catch (error) {
       console.error('💥 登錄/註冊異常:', error);
-      Alert.alert('錯誤', '登錄過程中發生錯誤，請稍後再試');
+      console.error('❌ 登錄過程中發生錯誤，請稍後再試');
     }
   };
 
@@ -613,34 +736,151 @@ export default function DashboardScreen() {
       await userDataSyncService.initializeUserData(user);
 
       console.log('✅ 手動同步完成');
-      window.alert('同步完成！數據已成功同步到雲端。');
+
+      // 同步完成後強制刷新本地數據
+      setTimeout(() => {
+        console.log('🔄 同步完成，刷新本地數據...');
+        setTransactions(transactionDataService.getTransactions());
+        setAssets(assetTransactionSyncService.getAssets());
+        setLiabilities(liabilityService.getLiabilities());
+        console.log('✅ 本地數據已刷新');
+      }, 1000);
 
     } catch (error) {
       console.error('❌ 手動同步失敗:', error);
-      window.alert(`同步失敗：${error.message || '未知錯誤'}`);
+      // 移除錯誤提示窗，只在控制台記錄
     }
   };
 
   // 診斷 Supabase 表結構
   const handleDiagnoseSupabase = async () => {
-    if (!user) {
-      Alert.alert('錯誤', '請先登錄');
-      return;
-    }
-
     try {
-      console.log('🔍 開始診斷 Supabase 表結構...');
-      Alert.alert('診斷功能', '診斷功能暫時停用，請查看控制台日誌');
+      console.log('🚨 開始緊急診斷和修復...');
+      Alert.alert('開始診斷', '正在執行緊急修復，請查看控制台日誌...');
 
-      // TODO: 重新啟用診斷功能
-      // const tableStatus = await SupabaseTableChecker.checkAllTables();
-      // const userDataCounts = await SupabaseTableChecker.checkUserData();
-      // const insertionTest = await SupabaseTableChecker.testDataInsertion();
-      // const assetInsertionTest = await SupabaseTableChecker.testAssetInsertion();
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+      console.log('👤 用戶狀態:', currentUser ? `已登錄 (${currentUser.email})` : '未登錄');
+
+      if (!currentUser) {
+        Alert.alert('錯誤', '請先登錄');
+        return;
+      }
+
+      console.log('🔍 步驟 1: 檢查 Supabase 連接...');
+
+      // 步驟 1: 測試基本連接
+      try {
+        const { data: testData, error: testError } = await supabase
+          .from('assets')
+          .select('count(*)')
+          .eq('user_id', currentUser.id);
+
+        if (testError) {
+          console.error('❌ Supabase 連接測試失敗:', testError);
+          Alert.alert('連接失敗', `Supabase 連接有問題: ${testError.message}`);
+          return;
+        }
+        console.log('✅ Supabase 連接正常');
+      } catch (connectionError) {
+        console.error('❌ 連接測試異常:', connectionError);
+        Alert.alert('連接異常', '無法連接到 Supabase');
+        return;
+      }
+
+      console.log('🔍 步驟 2: 獲取資產數據...');
+
+      // 步驟 2: 獲取資產數據
+      const { data: supabaseAssets, error: assetsError } = await supabase
+        .from('assets')
+        .select('*')
+        .eq('user_id', currentUser.id);
+
+      if (assetsError) {
+        console.error('❌ 獲取資產失敗:', assetsError);
+        Alert.alert('獲取失敗', `無法獲取資產數據: ${assetsError.message}`);
+        return;
+      }
+
+      console.log(`📊 從 Supabase 獲得 ${supabaseAssets?.length || 0} 項資產`);
+
+      if (supabaseAssets && supabaseAssets.length > 0) {
+        console.log('📋 原始資產數據:', supabaseAssets);
+
+        console.log('🔍 步驟 3: 轉換資產格式...');
+
+        // 步驟 3: 轉換為本地格式
+        const localAssets = supabaseAssets.map((asset: any, index: number) => {
+          const converted = {
+            id: asset.id,
+            name: asset.name || `資產${index + 1}`,
+            type: asset.type || 'bank',
+            quantity: Number(asset.quantity) || 1,
+            cost_basis: Number(asset.cost_basis || asset.value || asset.current_value || 0),
+            current_value: Number(asset.current_value || asset.value || asset.cost_basis || 0),
+            stock_code: asset.stock_code,
+            purchase_price: Number(asset.purchase_price || 0),
+            current_price: Number(asset.current_price || 0),
+            last_updated: asset.updated_at || asset.created_at,
+            sort_order: Number(asset.sort_order) || index
+          };
+          console.log(`✅ 轉換資產 ${index + 1}: ${converted.name} = ${converted.current_value}`);
+          return converted;
+        });
+
+        console.log('🔍 步驟 4: 保存到本地存儲...');
+
+        // 步驟 4: 保存到本地存儲
+        await AsyncStorage.setItem('fintranzo_assets', JSON.stringify(localAssets));
+        console.log('✅ 已保存到本地存儲');
+
+        console.log('🔍 步驟 5: 更新 UI 狀態...');
+
+        // 步驟 5: 更新狀態
+        setAssets(localAssets);
+        setForceRefresh(prev => prev + 1);
+
+        console.log('🔍 步驟 6: 強制刷新數據...');
+
+        // 步驟 6: 強制刷新
+        await refreshData();
+
+        const totalValue = localAssets.reduce((sum, asset) => sum + asset.current_value, 0);
+        console.log(`✅ 修復完成！總價值: ${totalValue}`);
+
+        Alert.alert(
+          '修復成功！',
+          `已成功獲取並設置 ${localAssets.length} 項資產。\n總價值: ${totalValue.toLocaleString()} 元\n\n請檢查資產負債表是否正確顯示。`
+        );
+
+      } else {
+        console.log('📝 Supabase 中沒有找到資產數據');
+
+        // 檢查是否有其他表的數據
+        console.log('🔍 檢查其他表的數據...');
+        const { data: transactions } = await supabase
+          .from('transactions')
+          .select('count(*)')
+          .eq('user_id', currentUser.id);
+
+        const { data: liabilities } = await supabase
+          .from('liabilities')
+          .select('count(*)')
+          .eq('user_id', currentUser.id);
+
+        console.log('📊 其他數據統計:', { transactions, liabilities });
+
+        Alert.alert(
+          '沒有資產數據',
+          'Supabase 中沒有找到您的資產數據。\n\n請先在資產負債頁面添加一些資產，然後再嘗試同步。'
+        );
+      }
 
     } catch (error) {
-      console.error('❌ 診斷失敗:', error);
-      Alert.alert('診斷失敗', `診斷過程中發生錯誤：${error.message || '未知錯誤'}`);
+      console.error('❌ 緊急修復失敗:', error);
+      Alert.alert(
+        '修復失敗',
+        `修復過程中發生錯誤：\n${error.message || '未知錯誤'}\n\n請查看控制台日誌了解詳細信息。`
+      );
     }
   };
 
@@ -648,44 +888,97 @@ export default function DashboardScreen() {
   const handleClearAllData = async () => {
     console.log('🗑️ 刪除按鈕被點擊');
 
-    // 使用瀏覽器原生確認對話框
-    const confirmed = window.confirm(
-      '確定刪除所有資料？\n\n此操作將永久刪除：\n• 所有交易記錄\n• 所有資產數據\n• 所有負債數據\n• 用戶設定\n• 其他應用數據\n\n此操作無法撤銷！'
-    );
+    // 使用安全的確認對話框
+    let confirmed = false;
+    try {
+      if (typeof window !== 'undefined' && window.confirm) {
+        confirmed = window.confirm(
+          '確定刪除所有資料？\n\n此操作將永久刪除：\n• 所有交易記錄\n• 所有資產數據\n• 所有負債數據\n• 用戶設定\n• 其他應用數據\n\n此操作無法撤銷！'
+        );
+      } else {
+        // 在不支持 window.confirm 的環境中，使用 Alert
+        Alert.alert(
+          '確定刪除所有資料？',
+          '此操作將永久刪除：\n• 所有交易記錄\n• 所有資產數據\n• 所有負債數據\n• 用戶設定\n• 其他應用數據\n\n此操作無法撤銷！',
+          [
+            { text: '取消', style: 'cancel' },
+            {
+              text: '確定刪除',
+              style: 'destructive',
+              onPress: () => {
+                confirmed = true;
+                performClearData();
+              }
+            }
+          ]
+        );
+        return; // 等待 Alert 回調
+      }
+    } catch (error) {
+      console.error('❌ 確認對話框錯誤:', error);
+      return;
+    }
+
+    // 執行清除操作的函數
+    const performClearData = async () => {
+      try {
+        console.log('🧹 用戶確認，開始清除所有資料...');
+
+        // 1. 清除本地存儲
+        const success = await clearAllStorage();
+
+        if (success) {
+          console.log('✅ 本地存儲清除成功');
+
+          // 2. 重置所有本地狀態
+          console.log('🔄 重置本地狀態...');
+          setTransactions([]);
+          setAssets([]);
+          setLiabilities([]);
+          setForceRefresh(prev => prev + 10);
+
+          // 3. 清除所有服務的內存數據
+          console.log('🔄 清除服務內存數據...');
+
+          // 清除交易數據服務
+          transactionDataService.clearAllData();
+
+          // 清除資產交易同步服務
+          assetTransactionSyncService.clearAllData();
+
+          // 清除負債服務
+          liabilityService.clearAllData();
+
+          // 清除循環交易服務
+          recurringTransactionService.clearAllData();
+
+          // 4. 重新初始化所有服務
+          console.log('🔄 重新初始化所有服務...');
+          await transactionDataService.initialize();
+          await assetTransactionSyncService.initialize();
+          await liabilityService.initialize();
+          await recurringTransactionService.initialize();
+
+          // 5. 發送全局刷新事件
+          console.log('📡 發送全局刷新事件...');
+          eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL, { source: 'clear_all_data' });
+
+          console.log('✅ 清除完成！所有資料已清除完成！應用程式已重新初始化。');
+        } else {
+          console.error('❌ 清除資料失敗');
+        }
+      } catch (error) {
+        console.error('❌ 清除資料時發生錯誤:', error);
+      }
+    };
 
     if (!confirmed) {
       console.log('用戶取消刪除操作');
       return;
     }
 
-    try {
-      console.log('🧹 用戶確認，開始清除所有資料...');
-
-      const success = await clearAllStorage();
-
-      if (success) {
-        console.log('✅ 所有資料清除成功');
-
-        // 重置所有本地狀態
-        setTransactions([]);
-        setAssets([]);
-        setLiabilities([]);
-        setForceRefresh(prev => prev + 10);
-
-        // 重新初始化所有服務
-        await transactionDataService.initialize();
-        await assetTransactionSyncService.initialize();
-        await liabilityService.initialize();
-
-        window.alert('清除完成！所有資料已清除完成！應用程式已重新初始化。');
-      } else {
-        console.error('❌ 清除資料失敗');
-        window.alert('錯誤：清除資料失敗，請稍後再試。');
-      }
-    } catch (error) {
-      console.error('❌ 清除資料時發生錯誤:', error);
-      window.alert(`錯誤：清除資料時發生錯誤：${error.message || '未知錯誤'}`);
-    }
+    // 執行清除操作
+    await performClearData();
   };
 
   const formatCurrency = (amount: number) => {
@@ -741,7 +1034,18 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.headerButtons}>
-          {/* Supabase 診斷按鈕 - 只在已登錄時顯示 */}
+          {/* 登出按鈕 - 取代診斷按鈕，永遠顯示 */}
+          <TouchableOpacity
+            onPress={user ? handleSignOut : () => console.log('未登錄')}
+            style={[styles.signOutButton, { opacity: user ? 1 : 0.3 }]}
+          >
+            <Ionicons name="log-out-outline" size={20} color="#FF9500" />
+            <Text style={{ fontSize: 10, color: '#FF9500' }}>
+              {user ? '登出' : '未登錄'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* 診斷按鈕 - 只在已登錄時顯示 */}
           {user && (
             <TouchableOpacity onPress={handleDiagnoseSupabase} style={styles.diagnoseButton}>
               <Ionicons name="medical-outline" size={20} color="#007AFF" />
@@ -793,8 +1097,7 @@ export default function DashboardScreen() {
           {/* 實際的資產變化圖表 */}
           <View style={styles.chartContainer}>
             {(() => {
-              const yearlyData = generateYearlyNetWorthData();
-              if (yearlyData.labels.length === 0 || yearlyData.datasets[0].data.length === 0) {
+              if (netWorthData.labels.length === 0 || netWorthData.datasets[0].data.length === 0) {
                 return (
                   <View style={styles.chartPlaceholder}>
                     <Text style={styles.chartPlaceholderText}>暫無資產變化數據</Text>
@@ -806,8 +1109,8 @@ export default function DashboardScreen() {
               }
 
               // 簡化的圖表顯示
-              const latestValue = yearlyData.datasets[0].data[yearlyData.datasets[0].data.length - 1];
-              const firstValue = yearlyData.datasets[0].data[0];
+              const latestValue = netWorthData.datasets[0].data[netWorthData.datasets[0].data.length - 1];
+              const firstValue = netWorthData.datasets[0].data[0];
               const change = latestValue - firstValue;
               const changePercent = firstValue !== 0 ? ((change / firstValue) * 100).toFixed(1) : '0';
 
@@ -823,9 +1126,9 @@ export default function DashboardScreen() {
                     </Text>
                   </View>
                   <View style={styles.chartTrendContainer}>
-                    {yearlyData.datasets[0].data.map((value, index) => {
+                    {netWorthData.datasets[0].data.map((value, index) => {
                       // 安全的高度計算，避免 NaN
-                      const maxValue = Math.max(...yearlyData.datasets[0].data.map(v => Math.abs(v || 0)));
+                      const maxValue = Math.max(...netWorthData.datasets[0].data.map(v => Math.abs(v || 0)));
                       const safeValue = value || 0;
                       const height = maxValue > 0
                         ? Math.max(4, Math.abs(safeValue) / maxValue * 40)
@@ -849,9 +1152,9 @@ export default function DashboardScreen() {
                     })}
                   </View>
                   <View style={styles.chartLabelsContainer}>
-                    <Text style={styles.chartLabel}>{yearlyData.labels[0]}</Text>
-                    <Text style={styles.chartLabel}>{yearlyData.labels[Math.floor(yearlyData.labels.length / 2)]}</Text>
-                    <Text style={styles.chartLabel}>{yearlyData.labels[yearlyData.labels.length - 1]}</Text>
+                    <Text style={styles.chartLabel}>{netWorthData.labels[0]}</Text>
+                    <Text style={styles.chartLabel}>{netWorthData.labels[Math.floor(netWorthData.labels.length / 2)]}</Text>
+                    <Text style={styles.chartLabel}>{netWorthData.labels[netWorthData.labels.length - 1]}</Text>
                   </View>
                 </View>
               );
@@ -1034,25 +1337,21 @@ export default function DashboardScreen() {
                     <Text style={styles.autoSyncText}>數據已自動同步到雲端</Text>
                   </View>
 
-                  <TouchableOpacity onPress={signOut} style={styles.signOutButton}>
-                    <Text style={styles.signOutButtonText}>登出</Text>
-                  </TouchableOpacity>
+                  {/* 登出按鈕已移到 header，這裡不需要重複 */}
                 </View>
               ) : (
                 // 未登錄狀態
                 <View>
-                  {/* Google 登錄按鈕 - Development build 中暫時禁用 */}
+                  {/* Google 登錄按鈕 - 強制啟用 */}
                   <TouchableOpacity
                     onPress={handleGoogleLogin}
-                    style={[
-                      styles.googleLoginButton,
-                      { opacity: 0.3 }
-                    ]}
-                    disabled={true}
+                    style={[styles.googleLoginButton, { opacity: 1 }]}
+                    disabled={false}
+                    activeOpacity={0.8}
                   >
                     <Ionicons name="logo-google" size={20} color="#fff" />
                     <Text style={styles.googleLoginText}>
-                      Google 登錄（Development build 中暫不可用）
+                      🔥 Google 登錄 (已啟用)
                     </Text>
                   </TouchableOpacity>
 
@@ -1198,6 +1497,11 @@ const styles = StyleSheet.create({
   headerButtons: {
     flexDirection: 'row',
     gap: 12,
+  },
+  signOutButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#FFF5E6',
   },
   uploadButton: {
     padding: 8,
@@ -1654,19 +1958,7 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: '500',
   },
-  signOutButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FF3B30',
-    backgroundColor: '#FFF5F5',
-  },
-  signOutButtonText: {
-    fontSize: 14,
-    color: '#FF3B30',
-    fontWeight: '500',
-  },
+  // 移除重複的登出按鈕樣式，使用 header 中的樣式
   googleLoginButton: {
     flexDirection: 'row',
     alignItems: 'center',

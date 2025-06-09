@@ -38,13 +38,46 @@ export interface StorageStatus {
 export async function clearAllStorage(): Promise<boolean> {
   try {
     console.log('🧹 開始清除所有本地存儲數據...');
-    
+
+    // 獲取所有存儲鍵
     const keysToRemove = Object.values(STORAGE_KEYS);
-    await AsyncStorage.multiRemove(keysToRemove);
-    
+    console.log('📋 將清除的存儲鍵:', keysToRemove);
+
+    // 添加額外的存儲鍵（可能不在 STORAGE_KEYS 中的）
+    const additionalKeys = [
+      'recurring_transactions',
+      'future_transactions',
+      'user_preferences',
+      'app_settings',
+      'sync_status',
+      'last_sync_time'
+    ];
+
+    const allKeysToRemove = [...keysToRemove, ...additionalKeys];
+    console.log('📋 完整的清除列表:', allKeysToRemove);
+
+    // 批量刪除所有鍵
+    await AsyncStorage.multiRemove(allKeysToRemove);
+
+    // 額外確保：獲取所有現有鍵並清除任何剩餘的應用相關鍵
+    const existingKeys = await AsyncStorage.getAllKeys();
+    const appRelatedKeys = existingKeys.filter(key =>
+      key.startsWith('fintranzo_') ||
+      key.startsWith('transaction_') ||
+      key.startsWith('asset_') ||
+      key.startsWith('liability_') ||
+      key.startsWith('recurring_') ||
+      key.includes('financial')
+    );
+
+    if (appRelatedKeys.length > 0) {
+      console.log('🧹 清除額外發現的應用相關鍵:', appRelatedKeys);
+      await AsyncStorage.multiRemove(appRelatedKeys);
+    }
+
     console.log('✅ 所有本地存儲數據已清除');
-    console.log(`📊 清除了 ${keysToRemove.length} 個存儲項目`);
-    
+    console.log(`📊 清除了 ${allKeysToRemove.length + appRelatedKeys.length} 個存儲項目`);
+
     return true;
   } catch (error) {
     console.error('❌ 清除本地存儲失敗:', error);
