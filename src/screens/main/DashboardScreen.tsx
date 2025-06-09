@@ -826,8 +826,11 @@ export default function DashboardScreen() {
 
         console.log('🔍 步驟 7: 強制刷新數據...');
 
-        // 步驟 7: 強制刷新
-        await refreshData();
+        // 步驟 7: 強制刷新 - 直接更新狀態
+        setTransactions(transactionDataService.getTransactions());
+        setAssets(assetTransactionSyncService.getAssets());
+        setLiabilities(liabilityService.getLiabilities());
+        setForceRefresh(prev => prev + 1);
 
         const totalValue = localAssets.reduce((sum, asset) => sum + asset.current_value, 0);
         console.log(`✅ 超級修復完成！總價值: ${totalValue}`);
