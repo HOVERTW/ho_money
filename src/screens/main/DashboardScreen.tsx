@@ -30,7 +30,7 @@ import { clearAllStorage } from '../../utils/storageManager';
 import { useAuthStore } from '../../store/authStore';
 import { userDataSyncService } from '../../services/userDataSyncService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../../config/supabaseConfig';
+import { supabase } from '../../services/supabase';
 // import { SupabaseTableChecker } from '../../utils/supabaseTableChecker';
 
 const { width: screenWidth } = Dimensions.get('window');
