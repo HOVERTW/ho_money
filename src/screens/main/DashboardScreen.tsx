@@ -750,9 +750,9 @@ export default function DashboardScreen() {
 
       // 步驟 1: 測試基本連接
       try {
-        const { data: testData, error: testError } = await supabase
+        const { count, error: testError } = await supabase
           .from('assets')
-          .select('count(*)')
+          .select('*', { count: 'exact', head: true })
           .eq('user_id', currentUser.id);
 
         if (testError) {
@@ -760,7 +760,7 @@ export default function DashboardScreen() {
           Alert.alert('連接失敗', `Supabase 連接有問題: ${testError.message}`);
           return;
         }
-        console.log('✅ Supabase 連接正常');
+        console.log('✅ Supabase 連接正常，資產數量:', count);
       } catch (connectionError) {
         console.error('❌ 連接測試異常:', connectionError);
         Alert.alert('連接異常', '無法連接到 Supabase');
@@ -843,17 +843,20 @@ export default function DashboardScreen() {
         // 檢查是否有其他表的數據
         console.log('🔍 檢查其他表的數據...');
         try {
-          const { data: transactions } = await supabase
+          const { count: transactionCount } = await supabase
             .from('transactions')
-            .select('count(*)')
+            .select('*', { count: 'exact', head: true })
             .eq('user_id', currentUser.id);
 
-          const { data: liabilities } = await supabase
+          const { count: liabilityCount } = await supabase
             .from('liabilities')
-            .select('count(*)')
+            .select('*', { count: 'exact', head: true })
             .eq('user_id', currentUser.id);
 
-          console.log('📊 其他數據統計:', { transactions, liabilities });
+          console.log('📊 其他數據統計:', {
+            transactions: transactionCount,
+            liabilities: liabilityCount
+          });
         } catch (checkError) {
           console.log('⚠️ 檢查其他表失敗:', checkError);
         }
