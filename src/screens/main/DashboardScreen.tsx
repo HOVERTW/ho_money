@@ -809,9 +809,9 @@ export default function DashboardScreen() {
 
         console.log('🔍 步驟 4: 保存到本地存儲...');
 
-        // 步驟 4: 保存到本地存儲
-        await AsyncStorage.setItem('fintranzo_assets', JSON.stringify(localAssets));
-        console.log('✅ 已保存到本地存儲');
+        // 步驟 4: 保存到本地存儲 - 使用正確的鍵名
+        await AsyncStorage.setItem('@FinTranzo:assets', JSON.stringify(localAssets));
+        console.log('✅ 已保存到本地存儲 (使用正確鍵名: @FinTranzo:assets)');
 
         console.log('🔍 步驟 5: 直接更新 UI 狀態...');
 
@@ -826,18 +826,27 @@ export default function DashboardScreen() {
 
         console.log('🔍 步驟 7: 強制刷新數據...');
 
-        // 步驟 7: 強制刷新 - 直接更新狀態
+        // 步驟 7: 強制重新加載資產服務並更新狀態
+        await assetTransactionSyncService.forceReload();
         setTransactions(transactionDataService.getTransactions());
         setAssets(assetTransactionSyncService.getAssets());
         setLiabilities(liabilityService.getLiabilities());
         setForceRefresh(prev => prev + 1);
 
+        console.log('✅ 資產服務已強制重新加載');
+
         const totalValue = localAssets.reduce((sum, asset) => sum + asset.current_value, 0);
         console.log(`✅ 超級修復完成！總價值: ${totalValue}`);
 
+        // 步驟 8: 驗證同步結果
+        console.log('🔍 步驟 8: 驗證同步結果...');
+        const verifyAssets = assetTransactionSyncService.getAssets();
+        console.log('📊 驗證結果: 資產服務中的資產數量:', verifyAssets.length);
+        console.log('📊 驗證結果: 資產服務中的總價值:', verifyAssets.reduce((sum, asset) => sum + asset.current_value, 0));
+
         Alert.alert(
           '超級修復成功！',
-          `已成功獲取並設置 ${localAssets.length} 項資產。\n總價值: ${totalValue.toLocaleString()} 元\n\n請檢查資產負債表是否正確顯示。\n\n如果還是沒有顯示，請手動刷新頁面。`
+          `已成功獲取並設置 ${localAssets.length} 項資產。\n總價值: ${totalValue.toLocaleString()} 元\n\n資產服務驗證: ${verifyAssets.length} 項資產\n\n請檢查資產負債表是否正確顯示。`
         );
 
       } else {
