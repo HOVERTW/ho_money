@@ -193,6 +193,10 @@ class UserDataSyncService {
         if (assets.length > 0) {
           console.log(`📤 準備遷移 ${assets.length} 項資產到雲端`);
 
+          // 先獲取用戶 ID
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          const userId = currentUser?.id;
+
           // 轉換為 Supabase 格式
           const supabaseAssets = assets.map((asset: any) => ({
             id: asset.id,
@@ -206,7 +210,7 @@ class UserDataSyncService {
             purchase_price: asset.purchase_price || 0,
             current_price: asset.current_price || 0,
             sort_order: asset.sort_order || 0,
-            user_id: (await supabase.auth.getUser()).data.user?.id,
+            user_id: userId,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           }));
