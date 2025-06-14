@@ -744,8 +744,8 @@ export default function DashboardScreen() {
       console.log('🎯 上傳結果:', result);
 
       if (result.success) {
-        const { transactions, assets, liabilities, accounts } = result.details;
-        const totalCount = transactions + assets + liabilities + accounts;
+        const { transactions, assets, liabilities, accounts, categories } = result.details;
+        const totalCount = transactions + assets + liabilities + accounts + categories;
 
         Alert.alert(
           '上傳成功！',
@@ -753,7 +753,8 @@ export default function DashboardScreen() {
           `• 交易記錄：${transactions} 筆\n` +
           `• 資產數據：${assets} 筆\n` +
           `• 負債數據：${liabilities} 筆\n` +
-          `• 帳戶數據：${accounts} 筆\n\n` +
+          `• 帳戶數據：${accounts} 筆\n` +
+          `• 交易類別：${categories} 筆\n\n` +
           `總計：${totalCount} 筆數據`
         );
       } else {

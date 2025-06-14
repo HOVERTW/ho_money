@@ -6,6 +6,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, TABLES } from './supabase';
 import { eventEmitter, EVENTS } from './eventEmitter';
+import { enhancedSyncService } from './enhancedSyncService';
 
 // 本地存儲的鍵名
 const STORAGE_KEYS = {
@@ -329,6 +330,9 @@ class AssetTransactionSyncService {
       this.assets[index] = { ...this.assets[index], ...updatedAsset };
       this.notifyListeners();
       await this.saveToStorage();
+
+      // 同步更新到雲端
+      await enhancedSyncService.syncAssetUpdate(assetId, this.assets[index]);
     }
   }
 
@@ -339,6 +343,9 @@ class AssetTransactionSyncService {
     this.assets = this.assets.filter(asset => asset.id !== assetId);
     this.notifyListeners();
     await this.saveToStorage();
+
+    // 同步刪除到雲端
+    await enhancedSyncService.syncAssetDelete(assetId);
   }
 
   /**

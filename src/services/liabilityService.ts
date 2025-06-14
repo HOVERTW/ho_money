@@ -5,6 +5,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { eventEmitter, EVENTS } from './eventEmitter';
 import { supabase, TABLES } from './supabase';
+import { enhancedSyncService } from './enhancedSyncService';
 
 // 本地存儲的鍵名
 const STORAGE_KEYS = {
@@ -230,6 +231,9 @@ class LiabilityService {
       this.liabilities[index] = { ...this.liabilities[index], ...updatedLiability };
       this.notifyListeners();
       await this.saveToStorage();
+
+      // 同步更新到雲端
+      await enhancedSyncService.syncLiabilityUpdate(id, this.liabilities[index]);
     }
   }
 
@@ -240,6 +244,9 @@ class LiabilityService {
     this.liabilities = this.liabilities.filter(l => l.id !== id);
     this.notifyListeners();
     await this.saveToStorage();
+
+    // 同步刪除到雲端
+    await enhancedSyncService.syncLiabilityDelete(id);
   }
 
   /**

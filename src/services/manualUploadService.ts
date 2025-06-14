@@ -40,6 +40,7 @@ export interface UploadResult {
     assets: number;
     liabilities: number;
     accounts: number;
+    categories: number;
   };
   errors: string[];
 }
@@ -56,7 +57,8 @@ class ManualUploadService {
         transactions: 0,
         assets: 0,
         liabilities: 0,
-        accounts: 0
+        accounts: 0,
+        categories: 0
       },
       errors: []
     };
@@ -112,6 +114,17 @@ class ManualUploadService {
         console.log(`✅ 帳戶數據上傳完成: ${accountCount} 筆`);
       } catch (error) {
         const errorMsg = `帳戶數據上傳失敗: ${error instanceof Error ? error.message : '未知錯誤'}`;
+        result.errors.push(errorMsg);
+        console.error('❌', errorMsg);
+      }
+
+      // 5. 上傳類別數據
+      try {
+        const categoryCount = await this.uploadCategories(user.id);
+        result.details.categories = categoryCount;
+        console.log(`✅ 類別數據上傳完成: ${categoryCount} 筆`);
+      } catch (error) {
+        const errorMsg = `類別數據上傳失敗: ${error instanceof Error ? error.message : '未知錯誤'}`;
         result.errors.push(errorMsg);
         console.error('❌', errorMsg);
       }
@@ -391,6 +404,61 @@ class ManualUploadService {
 
     console.log(`✅ 已上傳 ${convertedAccounts.length} 筆帳戶記錄`);
     return convertedAccounts.length;
+  }
+
+  /**
+   * 上傳類別數據
+   */
+  private async uploadCategories(userId: string): Promise<number> {
+    console.log('🔄 開始上傳類別數據...');
+
+    // 從服務獲取類別數據
+    const categories = transactionDataService.getCategories();
+
+    if (categories.length === 0) {
+      console.log('📝 沒有類別數據需要上傳');
+      return 0;
+    }
+
+    // 轉換類別數據格式以匹配 Supabase 表結構
+    const convertedCategories = categories.map((category: any) => {
+      // 確保 ID 是有效的 UUID 格式
+      let categoryId = category.id;
+      if (!categoryId || !isValidUUID(categoryId)) {
+        categoryId = generateUUID();
+        console.log(`🔄 為類別生成新的 UUID: ${categoryId}`);
+      }
+
+      return {
+        id: categoryId,
+        user_id: userId,
+        name: category.name,
+        icon: category.icon,
+        color: category.color,
+        type: category.type,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    });
+
+    console.log('📝 轉換後的類別數據示例:', convertedCategories[0]);
+
+    // 使用 upsert 避免重複資料
+    const { data, error } = await supabase
+      .from(TABLES.CATEGORIES)
+      .upsert(convertedCategories, {
+        onConflict: 'id',
+        ignoreDuplicates: false
+      })
+      .select();
+
+    if (error) {
+      console.error('❌ 類別數據上傳錯誤:', error);
+      throw new Error(`類別數據上傳失敗: ${error.message}`);
+    }
+
+    console.log(`✅ 已上傳 ${convertedCategories.length} 筆類別記錄`);
+    return convertedCategories.length;
   }
 }
 

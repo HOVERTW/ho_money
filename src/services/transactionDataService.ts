@@ -3,6 +3,9 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase, TABLES } from './supabase';
+import { eventEmitter, EVENTS } from './eventEmitter';
+import { enhancedSyncService } from './enhancedSyncService';
 
 export interface Transaction {
   id: string;
@@ -317,6 +320,9 @@ class TransactionDataService {
       this.transactions[index] = { ...this.transactions[index], ...updatedTransaction };
       await this.saveToStorage();
       this.notifyListeners();
+
+      // 同步更新到雲端
+      await enhancedSyncService.syncTransactionUpdate(id, this.transactions[index]);
     }
   }
 
@@ -408,6 +414,9 @@ class TransactionDataService {
       this.categories[index] = { ...this.categories[index], ...updatedCategory };
       await this.saveToStorage();
       this.notifyListeners();
+
+      // 同步更新到雲端
+      await enhancedSyncService.syncCategoryUpdate(id, this.categories[index]);
     }
   }
 
@@ -418,6 +427,9 @@ class TransactionDataService {
     this.categories = this.categories.filter(c => c.id !== id);
     await this.saveToStorage();
     this.notifyListeners();
+
+    // 同步刪除到雲端
+    await enhancedSyncService.syncCategoryDelete(id);
   }
 
   /**
