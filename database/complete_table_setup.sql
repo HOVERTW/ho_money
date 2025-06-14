@@ -83,7 +83,8 @@ CREATE TABLE IF NOT EXISTS categories (
     color TEXT,
     type TEXT NOT NULL CHECK (type IN ('income', 'expense', 'transfer')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(id, user_id)  -- 添加複合唯一約束以支持 upsert
 );
 
 -- 用戶資料表
