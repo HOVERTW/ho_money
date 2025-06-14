@@ -257,8 +257,24 @@ export default function TransactionsScreen() {
   useEffect(() => {
     console.log('✅ 開始初始化交易數據');
 
-    // 直接獲取已初始化的交易資料
-    setTransactions(transactionDataService.getTransactions());
+    // 確保服務已初始化，然後獲取交易資料
+    const initializeAndLoadData = async () => {
+      try {
+        // 確保 transactionDataService 已經初始化
+        await transactionDataService.initialize();
+        console.log('✅ TransactionsScreen: transactionDataService 已確保初始化');
+
+        // 獲取已初始化的交易資料
+        setTransactions(transactionDataService.getTransactions());
+        console.log('✅ TransactionsScreen: 交易數據已載入');
+      } catch (error) {
+        console.error('❌ TransactionsScreen: 初始化交易服務失敗:', error);
+        // 即使失敗，也設置空數組避免崩潰
+        setTransactions([]);
+      }
+    };
+
+    initializeAndLoadData();
 
     // 添加監聽器來同步資料
     const handleTransactionsUpdate = () => {
@@ -394,6 +410,15 @@ export default function TransactionsScreen() {
   const handleAddTransaction = async (newTransaction: any) => {
     console.log('💰 處理新交易:', newTransaction);
 
+    try {
+      // 確保服務已初始化
+      await transactionDataService.initialize();
+      console.log('✅ handleAddTransaction: transactionDataService 已確保初始化');
+    } catch (error) {
+      console.error('❌ handleAddTransaction: 初始化交易服務失敗:', error);
+      return; // 如果初始化失敗，直接返回
+    }
+
     // 如果是循環交易，創建循環交易模板並立即生成第一筆交易
     if (newTransaction.is_recurring) {
       console.log('🔄 處理循環交易:', newTransaction);
@@ -416,18 +441,32 @@ export default function TransactionsScreen() {
       });
 
       // 立即生成第一筆交易記錄
+      // 注意：不要重新生成 ID，使用 AddTransactionModal 已經生成的 ID
       const firstTransaction = {
         ...newTransaction,
-        id: ensureValidUUID(newTransaction.id), // 確保ID是有效的UUID
+        // 保持原有的 ID，因為 AddTransactionModal 已經確保了 UUID 格式
       };
 
       // 先添加交易到服務中
       await transactionDataService.addTransaction(firstTransaction);
 
-      // 然後處理交易對資產和負債的影響
+      // 確保資產服務已初始化，然後處理交易對資產和負債的影響
       console.log('💰 處理第一筆交易對資產的影響:', firstTransaction);
-      assetTransactionSyncService.processTransaction(firstTransaction);
-      liabilityTransactionSyncService.processTransaction(firstTransaction);
+      try {
+        await assetTransactionSyncService.initialize();
+        assetTransactionSyncService.processTransaction(firstTransaction);
+        console.log('✅ 資產影響處理完成');
+      } catch (error) {
+        console.error('❌ 處理資產影響失敗:', error);
+      }
+
+      try {
+        await liabilityTransactionSyncService.initialize();
+        liabilityTransactionSyncService.processTransaction(firstTransaction);
+        console.log('✅ 負債影響處理完成');
+      } catch (error) {
+        console.error('❌ 處理負債影響失敗:', error);
+      }
 
       // 處理循環交易，生成後續的交易記錄（如果有到期的）
       const generatedTransactions = recurringTransactionService.processRecurringTransactions();
@@ -455,6 +494,12 @@ export default function TransactionsScreen() {
       // 處理交易對負債的影響
       liabilityTransactionSyncService.processTransaction(newTransaction);
     }
+
+    // 更新 UI 狀態 - 這是關鍵！
+    console.log('🔄 更新 TransactionsScreen 的交易狀態...');
+    const updatedTransactions = transactionDataService.getTransactions();
+    setTransactions(updatedTransactions);
+    console.log(`✅ UI 狀態已更新，當前交易數量: ${updatedTransactions.length}`);
 
     // 發送事件通知其他組件刷新
     eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'transaction_added' });
@@ -600,6 +645,12 @@ export default function TransactionsScreen() {
       assetTransactionSyncService.reverseTransaction(item);
       await transactionDataService.deleteTransaction(item.id);
     }
+
+    // 更新 UI 狀態 - 刪除後也需要更新！
+    console.log('🔄 更新 TransactionsScreen 的交易狀態（刪除後）...');
+    const updatedTransactions = transactionDataService.getTransactions();
+    setTransactions(updatedTransactions);
+    console.log(`✅ UI 狀態已更新，當前交易數量: ${updatedTransactions.length}`);
 
     console.log('✅ 交易刪除完成');
   };
