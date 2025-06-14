@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, TABLES } from './supabase';
 import { eventEmitter, EVENTS } from './eventEmitter';
 import { enhancedSyncService } from './enhancedSyncService';
+import { generateUUID, isValidUUID, ensureValidUUID } from '../utils/uuid';
 
 export interface Transaction {
   id: string;
@@ -388,9 +389,12 @@ class TransactionDataService {
 
       console.log('✅ 用戶已登錄，開始同步交易記錄到雲端');
 
+      // 確保 ID 是有效的 UUID 格式
+      const validId = ensureValidUUID(transaction.id);
+
       // 準備 Supabase 格式的數據
       const supabaseTransaction = {
-        id: transaction.id,
+        id: validId,
         user_id: user.id,
         account_id: null,
         amount: transaction.amount || 0,

@@ -6,6 +6,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, TABLES } from './supabase';
 import { eventEmitter, EVENTS } from './eventEmitter';
+import { generateUUID, isValidUUID, ensureValidUUID } from '../utils/uuid';
 import { enhancedSyncService } from './enhancedSyncService';
 
 // 本地存儲的鍵名
@@ -166,9 +167,8 @@ class AssetTransactionSyncService {
       console.log('✅ 用戶已登錄，開始同步資產到雲端');
 
       // 確保 ID 是有效的 UUID 格式
-      let assetId = asset.id;
-      if (!assetId || !isValidUUID(assetId)) {
-        assetId = generateUUID();
+      const assetId = ensureValidUUID(asset.id);
+      if (assetId !== asset.id) {
         console.log(`🔄 為資產生成新的 UUID: ${assetId}`);
         // 更新本地資產的 ID
         asset.id = assetId;

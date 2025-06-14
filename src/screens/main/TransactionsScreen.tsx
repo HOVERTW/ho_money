@@ -38,6 +38,7 @@ import { assetTransactionSyncService } from '../../services/assetTransactionSync
 import { liabilityService } from '../../services/liabilityService';
 import { liabilityTransactionSyncService } from '../../services/liabilityTransactionSyncService';
 import { eventEmitter, EVENTS } from '../../services/eventEmitter';
+import { generateUUID, ensureValidUUID } from '../../utils/uuid';
 
 export default function TransactionsScreen() {
   const insets = useSafeAreaInsets();
@@ -417,7 +418,7 @@ export default function TransactionsScreen() {
       // 立即生成第一筆交易記錄
       const firstTransaction = {
         ...newTransaction,
-        id: `first_${Date.now()}`, // 確保ID唯一
+        id: ensureValidUUID(newTransaction.id), // 確保ID是有效的UUID
       };
 
       // 先添加交易到服務中

@@ -18,6 +18,7 @@ import { getFrequencyDisplayName } from '../utils/recurringTransactions';
 // import { bankAccountService } from '../services/bankAccountService'; // 暫時移除
 import { assetTransactionSyncService } from '../services/assetTransactionSyncService';
 import { transactionDataService } from '../services/transactionDataService';
+import { generateUUID, ensureValidUUID } from '../utils/uuid';
 
 interface AddTransactionModalProps {
   visible: boolean;
@@ -317,7 +318,7 @@ export default function AddTransactionModal({ visible, onClose, onAdd, selectedD
     if (type === 'transfer') {
       // 創建轉移交易，包含轉出和轉入信息
       const transferTransaction = {
-        id: editingTransaction?.id || Date.now().toString(),
+        id: ensureValidUUID(editingTransaction?.id),
         amount: parseFloat(amount),
         type: 'transfer',
         description: description.trim() || '',
@@ -345,7 +346,7 @@ export default function AddTransactionModal({ visible, onClose, onAdd, selectedD
       const finalAccount = account;
 
       const transaction = {
-        id: editingTransaction?.id || Date.now().toString(),
+        id: ensureValidUUID(editingTransaction?.id),
         amount: parseFloat(amount),
         type,
         description: finalDescription,
