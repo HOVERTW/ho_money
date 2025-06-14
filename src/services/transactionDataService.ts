@@ -339,8 +339,11 @@ class TransactionDataService {
       // 保存到本地存儲
       await this.saveToStorage();
 
-      // 同步刪除到 Supabase
+      // 同步刪除到 Supabase (使用兩種方法確保成功)
       await this.syncDeleteToSupabase(id);
+
+      // 使用增強同步服務作為備選
+      await enhancedSyncService.syncTransactionDelete(id);
 
       // 通知監聽器
       this.notifyListeners();

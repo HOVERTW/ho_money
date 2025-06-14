@@ -261,6 +261,37 @@ class EnhancedSyncService {
   }
 
   /**
+   * 同步交易刪除到雲端
+   */
+  async syncTransactionDelete(transactionId: string): Promise<void> {
+    try {
+      console.log('🗑️ 增強同步 - 同步交易刪除到雲端:', transactionId);
+
+      const userId = await this.checkUserAuth();
+      if (!userId) {
+        console.log('📝 用戶未登錄，跳過雲端刪除同步');
+        return;
+      }
+
+      // 從 Supabase 刪除交易記錄
+      const { error } = await supabase
+        .from(TABLES.TRANSACTIONS)
+        .delete()
+        .eq('id', transactionId)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('❌ 增強同步 - 刪除雲端交易記錄失敗:', error);
+      } else {
+        console.log('✅ 增強同步 - 雲端交易記錄刪除成功:', transactionId);
+      }
+
+    } catch (error) {
+      console.error('❌ 增強同步 - 同步交易刪除異常:', error);
+    }
+  }
+
+  /**
    * 同步類別更新到雲端
    */
   async syncCategoryUpdate(categoryId: string, updatedCategory: any): Promise<void> {

@@ -7,6 +7,7 @@ import { assetTransactionSyncService } from './assetTransactionSyncService';
 import { liabilityService } from './liabilityService';
 import { liabilityTransactionSyncService } from './liabilityTransactionSyncService';
 import { startDailyUpdates } from '../utils/dailyUpdateScheduler';
+import { categoryRepairService } from './categoryRepairService';
 
 class AppInitializationService {
   private isInitialized = false;
@@ -51,7 +52,10 @@ class AppInitializationService {
         await liabilityTransactionSyncService.forceCreateCurrentMonthTransactions();
       });
 
-      // 6. 啟動每日更新調度器
+      // 6. 修復缺失的類別
+      await this.safeExecute('類別修復服務', () => this.initializeCategoryRepair());
+
+      // 7. 啟動每日更新調度器
       await this.safeExecute('每日更新調度器', () => this.initializeDailyUpdateScheduler());
 
       this.isInitialized = true;
@@ -132,6 +136,32 @@ class AppInitializationService {
     // 初始化交易資料服務（會自動從本地存儲加載或創建空數據）
     await transactionDataService.initialize();
     console.log('✅ 交易服務已初始化');
+  }
+
+  /**
+   * 初始化類別修復服務
+   */
+  private async initializeCategoryRepair(): Promise<void> {
+    try {
+      console.log('🔧 開始檢查和修復類別...');
+
+      // 檢查並修復缺失的類別
+      const result = await categoryRepairService.checkAndRepairCategories();
+
+      if (result.success) {
+        if (result.createdCategories.length > 0) {
+          console.log(`✅ 類別修復完成，創建了 ${result.createdCategories.length} 個類別:`, result.createdCategories);
+        } else {
+          console.log('✅ 類別完整性檢查通過，無需修復');
+        }
+      } else {
+        console.error('❌ 類別修復失敗:', result.message);
+        console.error('❌ 錯誤詳情:', result.errors);
+      }
+    } catch (error) {
+      console.error('❌ 類別修復服務初始化失敗:', error);
+      // 不拋出錯誤，因為這不是關鍵功能
+    }
   }
 
   /**
