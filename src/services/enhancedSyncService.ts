@@ -80,7 +80,19 @@ class EnhancedSyncService {
       if (error) {
         console.error('❌ 同步資產更新失敗:', error);
       } else {
-        console.log('✅ 資產更新同步成功:', finalAssetId);
+        // 驗證資產是否真的更新成功
+        const { data: verifyData, error: verifyError } = await supabase
+          .from(TABLES.ASSETS)
+          .select('id')
+          .eq('id', finalAssetId)
+          .eq('user_id', userId)
+          .single();
+
+        if (verifyError || !verifyData) {
+          console.error('❌ 資產更新同步驗證失敗:', verifyError);
+        } else {
+          console.log('✅ 資產更新同步驗證成功:', finalAssetId);
+        }
       }
 
     } catch (error) {
@@ -111,7 +123,21 @@ class EnhancedSyncService {
       if (error) {
         console.error('❌ 刪除雲端資產記錄失敗:', error);
       } else {
-        console.log('✅ 雲端資產記錄刪除成功:', assetId);
+        // 驗證資產是否真的被刪除
+        const { data: verifyData, error: verifyError } = await supabase
+          .from(TABLES.ASSETS)
+          .select('id')
+          .eq('id', assetId)
+          .eq('user_id', userId)
+          .single();
+
+        if (verifyError && verifyError.code === 'PGRST116') {
+          console.log('✅ 雲端資產記錄刪除驗證成功:', assetId);
+        } else if (verifyData) {
+          console.error('❌ 雲端資產記錄刪除驗證失敗，記錄仍然存在:', assetId);
+        } else {
+          console.error('❌ 雲端資產記錄刪除驗證失敗:', verifyError);
+        }
       }
 
     } catch (error) {
@@ -252,7 +278,19 @@ class EnhancedSyncService {
       if (error) {
         console.error('❌ 同步交易更新失敗:', error);
       } else {
-        console.log('✅ 交易更新同步成功:', finalTransactionId);
+        // 驗證交易是否真的更新成功
+        const { data: verifyData, error: verifyError } = await supabase
+          .from(TABLES.TRANSACTIONS)
+          .select('id')
+          .eq('id', finalTransactionId)
+          .eq('user_id', userId)
+          .single();
+
+        if (verifyError || !verifyData) {
+          console.error('❌ 交易更新同步驗證失敗:', verifyError);
+        } else {
+          console.log('✅ 交易更新同步驗證成功:', finalTransactionId);
+        }
       }
 
     } catch (error) {
@@ -283,7 +321,21 @@ class EnhancedSyncService {
       if (error) {
         console.error('❌ 增強同步 - 刪除雲端交易記錄失敗:', error);
       } else {
-        console.log('✅ 增強同步 - 雲端交易記錄刪除成功:', transactionId);
+        // 驗證交易是否真的被刪除
+        const { data: verifyData, error: verifyError } = await supabase
+          .from(TABLES.TRANSACTIONS)
+          .select('id')
+          .eq('id', transactionId)
+          .eq('user_id', userId)
+          .single();
+
+        if (verifyError && verifyError.code === 'PGRST116') {
+          console.log('✅ 增強同步 - 雲端交易記錄刪除驗證成功:', transactionId);
+        } else if (verifyData) {
+          console.error('❌ 增強同步 - 雲端交易記錄刪除驗證失敗，記錄仍然存在:', transactionId);
+        } else {
+          console.error('❌ 增強同步 - 雲端交易記錄刪除驗證失敗:', verifyError);
+        }
       }
 
     } catch (error) {

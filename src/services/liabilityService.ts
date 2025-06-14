@@ -157,7 +157,18 @@ class LiabilityService {
         if (insertError) {
           console.error('❌ 同步負債數據到雲端失敗:', insertError);
         } else {
-          console.log(`✅ 已同步 ${convertedLiabilities.length} 筆負債數據到雲端`);
+          // 驗證負債數據是否真的同步成功
+          const { data: verifyData, error: verifyError } = await supabase
+            .from(TABLES.LIABILITIES)
+            .select('id')
+            .eq('user_id', user.id);
+
+          if (verifyError) {
+            console.error('❌ 負債數據同步驗證失敗:', verifyError);
+          } else {
+            const actualCount = verifyData?.length || 0;
+            console.log(`✅ 負債數據同步驗證成功: 雲端實際有 ${actualCount} 筆記錄`);
+          }
         }
       } else {
         console.log('📝 沒有負債數據需要同步');

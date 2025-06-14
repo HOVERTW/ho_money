@@ -168,7 +168,18 @@ class UserDataSyncService {
           if (error) {
             console.error('❌ 交易記錄遷移錯誤:', error);
           } else {
-            console.log(`✅ 已遷移 ${convertedTransactions.length} 筆交易記錄`);
+            // 驗證交易記錄是否真的遷移成功
+            const { data: verifyData, error: verifyError } = await supabase
+              .from(TABLES.TRANSACTIONS)
+              .select('id')
+              .eq('user_id', user.id);
+
+            if (verifyError) {
+              console.error('❌ 交易記錄遷移驗證失敗:', verifyError);
+            } else {
+              const actualCount = verifyData?.length || 0;
+              console.log(`✅ 交易記錄遷移驗證成功: 雲端實際有 ${actualCount} 筆記錄`);
+            }
           }
         }
       } else {

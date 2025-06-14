@@ -232,8 +232,20 @@ class ManualUploadService {
       throw new Error(`交易記錄上傳失敗: ${error.message}`);
     }
 
-    console.log(`✅ 已上傳 ${convertedTransactions.length} 筆交易記錄`);
-    return convertedTransactions.length;
+    // 驗證交易記錄是否真的上傳成功
+    const { data: verifyData, error: verifyError } = await supabase
+      .from(TABLES.TRANSACTIONS)
+      .select('id')
+      .eq('user_id', userId);
+
+    if (verifyError) {
+      console.error('❌ 交易記錄上傳驗證失敗:', verifyError);
+      throw new Error(`交易記錄上傳驗證失敗: ${verifyError.message}`);
+    }
+
+    const actualCount = verifyData?.length || 0;
+    console.log(`✅ 交易記錄上傳驗證成功: 雲端實際有 ${actualCount} 筆記錄`);
+    return actualCount;
   }
 
   /**
@@ -293,8 +305,20 @@ class ManualUploadService {
       throw new Error(`資產數據上傳失敗: ${error.message}`);
     }
 
-    console.log(`✅ 已上傳 ${supabaseAssets.length} 筆資產記錄`);
-    return supabaseAssets.length;
+    // 驗證資產數據是否真的上傳成功
+    const { data: verifyData, error: verifyError } = await supabase
+      .from(TABLES.ASSETS)
+      .select('id')
+      .eq('user_id', userId);
+
+    if (verifyError) {
+      console.error('❌ 資產數據上傳驗證失敗:', verifyError);
+      throw new Error(`資產數據上傳驗證失敗: ${verifyError.message}`);
+    }
+
+    const actualCount = verifyData?.length || 0;
+    console.log(`✅ 資產數據上傳驗證成功: 雲端實際有 ${actualCount} 筆記錄`);
+    return actualCount;
   }
 
   /**
