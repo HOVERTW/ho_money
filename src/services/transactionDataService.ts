@@ -7,6 +7,7 @@ import { supabase, TABLES } from './supabase';
 import { eventEmitter, EVENTS } from './eventEmitter';
 import { enhancedSyncService } from './enhancedSyncService';
 import { generateUUID, isValidUUID, ensureValidUUID } from '../utils/uuid';
+import { instantSyncService } from './instantSyncService';
 
 export interface Transaction {
   id: string;
@@ -363,12 +364,12 @@ class TransactionDataService {
         // 即使本地存儲失敗，也繼續雲端同步
       }
 
-      // 同步到雲端
+      // 即時同步到雲端
       try {
-        await this.syncTransactionToSupabase(transaction);
-        console.log('✅ 已同步到雲端');
+        await instantSyncService.syncTransactionInstantly(transaction);
+        console.log('✅ 已即時同步到雲端');
       } catch (syncError) {
-        console.error('❌ 雲端同步失敗:', syncError);
+        console.error('❌ 即時同步失敗:', syncError);
         // 雲端同步失敗不影響本地操作
       }
 
@@ -488,44 +489,13 @@ class TransactionDataService {
         updated_at: new Date().toISOString()
       };
 
-      // 先檢查交易是否存在，然後決定插入或更新
-      const { data: existingTransaction } = await supabase
+      // 使用 upsert 直接插入或更新，避免額外查詢延遲
+      const { error } = await supabase
         .from(TABLES.TRANSACTIONS)
-        .select('id')
-        .eq('id', validId)
-        .eq('user_id', user.id)
-        .single();
-
-      let error;
-      if (existingTransaction) {
-        // 更新現有交易
-        const { error: updateError } = await supabase
-          .from(TABLES.TRANSACTIONS)
-          .update({
-            amount: supabaseTransaction.amount,
-            type: supabaseTransaction.type,
-            description: supabaseTransaction.description,
-            category: supabaseTransaction.category,
-            account: supabaseTransaction.account,
-            from_account: supabaseTransaction.from_account,
-            to_account: supabaseTransaction.to_account,
-            date: supabaseTransaction.date,
-            is_recurring: supabaseTransaction.is_recurring,
-            recurring_frequency: supabaseTransaction.recurring_frequency,
-            max_occurrences: supabaseTransaction.max_occurrences,
-            start_date: supabaseTransaction.start_date,
-            updated_at: supabaseTransaction.updated_at
-          })
-          .eq('id', validId)
-          .eq('user_id', user.id);
-        error = updateError;
-      } else {
-        // 插入新交易
-        const { error: insertError } = await supabase
-          .from(TABLES.TRANSACTIONS)
-          .insert(supabaseTransaction);
-        error = insertError;
-      }
+        .upsert(supabaseTransaction, {
+          onConflict: 'id',
+          ignoreDuplicates: false
+        });
 
       if (error) {
         console.error('❌ 同步交易記錄到雲端失敗:', error);

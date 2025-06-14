@@ -8,6 +8,7 @@ import { supabase, TABLES } from './supabase';
 import { eventEmitter, EVENTS } from './eventEmitter';
 import { generateUUID, isValidUUID, ensureValidUUID } from '../utils/uuid';
 import { enhancedSyncService } from './enhancedSyncService';
+import { instantSyncService } from './instantSyncService';
 
 // 本地存儲的鍵名
 const STORAGE_KEYS = {
@@ -143,8 +144,17 @@ class AssetTransactionSyncService {
       await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
       console.log('💾 資產數據已保存到本地存儲');
 
-      // 2. 如果用戶已登錄，同時保存到雲端
-      await this.syncToSupabase();
+      // 2. 如果用戶已登錄，即時同步到雲端
+      try {
+        // 對所有資產進行即時同步
+        for (const asset of this.assets) {
+          await instantSyncService.syncAssetInstantly(asset);
+        }
+        console.log('✅ 所有資產已即時同步到雲端');
+      } catch (error) {
+        console.error('❌ 即時同步失敗，降級到批量同步:', error);
+        await this.syncToSupabase();
+      }
     } catch (error) {
       console.error('❌ 保存資產數據失敗:', error);
     }
@@ -321,19 +331,17 @@ class AssetTransactionSyncService {
           console.log(`✅ 已同步 ${convertedAssets.length} 筆資產數據到雲端`);
           console.log('✅ 插入結果:', insertResult);
 
-          // 立即驗證數據是否真的插入了
-          setTimeout(async () => {
-            const { data: verifyData, error: verifyError } = await supabase
-              .from(TABLES.ASSETS)
-              .select('*')
-              .eq('user_id', user.id);
+          // 立即驗證數據是否插入成功（移除延遲）
+          const { data: verifyData, error: verifyError } = await supabase
+            .from(TABLES.ASSETS)
+            .select('*')
+            .eq('user_id', user.id);
 
-            if (verifyError) {
-              console.error('❌ 驗證插入失敗:', verifyError);
-            } else {
-              console.log('🔍 驗證結果: 雲端現有', verifyData?.length || 0, '筆資產記錄');
-            }
-          }, 1000);
+          if (verifyError) {
+            console.error('❌ 驗證插入失敗:', verifyError);
+          } else {
+            console.log('🔍 驗證結果: 雲端現有', verifyData?.length || 0, '筆資產記錄');
+          }
         }
       } else {
         console.log('📝 沒有資產數據需要同步');

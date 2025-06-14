@@ -33,6 +33,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../services/supabase';
 import { manualUploadService } from '../../services/manualUploadService';
 import { DiagnosticButton } from '../../components/DiagnosticButton';
+import SyncStatusIndicator from '../../components/SyncStatusIndicator';
 // import { SupabaseTableChecker } from '../../utils/supabaseTableChecker';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -1081,6 +1082,9 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.headerButtons}>
+          {/* 同步狀態指示器 */}
+          <SyncStatusIndicator style={styles.syncIndicator} />
+
           {/* 上傳按鈕 - 只在已登錄時顯示 */}
           {user && (
             <TouchableOpacity onPress={handleSyncToSupabase} style={styles.uploadButton}>
@@ -1549,7 +1553,11 @@ const styles = StyleSheet.create({
   },
   headerButtons: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
+  },
+  syncIndicator: {
+    marginRight: 8,
   },
   signOutButton: {
     padding: 8,

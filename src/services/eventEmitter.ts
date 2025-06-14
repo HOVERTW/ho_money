@@ -76,4 +76,8 @@ export const EVENTS = {
   FORCE_REFRESH_CHARTS: 'force_refresh_charts',
   // 🔥 新增：數據同步事件
   DATA_SYNC_COMPLETED: 'data_sync_completed',
+  // ⚡ 新增：即時同步事件
+  SYNC_SUCCESS: 'sync_success',
+  SYNC_ERROR: 'sync_error',
+  SYNC_STATUS_CHANGED: 'sync_status_changed',
 } as const;
