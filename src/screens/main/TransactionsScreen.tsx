@@ -497,13 +497,12 @@ export default function TransactionsScreen() {
         console.error('❌ 處理普通交易資產影響失敗:', error);
       }
 
-      // 確保負債服務已初始化，然後處理交易對負債的影響
+      // 確保負債服務已初始化（負債服務不需要處理普通交易）
       try {
         await liabilityTransactionSyncService.initialize();
-        liabilityTransactionSyncService.processTransaction(newTransaction);
-        console.log('✅ 普通交易負債影響處理完成');
+        console.log('✅ 負債服務已確保初始化（普通交易不影響負債）');
       } catch (error) {
-        console.error('❌ 處理普通交易負債影響失敗:', error);
+        console.error('❌ 負債服務初始化失敗:', error);
       }
     }
 
