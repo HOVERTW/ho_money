@@ -243,7 +243,19 @@ class AssetTransactionSyncService {
         console.error('❌ 同步資產到雲端失敗:', error);
         console.error('❌ 錯誤詳情:', error.message, error.details, error.hint);
       } else {
-        console.log('✅ 雲端資產同步成功:', asset.id);
+        // 驗證資產是否真的同步成功
+        const { data: verifyData, error: verifyError } = await supabase
+          .from(TABLES.ASSETS)
+          .select('id')
+          .eq('id', asset.id)
+          .eq('user_id', user.id)
+          .single();
+
+        if (verifyError || !verifyData) {
+          console.error('❌ 雲端資產同步驗證失敗:', verifyError);
+        } else {
+          console.log('✅ 雲端資產同步驗證成功:', asset.id);
+        }
       }
 
     } catch (error) {
@@ -432,7 +444,7 @@ class AssetTransactionSyncService {
       // 同步到雲端
       await this.syncAssetToSupabase(asset);
 
-      console.log('✅ 資產添加成功');
+      console.log('✅ 資產本地添加完成，ID:', asset.id);
     } catch (error) {
       console.error('❌ 添加資產失敗:', error);
       throw error;

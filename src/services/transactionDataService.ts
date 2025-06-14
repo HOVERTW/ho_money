@@ -376,7 +376,7 @@ class TransactionDataService {
       // 通知監聽器
       this.notifyListeners();
 
-      console.log('✅ 交易記錄添加成功');
+      console.log('✅ 交易記錄本地添加完成，ID:', transaction.id);
     } catch (error) {
       console.error('❌ 添加交易記錄失敗:', error);
 
@@ -428,7 +428,7 @@ class TransactionDataService {
       // 通知監聽器
       this.notifyListeners();
 
-      console.log('✅ 交易記錄刪除成功');
+      console.log('✅ 交易記錄本地刪除完成，ID:', id);
     } catch (error) {
       console.error('❌ 刪除交易記錄失敗:', error);
       throw error;
@@ -501,7 +501,19 @@ class TransactionDataService {
         console.error('❌ 同步交易記錄到雲端失敗:', error);
         console.error('❌ 錯誤詳情:', error.message, error.details, error.hint);
       } else {
-        console.log('✅ 雲端交易記錄同步成功:', validId);
+        // 驗證數據是否真的同步成功
+        const { data: verifyData, error: verifyError } = await supabase
+          .from(TABLES.TRANSACTIONS)
+          .select('id')
+          .eq('id', validId)
+          .eq('user_id', user.id)
+          .single();
+
+        if (verifyError || !verifyData) {
+          console.error('❌ 雲端交易記錄同步驗證失敗:', verifyError);
+        } else {
+          console.log('✅ 雲端交易記錄同步驗證成功:', validId);
+        }
       }
 
     } catch (error) {
@@ -536,7 +548,22 @@ class TransactionDataService {
         console.error('❌ 刪除雲端交易記錄失敗:', deleteError);
         console.error('❌ 錯誤詳情:', deleteError.message, deleteError.details, deleteError.hint);
       } else {
-        console.log('✅ 雲端交易記錄刪除成功:', transactionId);
+        // 驗證記錄是否真的被刪除
+        const { data: verifyData, error: verifyError } = await supabase
+          .from(TABLES.TRANSACTIONS)
+          .select('id')
+          .eq('id', transactionId)
+          .eq('user_id', user.id)
+          .single();
+
+        if (verifyError && verifyError.code === 'PGRST116') {
+          // PGRST116 表示沒有找到記錄，這是我們期望的結果
+          console.log('✅ 雲端交易記錄刪除驗證成功:', transactionId);
+        } else if (verifyData) {
+          console.error('❌ 雲端交易記錄刪除驗證失敗，記錄仍然存在:', transactionId);
+        } else {
+          console.error('❌ 雲端交易記錄刪除驗證失敗:', verifyError);
+        }
       }
 
     } catch (error) {

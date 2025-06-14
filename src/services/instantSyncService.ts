@@ -28,8 +28,8 @@ class InstantSyncService {
    * 添加同步操作到隊列
    */
   async addToSyncQueue(operation: () => Promise<void>, description: string): Promise<void> {
-    console.log(`⚡ 添加即時同步操作: ${description}`);
-    
+    console.log(`⚡ 開始即時同步操作: ${description}`);
+
     this.syncStatus.pendingOperations++;
     this.notifySyncStatusChange();
 
@@ -38,12 +38,14 @@ class InstantSyncService {
       this.syncStatus.syncInProgress = true;
       this.notifySyncStatusChange();
 
+      // 執行操作，操作內部會進行驗證並記錄真實結果
       await operation();
-      
-      console.log(`✅ 即時同步完成: ${description}`);
+
+      // 只有操作成功完成（沒有拋出異常）才記錄成功
+      console.log(`✅ 即時同步操作執行完成: ${description}`);
       this.syncStatus.lastSyncTime = new Date();
       this.syncStatus.pendingOperations = Math.max(0, this.syncStatus.pendingOperations - 1);
-      
+
       // 立即通知 UI 更新
       eventEmitter.emit(EVENTS.SYNC_SUCCESS, {
         operation: description,
@@ -51,14 +53,18 @@ class InstantSyncService {
       });
 
     } catch (error) {
-      console.error(`❌ 即時同步失敗: ${description}`, error);
+      console.error(`❌ 即時同步操作失敗: ${description}`, error);
+      console.error(`❌ 錯誤詳情:`, error.message);
       this.syncStatus.pendingOperations = Math.max(0, this.syncStatus.pendingOperations - 1);
-      
+
       eventEmitter.emit(EVENTS.SYNC_ERROR, {
         operation: description,
         error: error,
         timestamp: new Date()
       });
+
+      // 重新拋出錯誤，讓調用者知道操作失敗
+      throw error;
     } finally {
       this.syncStatus.syncInProgress = false;
       this.notifySyncStatusChange();
@@ -86,14 +92,34 @@ class InstantSyncService {
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
+      // 執行 upsert 操作
+      const { data, error } = await supabase
         .from(TABLES.TRANSACTIONS)
         .upsert(supabaseTransaction, {
           onConflict: 'id',
           ignoreDuplicates: false
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ 交易同步失敗:', error);
+        throw error;
+      }
+
+      // 驗證數據是否真的插入/更新成功
+      const { data: verifyData, error: verifyError } = await supabase
+        .from(TABLES.TRANSACTIONS)
+        .select('id')
+        .eq('id', transaction.id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (verifyError || !verifyData) {
+        console.error('❌ 交易同步驗證失敗:', verifyError);
+        throw new Error('交易同步後驗證失敗');
+      }
+
+      console.log('✅ 交易同步驗證成功:', transaction.id);
     }, `交易同步: ${transaction.description}`);
   }
 
@@ -118,14 +144,34 @@ class InstantSyncService {
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
+      // 執行 upsert 操作
+      const { data, error } = await supabase
         .from(TABLES.ASSETS)
         .upsert(supabaseAsset, {
           onConflict: 'id',
           ignoreDuplicates: false
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ 資產同步失敗:', error);
+        throw error;
+      }
+
+      // 驗證數據是否真的插入/更新成功
+      const { data: verifyData, error: verifyError } = await supabase
+        .from(TABLES.ASSETS)
+        .select('id')
+        .eq('id', asset.id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (verifyError || !verifyData) {
+        console.error('❌ 資產同步驗證失敗:', verifyError);
+        throw new Error('資產同步後驗證失敗');
+      }
+
+      console.log('✅ 資產同步驗證成功:', asset.id);
     }, `資產同步: ${asset.name}`);
   }
 
@@ -137,13 +183,51 @@ class InstantSyncService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('用戶未登錄');
 
+      // 先檢查記錄是否存在
+      const { data: beforeDelete, error: checkError } = await supabase
+        .from(table)
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('❌ 刪除前檢查失敗:', checkError);
+        throw checkError;
+      }
+
+      if (!beforeDelete) {
+        console.log('⚠️ 記錄不存在，無需刪除:', id);
+        return;
+      }
+
+      // 執行刪除操作
       const { error } = await supabase
         .from(table)
         .delete()
         .eq('id', id)
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ 刪除操作失敗:', error);
+        throw error;
+      }
+
+      // 驗證記錄是否真的被刪除
+      const { data: afterDelete, error: verifyError } = await supabase
+        .from(table)
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (verifyError && verifyError.code === 'PGRST116') {
+        // PGRST116 表示沒有找到記錄，這是我們期望的結果
+        console.log('✅ 刪除同步驗證成功:', id);
+      } else if (afterDelete) {
+        console.error('❌ 刪除驗證失敗，記錄仍然存在:', id);
+        throw new Error('刪除後驗證失敗，記錄仍然存在');
+      }
     }, `刪除同步: ${description}`);
   }
 
