@@ -32,6 +32,7 @@ import { userDataSyncService } from '../../services/userDataSyncService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../services/supabase';
 import { manualUploadService } from '../../services/manualUploadService';
+import { DiagnosticButton } from '../../components/DiagnosticButton';
 // import { SupabaseTableChecker } from '../../utils/supabaseTableChecker';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -1101,9 +1102,7 @@ export default function DashboardScreen() {
 
           {/* 診斷按鈕 - 只在已登錄時顯示 */}
           {user && (
-            <TouchableOpacity onPress={handleDiagnoseSupabase} style={styles.diagnoseButton}>
-              <Ionicons name="medical-outline" size={20} color="#007AFF" />
-            </TouchableOpacity>
+            <DiagnosticButton style={styles.diagnoseButton} />
           )}
 
           {/* 一鍵清除按鈕 */}

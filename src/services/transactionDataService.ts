@@ -171,11 +171,37 @@ class TransactionDataService {
    */
   private async saveToStorage(): Promise<void> {
     try {
-      await Promise.all([
-        AsyncStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(this.transactions)),
-        AsyncStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(this.categories)),
-        AsyncStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(this.accounts))
-      ]);
+      console.log('💾 開始保存數據到本地存儲...');
+      console.log(`📊 交易數量: ${this.transactions.length}`);
+      console.log(`📊 類別數量: ${this.categories.length}`);
+      console.log(`📊 帳戶數量: ${this.accounts.length}`);
+
+      // 分別保存，提供更詳細的錯誤信息
+      try {
+        await AsyncStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(this.transactions));
+        console.log('✅ 交易數據已保存');
+      } catch (error) {
+        console.error('❌ 保存交易數據失敗:', error);
+        throw new Error(`保存交易數據失敗: ${error.message}`);
+      }
+
+      try {
+        await AsyncStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(this.categories));
+        console.log('✅ 類別數據已保存');
+      } catch (error) {
+        console.error('❌ 保存類別數據失敗:', error);
+        throw new Error(`保存類別數據失敗: ${error.message}`);
+      }
+
+      try {
+        await AsyncStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(this.accounts));
+        console.log('✅ 帳戶數據已保存');
+      } catch (error) {
+        console.error('❌ 保存帳戶數據失敗:', error);
+        throw new Error(`保存帳戶數據失敗: ${error.message}`);
+      }
+
+      console.log('✅ 所有數據已成功保存到本地存儲');
     } catch (error) {
       console.error('❌ 保存數據到本地存儲失敗:', error);
       throw error;
@@ -309,15 +335,42 @@ class TransactionDataService {
   async addTransaction(transaction: Transaction): Promise<void> {
     try {
       console.log('📝 開始添加交易記錄:', transaction.description);
+      console.log('📝 交易 ID:', transaction.id);
+      console.log('📝 交易詳情:', {
+        amount: transaction.amount,
+        type: transaction.type,
+        category: transaction.category,
+        account: transaction.account
+      });
+
+      // 確保 ID 是有效的 UUID
+      const validId = ensureValidUUID(transaction.id);
+      if (validId !== transaction.id) {
+        console.log(`🔄 修正交易 ID: ${transaction.id} -> ${validId}`);
+        transaction.id = validId;
+      }
 
       // 添加到本地數據
       this.transactions.push(transaction);
+      console.log('✅ 已添加到本地數據，當前交易數量:', this.transactions.length);
 
       // 保存到本地存儲
-      await this.saveToStorage();
+      try {
+        await this.saveToStorage();
+        console.log('✅ 已保存到本地存儲');
+      } catch (storageError) {
+        console.error('❌ 保存到本地存儲失敗:', storageError);
+        // 即使本地存儲失敗，也繼續雲端同步
+      }
 
       // 同步到雲端
-      await this.syncTransactionToSupabase(transaction);
+      try {
+        await this.syncTransactionToSupabase(transaction);
+        console.log('✅ 已同步到雲端');
+      } catch (syncError) {
+        console.error('❌ 雲端同步失敗:', syncError);
+        // 雲端同步失敗不影響本地操作
+      }
 
       // 通知監聽器
       this.notifyListeners();
@@ -325,6 +378,14 @@ class TransactionDataService {
       console.log('✅ 交易記錄添加成功');
     } catch (error) {
       console.error('❌ 添加交易記錄失敗:', error);
+
+      // 如果添加失敗，嘗試回滾本地數據
+      const index = this.transactions.findIndex(t => t.id === transaction.id);
+      if (index !== -1) {
+        this.transactions.splice(index, 1);
+        console.log('🔄 已回滾本地數據');
+      }
+
       throw error;
     }
   }
@@ -395,11 +456,14 @@ class TransactionDataService {
       // 如果 ID 被更新，同步更新本地交易記錄
       if (validId !== transaction.id) {
         console.log(`🔄 更新本地交易 ID: ${transaction.id} -> ${validId}`);
+        const oldId = transaction.id;
         transaction.id = validId;
-        // 更新本地數據中的 ID
-        const index = this.transactions.findIndex(t => t.id === transaction.id);
+        // 更新本地數據中的 ID - 使用舊 ID 查找
+        const index = this.transactions.findIndex(t => t.id === oldId);
         if (index !== -1) {
           this.transactions[index].id = validId;
+          // 重新保存到本地存儲
+          await this.saveToStorage();
         }
       }
 
