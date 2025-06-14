@@ -1,0 +1,397 @@
+/**
+ * 手動上傳服務 - 專門處理本地數據到 Supabase 的上傳
+ */
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase, TABLES } from './supabase';
+import { transactionDataService } from './transactionDataService';
+import { assetTransactionSyncService } from './assetTransactionSyncService';
+import { liabilityService } from './liabilityService';
+
+// UUID 生成函數
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+// UUID 驗證函數
+function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
+
+// 本地存儲的鍵名
+const STORAGE_KEYS = {
+  TRANSACTIONS: '@FinTranzo:transactions',
+  ASSETS: '@FinTranzo:assets',
+  LIABILITIES: '@FinTranzo:liabilities',
+  ACCOUNTS: '@FinTranzo:accounts',
+  CATEGORIES: '@FinTranzo:categories'
+} as const;
+
+export interface UploadResult {
+  success: boolean;
+  message: string;
+  details: {
+    transactions: number;
+    assets: number;
+    liabilities: number;
+    accounts: number;
+  };
+  errors: string[];
+}
+
+class ManualUploadService {
+  /**
+   * 手動上傳所有本地數據到 Supabase
+   */
+  async uploadAllLocalData(): Promise<UploadResult> {
+    const result: UploadResult = {
+      success: false,
+      message: '',
+      details: {
+        transactions: 0,
+        assets: 0,
+        liabilities: 0,
+        accounts: 0
+      },
+      errors: []
+    };
+
+    try {
+      console.log('🚀 開始手動上傳所有本地數據到 Supabase...');
+
+      // 檢查用戶是否已登錄
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('用戶未登錄，無法上傳數據');
+      }
+
+      console.log('✅ 用戶已登錄:', user.email);
+
+      // 1. 上傳交易數據
+      try {
+        const transactionCount = await this.uploadTransactions(user.id);
+        result.details.transactions = transactionCount;
+        console.log(`✅ 交易數據上傳完成: ${transactionCount} 筆`);
+      } catch (error) {
+        const errorMsg = `交易數據上傳失敗: ${error instanceof Error ? error.message : '未知錯誤'}`;
+        result.errors.push(errorMsg);
+        console.error('❌', errorMsg);
+      }
+
+      // 2. 上傳資產數據
+      try {
+        const assetCount = await this.uploadAssets(user.id);
+        result.details.assets = assetCount;
+        console.log(`✅ 資產數據上傳完成: ${assetCount} 筆`);
+      } catch (error) {
+        const errorMsg = `資產數據上傳失敗: ${error instanceof Error ? error.message : '未知錯誤'}`;
+        result.errors.push(errorMsg);
+        console.error('❌', errorMsg);
+      }
+
+      // 3. 上傳負債數據
+      try {
+        const liabilityCount = await this.uploadLiabilities(user.id);
+        result.details.liabilities = liabilityCount;
+        console.log(`✅ 負債數據上傳完成: ${liabilityCount} 筆`);
+      } catch (error) {
+        const errorMsg = `負債數據上傳失敗: ${error instanceof Error ? error.message : '未知錯誤'}`;
+        result.errors.push(errorMsg);
+        console.error('❌', errorMsg);
+      }
+
+      // 4. 上傳帳戶數據
+      try {
+        const accountCount = await this.uploadAccounts(user.id);
+        result.details.accounts = accountCount;
+        console.log(`✅ 帳戶數據上傳完成: ${accountCount} 筆`);
+      } catch (error) {
+        const errorMsg = `帳戶數據上傳失敗: ${error instanceof Error ? error.message : '未知錯誤'}`;
+        result.errors.push(errorMsg);
+        console.error('❌', errorMsg);
+      }
+
+      // 判斷整體結果
+      const totalUploaded = Object.values(result.details).reduce((sum, count) => sum + count, 0);
+      
+      if (result.errors.length === 0) {
+        result.success = true;
+        result.message = `上傳成功！共上傳 ${totalUploaded} 筆數據`;
+      } else if (totalUploaded > 0) {
+        result.success = true;
+        result.message = `部分上傳成功！共上傳 ${totalUploaded} 筆數據，${result.errors.length} 個錯誤`;
+      } else {
+        result.success = false;
+        result.message = `上傳失敗！${result.errors.length} 個錯誤`;
+      }
+
+      console.log('🎯 上傳結果:', result);
+      return result;
+
+    } catch (error) {
+      console.error('❌ 手動上傳過程中發生異常:', error);
+      result.success = false;
+      result.message = `上傳失敗: ${error instanceof Error ? error.message : '未知錯誤'}`;
+      result.errors.push(result.message);
+      return result;
+    }
+  }
+
+  /**
+   * 上傳交易數據
+   */
+  private async uploadTransactions(userId: string): Promise<number> {
+    console.log('🔄 開始上傳交易數據...');
+
+    // 從服務獲取交易數據
+    const transactions = transactionDataService.getTransactions();
+    
+    if (transactions.length === 0) {
+      console.log('📝 沒有交易數據需要上傳');
+      return 0;
+    }
+
+    // 過濾掉無效的交易記錄
+    const validTransactions = transactions.filter((transaction: any) =>
+      transaction &&
+      transaction.type &&
+      transaction.type !== 'undefined' &&
+      transaction.type !== '' &&
+      transaction.amount !== undefined &&
+      transaction.amount !== null
+    );
+
+    console.log(`🔍 過濾後有效交易數量: ${validTransactions.length} / ${transactions.length}`);
+
+    if (validTransactions.length === 0) {
+      console.log('📝 沒有有效的交易數據需要上傳');
+      return 0;
+    }
+
+    // 轉換交易數據格式以匹配 Supabase 表結構
+    const convertedTransactions = validTransactions.map((transaction: any) => {
+      // 確保 ID 是有效的 UUID 格式
+      let transactionId = transaction.id;
+      if (!transactionId || !isValidUUID(transactionId)) {
+        transactionId = generateUUID();
+        console.log(`🔄 為交易生成新的 UUID: ${transactionId}`);
+      }
+
+      return {
+        id: transactionId,
+        user_id: userId,
+        account_id: null,
+        amount: transaction.amount || 0,
+        type: transaction.type,
+        description: transaction.description || '',
+        category: transaction.category || '',
+        account: transaction.account || '',
+        from_account: transaction.fromAccount || transaction.from_account || null,
+        to_account: transaction.toAccount || transaction.to_account || null,
+        date: transaction.date || new Date().toISOString().split('T')[0],
+        is_recurring: transaction.is_recurring || false,
+        recurring_frequency: transaction.recurring_frequency || null,
+        max_occurrences: transaction.max_occurrences || null,
+        start_date: transaction.start_date || null,
+        created_at: transaction.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    });
+
+    console.log('📝 轉換後的交易數據示例:', convertedTransactions[0]);
+
+    // 使用 upsert 避免重複資料
+    const { data, error } = await supabase
+      .from(TABLES.TRANSACTIONS)
+      .upsert(convertedTransactions, {
+        onConflict: 'id',
+        ignoreDuplicates: false
+      })
+      .select();
+
+    if (error) {
+      console.error('❌ 交易記錄上傳錯誤:', error);
+      throw new Error(`交易記錄上傳失敗: ${error.message}`);
+    }
+
+    console.log(`✅ 已上傳 ${convertedTransactions.length} 筆交易記錄`);
+    return convertedTransactions.length;
+  }
+
+  /**
+   * 上傳資產數據
+   */
+  private async uploadAssets(userId: string): Promise<number> {
+    console.log('🔄 開始上傳資產數據...');
+
+    // 從服務獲取資產數據
+    const assets = assetTransactionSyncService.getAssets();
+    
+    if (assets.length === 0) {
+      console.log('📝 沒有資產數據需要上傳');
+      return 0;
+    }
+
+    // 轉換為 Supabase 格式
+    const supabaseAssets = assets.map((asset: any) => {
+      // 確保 ID 是有效的 UUID 格式
+      let assetId = asset.id;
+      if (!assetId || !isValidUUID(assetId)) {
+        assetId = generateUUID();
+        console.log(`🔄 為資產生成新的 UUID: ${assetId}`);
+      }
+
+      return {
+        id: assetId,
+        user_id: userId,
+        name: asset.name,
+        type: asset.type,
+        value: asset.current_value || asset.cost_basis || 0,
+        current_value: asset.current_value || asset.cost_basis || 0,
+        cost_basis: asset.cost_basis || asset.current_value || 0,
+        quantity: asset.quantity || 1,
+        stock_code: asset.stock_code,
+        purchase_price: asset.purchase_price || 0,
+        current_price: asset.current_price || 0,
+        sort_order: asset.sort_order || 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    });
+
+    console.log('📝 轉換後的資產數據示例:', supabaseAssets[0]);
+
+    // 使用 upsert 避免重複資料
+    const { data, error } = await supabase
+      .from(TABLES.ASSETS)
+      .upsert(supabaseAssets, {
+        onConflict: 'id',
+        ignoreDuplicates: false
+      })
+      .select();
+
+    if (error) {
+      console.error('❌ 資產數據上傳錯誤:', error);
+      throw new Error(`資產數據上傳失敗: ${error.message}`);
+    }
+
+    console.log(`✅ 已上傳 ${supabaseAssets.length} 筆資產記錄`);
+    return supabaseAssets.length;
+  }
+
+  /**
+   * 上傳負債數據
+   */
+  private async uploadLiabilities(userId: string): Promise<number> {
+    console.log('🔄 開始上傳負債數據...');
+
+    // 從服務獲取負債數據
+    const liabilities = liabilityService.getLiabilities();
+    
+    if (liabilities.length === 0) {
+      console.log('📝 沒有負債數據需要上傳');
+      return 0;
+    }
+
+    // 轉換負債數據格式以匹配 Supabase 表結構
+    const convertedLiabilities = liabilities.map((liability: any) => {
+      // 確保 ID 是有效的 UUID 格式
+      let liabilityId = liability.id;
+      if (!liabilityId || !isValidUUID(liabilityId)) {
+        liabilityId = generateUUID();
+        console.log(`🔄 為負債生成新的 UUID: ${liabilityId}`);
+      }
+
+      return {
+        id: liabilityId,
+        user_id: userId,
+        name: liability.name,
+        type: liability.type,
+        balance: liability.balance,
+        interest_rate: liability.interest_rate || 0,
+        monthly_payment: liability.monthly_payment || 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    });
+
+    console.log('📝 轉換後的負債數據示例:', convertedLiabilities[0]);
+
+    // 使用 upsert 避免重複資料
+    const { data, error } = await supabase
+      .from(TABLES.LIABILITIES)
+      .upsert(convertedLiabilities, {
+        onConflict: 'id',
+        ignoreDuplicates: false
+      })
+      .select();
+
+    if (error) {
+      console.error('❌ 負債數據上傳錯誤:', error);
+      throw new Error(`負債數據上傳失敗: ${error.message}`);
+    }
+
+    console.log(`✅ 已上傳 ${convertedLiabilities.length} 筆負債記錄`);
+    return convertedLiabilities.length;
+  }
+
+  /**
+   * 上傳帳戶數據
+   */
+  private async uploadAccounts(userId: string): Promise<number> {
+    console.log('🔄 開始上傳帳戶數據...');
+
+    // 從服務獲取帳戶數據
+    const accounts = transactionDataService.getAccounts();
+    
+    if (accounts.length === 0) {
+      console.log('📝 沒有帳戶數據需要上傳');
+      return 0;
+    }
+
+    // 轉換帳戶數據格式以匹配 Supabase 表結構
+    const convertedAccounts = accounts.map((account: any) => {
+      // 確保 ID 是有效的 UUID 格式
+      let accountId = account.id;
+      if (!accountId || !isValidUUID(accountId)) {
+        accountId = generateUUID();
+        console.log(`🔄 為帳戶生成新的 UUID: ${accountId}`);
+      }
+
+      return {
+        id: accountId,
+        user_id: userId,
+        name: account.name,
+        type: account.type,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    });
+
+    console.log('📝 轉換後的帳戶數據示例:', convertedAccounts[0]);
+
+    // 使用 upsert 避免重複資料
+    const { data, error } = await supabase
+      .from(TABLES.ACCOUNTS)
+      .upsert(convertedAccounts, {
+        onConflict: 'id',
+        ignoreDuplicates: false
+      })
+      .select();
+
+    if (error) {
+      console.error('❌ 帳戶數據上傳錯誤:', error);
+      throw new Error(`帳戶數據上傳失敗: ${error.message}`);
+    }
+
+    console.log(`✅ 已上傳 ${convertedAccounts.length} 筆帳戶記錄`);
+    return convertedAccounts.length;
+  }
+}
+
+export const manualUploadService = new ManualUploadService();

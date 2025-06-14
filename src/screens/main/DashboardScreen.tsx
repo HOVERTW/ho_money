@@ -31,6 +31,7 @@ import { useAuthStore } from '../../store/authStore';
 import { userDataSyncService } from '../../services/userDataSyncService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../services/supabase';
+import { manualUploadService } from '../../services/manualUploadService';
 // import { SupabaseTableChecker } from '../../utils/supabaseTableChecker';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -722,10 +723,50 @@ export default function DashboardScreen() {
     clearError();
   };
 
-  // 手動觸發數據同步到 Supabase - 暫時禁用
+  // 手動觸發數據同步到 Supabase - 使用專門的上傳服務
   const handleSyncToSupabase = async () => {
-    console.log('⚠️ 自動同步已暫時禁用，請使用診斷按鈕進行手動修復');
-    return;
+    try {
+      console.log('🚀 開始手動上傳本地數據到 Supabase...');
+
+      // 檢查用戶是否已登錄
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('錯誤', '請先登錄才能上傳數據');
+        return;
+      }
+
+      // 顯示上傳進度
+      Alert.alert('上傳中', '正在上傳本地數據到雲端，請稍候...');
+
+      // 使用專門的手動上傳服務
+      const result = await manualUploadService.uploadAllLocalData();
+
+      console.log('🎯 上傳結果:', result);
+
+      if (result.success) {
+        const { transactions, assets, liabilities, accounts } = result.details;
+        const totalCount = transactions + assets + liabilities + accounts;
+
+        Alert.alert(
+          '上傳成功！',
+          `已成功上傳到雲端：\n` +
+          `• 交易記錄：${transactions} 筆\n` +
+          `• 資產數據：${assets} 筆\n` +
+          `• 負債數據：${liabilities} 筆\n` +
+          `• 帳戶數據：${accounts} 筆\n\n` +
+          `總計：${totalCount} 筆數據`
+        );
+      } else {
+        Alert.alert(
+          '上傳失敗',
+          `${result.message}\n\n錯誤詳情：\n${result.errors.join('\n')}`
+        );
+      }
+
+    } catch (error) {
+      console.error('❌ 手動上傳失敗:', error);
+      Alert.alert('上傳失敗', `上傳過程中發生錯誤: ${error instanceof Error ? error.message : '未知錯誤'}`);
+    }
   };
 
   // 診斷 Supabase 表結構
@@ -1038,6 +1079,14 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.headerButtons}>
+          {/* 上傳按鈕 - 只在已登錄時顯示 */}
+          {user && (
+            <TouchableOpacity onPress={handleSyncToSupabase} style={styles.uploadButton}>
+              <Ionicons name="cloud-upload-outline" size={20} color="#007AFF" />
+              <Text style={{ fontSize: 10, color: '#007AFF' }}>上傳</Text>
+            </TouchableOpacity>
+          )}
+
           {/* 登出按鈕 - 取代診斷按鈕，永遠顯示 */}
           <TouchableOpacity
             onPress={user ? handleSignOut : () => console.log('未登錄')}
