@@ -443,13 +443,22 @@ class ManualUploadService {
 
     console.log('📝 轉換後的類別數據示例:', convertedCategories[0]);
 
-    // 使用 upsert 避免重複資料
+    // 先清除用戶的現有類別數據，然後插入新數據
+    console.log('🧹 清除用戶現有類別數據...');
+    const { error: deleteError } = await supabase
+      .from(TABLES.CATEGORIES)
+      .delete()
+      .eq('user_id', userId);
+
+    if (deleteError) {
+      console.error('❌ 清除現有類別數據失敗:', deleteError);
+      throw new Error(`清除現有類別數據失敗: ${deleteError.message}`);
+    }
+
+    // 插入新的類別數據
     const { data, error } = await supabase
       .from(TABLES.CATEGORIES)
-      .upsert(convertedCategories, {
-        onConflict: 'id',
-        ignoreDuplicates: false
-      })
+      .insert(convertedCategories)
       .select();
 
     if (error) {

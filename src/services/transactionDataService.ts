@@ -392,6 +392,17 @@ class TransactionDataService {
       // 確保 ID 是有效的 UUID 格式
       const validId = ensureValidUUID(transaction.id);
 
+      // 如果 ID 被更新，同步更新本地交易記錄
+      if (validId !== transaction.id) {
+        console.log(`🔄 更新本地交易 ID: ${transaction.id} -> ${validId}`);
+        transaction.id = validId;
+        // 更新本地數據中的 ID
+        const index = this.transactions.findIndex(t => t.id === transaction.id);
+        if (index !== -1) {
+          this.transactions[index].id = validId;
+        }
+      }
+
       // 準備 Supabase 格式的數據
       const supabaseTransaction = {
         id: validId,
@@ -413,19 +424,50 @@ class TransactionDataService {
         updated_at: new Date().toISOString()
       };
 
-      // 使用 upsert 插入或更新交易記錄
-      const { error: upsertError } = await supabase
+      // 先檢查交易是否存在，然後決定插入或更新
+      const { data: existingTransaction } = await supabase
         .from(TABLES.TRANSACTIONS)
-        .upsert(supabaseTransaction, {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        });
+        .select('id')
+        .eq('id', validId)
+        .eq('user_id', user.id)
+        .single();
 
-      if (upsertError) {
-        console.error('❌ 同步交易記錄到雲端失敗:', upsertError);
-        console.error('❌ 錯誤詳情:', upsertError.message, upsertError.details, upsertError.hint);
+      let error;
+      if (existingTransaction) {
+        // 更新現有交易
+        const { error: updateError } = await supabase
+          .from(TABLES.TRANSACTIONS)
+          .update({
+            amount: supabaseTransaction.amount,
+            type: supabaseTransaction.type,
+            description: supabaseTransaction.description,
+            category: supabaseTransaction.category,
+            account: supabaseTransaction.account,
+            from_account: supabaseTransaction.from_account,
+            to_account: supabaseTransaction.to_account,
+            date: supabaseTransaction.date,
+            is_recurring: supabaseTransaction.is_recurring,
+            recurring_frequency: supabaseTransaction.recurring_frequency,
+            max_occurrences: supabaseTransaction.max_occurrences,
+            start_date: supabaseTransaction.start_date,
+            updated_at: supabaseTransaction.updated_at
+          })
+          .eq('id', validId)
+          .eq('user_id', user.id);
+        error = updateError;
       } else {
-        console.log('✅ 雲端交易記錄同步成功:', transaction.id);
+        // 插入新交易
+        const { error: insertError } = await supabase
+          .from(TABLES.TRANSACTIONS)
+          .insert(supabaseTransaction);
+        error = insertError;
+      }
+
+      if (error) {
+        console.error('❌ 同步交易記錄到雲端失敗:', error);
+        console.error('❌ 錯誤詳情:', error.message, error.details, error.hint);
+      } else {
+        console.log('✅ 雲端交易記錄同步成功:', validId);
       }
 
     } catch (error) {

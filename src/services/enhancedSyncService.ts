@@ -322,13 +322,36 @@ class EnhancedSyncService {
         updated_at: new Date().toISOString()
       };
 
-      // 使用 upsert 更新或插入
-      const { error } = await supabase
+      // 先檢查類別是否存在，然後決定插入或更新
+      const { data: existingCategory } = await supabase
         .from(TABLES.CATEGORIES)
-        .upsert(updateData, {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        });
+        .select('id')
+        .eq('id', finalCategoryId)
+        .eq('user_id', userId)
+        .single();
+
+      let error;
+      if (existingCategory) {
+        // 更新現有類別
+        const { error: updateError } = await supabase
+          .from(TABLES.CATEGORIES)
+          .update({
+            name: updateData.name,
+            icon: updateData.icon,
+            color: updateData.color,
+            type: updateData.type,
+            updated_at: updateData.updated_at
+          })
+          .eq('id', finalCategoryId)
+          .eq('user_id', userId);
+        error = updateError;
+      } else {
+        // 插入新類別
+        const { error: insertError } = await supabase
+          .from(TABLES.CATEGORIES)
+          .insert(updateData);
+        error = insertError;
+      }
 
       if (error) {
         console.error('❌ 同步類別更新失敗:', error);

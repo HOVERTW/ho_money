@@ -192,17 +192,46 @@ class AssetTransactionSyncService {
         updated_at: new Date().toISOString(),
       };
 
-      // 使用 upsert 插入或更新資產記錄
-      const { error: upsertError } = await supabase
+      // 先檢查資產是否存在，然後決定插入或更新
+      const { data: existingAsset } = await supabase
         .from(TABLES.ASSETS)
-        .upsert(supabaseAsset, {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        });
+        .select('id')
+        .eq('id', assetId)
+        .eq('user_id', user.id)
+        .single();
 
-      if (upsertError) {
-        console.error('❌ 同步資產到雲端失敗:', upsertError);
-        console.error('❌ 錯誤詳情:', upsertError.message, upsertError.details, upsertError.hint);
+      let error;
+      if (existingAsset) {
+        // 更新現有資產
+        const { error: updateError } = await supabase
+          .from(TABLES.ASSETS)
+          .update({
+            name: supabaseAsset.name,
+            type: supabaseAsset.type,
+            value: supabaseAsset.value,
+            current_value: supabaseAsset.current_value,
+            cost_basis: supabaseAsset.cost_basis,
+            quantity: supabaseAsset.quantity,
+            stock_code: supabaseAsset.stock_code,
+            purchase_price: supabaseAsset.purchase_price,
+            current_price: supabaseAsset.current_price,
+            sort_order: supabaseAsset.sort_order,
+            updated_at: supabaseAsset.updated_at
+          })
+          .eq('id', assetId)
+          .eq('user_id', user.id);
+        error = updateError;
+      } else {
+        // 插入新資產
+        const { error: insertError } = await supabase
+          .from(TABLES.ASSETS)
+          .insert(supabaseAsset);
+        error = insertError;
+      }
+
+      if (error) {
+        console.error('❌ 同步資產到雲端失敗:', error);
+        console.error('❌ 錯誤詳情:', error.message, error.details, error.hint);
       } else {
         console.log('✅ 雲端資產同步成功:', asset.id);
       }
