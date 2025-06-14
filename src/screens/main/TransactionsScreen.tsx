@@ -487,12 +487,24 @@ export default function TransactionsScreen() {
       // 普通交易：先添加到服務中，然後處理資產影響
       await transactionDataService.addTransaction(newTransaction);
 
-      // 處理交易對資產的影響
+      // 確保資產服務已初始化，然後處理交易對資產的影響
       console.log('💰 處理普通交易對資產的影響:', newTransaction);
-      assetTransactionSyncService.processTransaction(newTransaction);
+      try {
+        await assetTransactionSyncService.initialize();
+        assetTransactionSyncService.processTransaction(newTransaction);
+        console.log('✅ 普通交易資產影響處理完成');
+      } catch (error) {
+        console.error('❌ 處理普通交易資產影響失敗:', error);
+      }
 
-      // 處理交易對負債的影響
-      liabilityTransactionSyncService.processTransaction(newTransaction);
+      // 確保負債服務已初始化，然後處理交易對負債的影響
+      try {
+        await liabilityTransactionSyncService.initialize();
+        liabilityTransactionSyncService.processTransaction(newTransaction);
+        console.log('✅ 普通交易負債影響處理完成');
+      } catch (error) {
+        console.error('❌ 處理普通交易負債影響失敗:', error);
+      }
     }
 
     // 更新 UI 狀態 - 這是關鍵！
@@ -524,7 +536,16 @@ export default function TransactionsScreen() {
         case 'single':
           // 單次刪除：只刪除這一筆交易記錄
           console.log('🗑️ 單次刪除循環交易');
-          assetTransactionSyncService.reverseTransaction(item);
+
+          // 確保資產服務已初始化，然後撤銷交易影響
+          try {
+            await assetTransactionSyncService.initialize();
+            assetTransactionSyncService.reverseTransaction(item);
+            console.log('✅ 單次循環交易資產影響撤銷完成');
+          } catch (error) {
+            console.error('❌ 撤銷單次循環交易資產影響失敗:', error);
+          }
+
           await transactionDataService.deleteTransaction(item.id);
           setFutureRecurringTransactions(prev => prev.filter(t => t.id !== item.id));
           break;
@@ -642,7 +663,16 @@ export default function TransactionsScreen() {
     } else {
       // 普通交易直接刪除
       console.log('🗑️ 刪除普通交易');
-      assetTransactionSyncService.reverseTransaction(item);
+
+      // 確保資產服務已初始化，然後撤銷交易影響
+      try {
+        await assetTransactionSyncService.initialize();
+        assetTransactionSyncService.reverseTransaction(item);
+        console.log('✅ 普通交易資產影響撤銷完成');
+      } catch (error) {
+        console.error('❌ 撤銷普通交易資產影響失敗:', error);
+      }
+
       await transactionDataService.deleteTransaction(item.id);
     }
 
