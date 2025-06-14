@@ -1,0 +1,151 @@
+# Docker Compose 測試配置
+# 專門用於完整的測試流程
+
+version: '3.8'
+
+services:
+  # ===== 完整功能測試 =====
+  full-test:
+    build:
+      context: ..
+      target: development
+    volumes:
+      - ..:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=test
+      - EXPO_PUBLIC_PLATFORM=web
+      - TEST_MODE=full
+    env_file:
+      - ../.env.test
+    command: npm run test:full
+    networks:
+      - test-network
+
+  # ===== Web 端到端測試 =====
+  web-e2e:
+    build:
+      context: ..
+      target: development
+    ports:
+      - "19008:19006"
+    volumes:
+      - ..:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=test
+      - EXPO_PUBLIC_PLATFORM=web
+    env_file:
+      - ../.env.test
+    command: |
+      sh -c "
+        npx expo start --web --host 0.0.0.0 &
+        sleep 30 &&
+        npm run test:e2e:web
+      "
+    networks:
+      - test-network
+
+  # ===== iOS 模擬器測試 =====
+  ios-simulator:
+    build:
+      context: ..
+      target: ios-dev
+    volumes:
+      - ..:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=test
+      - EXPO_PUBLIC_PLATFORM=ios
+    env_file:
+      - ../.env.test
+    command: npm run test:ios
+    networks:
+      - test-network
+
+  # ===== 性能測試 =====
+  performance-test:
+    build:
+      context: ..
+      target: development
+    volumes:
+      - ..:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=test
+    command: npm run test:performance
+    networks:
+      - test-network
+
+  # ===== 安全測試 =====
+  security-test:
+    build:
+      context: ..
+      target: development
+    volumes:
+      - ..:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=test
+    command: npm run test:security
+    networks:
+      - test-network
+
+  # ===== 數據庫集成測試 =====
+  db-integration-test:
+    build:
+      context: ..
+      target: development
+    volumes:
+      - ..:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=test
+      - DATABASE_URL=postgresql://test_user:test_password@postgres-test:5432/fintranzo_test
+    env_file:
+      - ../.env.test
+    command: npm run test:db
+    depends_on:
+      - postgres-test
+    networks:
+      - test-network
+
+  # ===== 測試數據庫 =====
+  postgres-test:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: fintranzo_test
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    networks:
+      - test-network
+
+  # ===== 測試報告生成器 =====
+  test-reporter:
+    build:
+      context: ..
+      target: development
+    volumes:
+      - ..:/app
+      - /app/node_modules
+      - test_reports:/app/test-reports
+    environment:
+      - NODE_ENV=test
+    command: npm run test:report
+    depends_on:
+      - full-test
+      - web-e2e
+      - performance-test
+      - security-test
+    networks:
+      - test-network
+
+volumes:
+  postgres_test_data:
+  test_reports:
+
+networks:
+  test-network:
+    driver: bridge
