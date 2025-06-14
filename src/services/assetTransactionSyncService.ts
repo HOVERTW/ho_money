@@ -150,6 +150,69 @@ class AssetTransactionSyncService {
   }
 
   /**
+   * 同步單個資產到 Supabase
+   */
+  private async syncAssetToSupabase(asset: AssetData): Promise<void> {
+    try {
+      console.log('🔄 同步單個資產到雲端:', asset.name);
+
+      // 檢查用戶是否已登錄
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('📝 用戶未登錄，跳過雲端同步');
+        return;
+      }
+
+      console.log('✅ 用戶已登錄，開始同步資產到雲端');
+
+      // 確保 ID 是有效的 UUID 格式
+      let assetId = asset.id;
+      if (!assetId || !isValidUUID(assetId)) {
+        assetId = generateUUID();
+        console.log(`🔄 為資產生成新的 UUID: ${assetId}`);
+        // 更新本地資產的 ID
+        asset.id = assetId;
+      }
+
+      // 準備 Supabase 格式的數據
+      const supabaseAsset = {
+        id: assetId,
+        user_id: user.id,
+        name: asset.name || '未命名資產',
+        type: asset.type || 'other',
+        value: Number(asset.current_value || asset.cost_basis || 0),
+        current_value: Number(asset.current_value || asset.cost_basis || 0),
+        cost_basis: Number(asset.cost_basis || asset.current_value || 0),
+        quantity: Number(asset.quantity || 1),
+        stock_code: asset.stock_code,
+        purchase_price: Number(asset.purchase_price || asset.cost_basis || 0),
+        current_price: Number(asset.current_price || asset.current_value || asset.cost_basis || 0),
+        sort_order: asset.sort_order || 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // 使用 upsert 插入或更新資產記錄
+      const { error: upsertError } = await supabase
+        .from(TABLES.ASSETS)
+        .upsert(supabaseAsset, {
+          onConflict: 'id',
+          ignoreDuplicates: false
+        });
+
+      if (upsertError) {
+        console.error('❌ 同步資產到雲端失敗:', upsertError);
+        console.error('❌ 錯誤詳情:', upsertError.message, upsertError.details, upsertError.hint);
+      } else {
+        console.log('✅ 雲端資產同步成功:', asset.id);
+      }
+
+    } catch (error) {
+      console.error('❌ 同步資產到雲端異常:', error);
+    }
+  }
+
+  /**
    * 同步資產數據到 Supabase
    */
   private async syncToSupabase(): Promise<void> {
@@ -311,14 +374,32 @@ class AssetTransactionSyncService {
    * 添加新資產
    */
   async addAsset(asset: AssetData): Promise<void> {
-    // 如果沒有指定排序順序，設置為最後
-    if (asset.sort_order === undefined) {
-      const maxOrder = Math.max(...this.assets.map(a => a.sort_order || 0), -1);
-      asset.sort_order = maxOrder + 1;
+    try {
+      console.log('📝 開始添加資產:', asset.name);
+
+      // 如果沒有指定排序順序，設置為最後
+      if (asset.sort_order === undefined) {
+        const maxOrder = Math.max(...this.assets.map(a => a.sort_order || 0), -1);
+        asset.sort_order = maxOrder + 1;
+      }
+
+      // 添加到本地數據
+      this.assets.push(asset);
+
+      // 通知監聽器
+      this.notifyListeners();
+
+      // 保存到本地存儲
+      await this.saveToStorage();
+
+      // 同步到雲端
+      await this.syncAssetToSupabase(asset);
+
+      console.log('✅ 資產添加成功');
+    } catch (error) {
+      console.error('❌ 添加資產失敗:', error);
+      throw error;
     }
-    this.assets.push(asset);
-    this.notifyListeners();
-    await this.saveToStorage();
   }
 
   /**

@@ -306,9 +306,26 @@ class TransactionDataService {
    * 添加交易
    */
   async addTransaction(transaction: Transaction): Promise<void> {
-    this.transactions.push(transaction);
-    await this.saveToStorage();
-    this.notifyListeners();
+    try {
+      console.log('📝 開始添加交易記錄:', transaction.description);
+
+      // 添加到本地數據
+      this.transactions.push(transaction);
+
+      // 保存到本地存儲
+      await this.saveToStorage();
+
+      // 同步到雲端
+      await this.syncTransactionToSupabase(transaction);
+
+      // 通知監聽器
+      this.notifyListeners();
+
+      console.log('✅ 交易記錄添加成功');
+    } catch (error) {
+      console.error('❌ 添加交易記錄失敗:', error);
+      throw error;
+    }
   }
 
   /**
@@ -352,6 +369,63 @@ class TransactionDataService {
     } catch (error) {
       console.error('❌ 刪除交易記錄失敗:', error);
       throw error;
+    }
+  }
+
+  /**
+   * 同步交易到 Supabase
+   */
+  private async syncTransactionToSupabase(transaction: Transaction): Promise<void> {
+    try {
+      console.log('🔄 同步交易到雲端:', transaction.description);
+
+      // 檢查用戶是否已登錄
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('📝 用戶未登錄，跳過雲端同步');
+        return;
+      }
+
+      console.log('✅ 用戶已登錄，開始同步交易記錄到雲端');
+
+      // 準備 Supabase 格式的數據
+      const supabaseTransaction = {
+        id: transaction.id,
+        user_id: user.id,
+        account_id: null,
+        amount: transaction.amount || 0,
+        type: transaction.type,
+        description: transaction.description || '',
+        category: transaction.category || '',
+        account: transaction.account || '',
+        from_account: transaction.fromAccount || null,
+        to_account: transaction.toAccount || null,
+        date: transaction.date || new Date().toISOString().split('T')[0],
+        is_recurring: transaction.is_recurring || false,
+        recurring_frequency: transaction.recurring_frequency || null,
+        max_occurrences: transaction.max_occurrences || null,
+        start_date: transaction.start_date || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // 使用 upsert 插入或更新交易記錄
+      const { error: upsertError } = await supabase
+        .from(TABLES.TRANSACTIONS)
+        .upsert(supabaseTransaction, {
+          onConflict: 'id',
+          ignoreDuplicates: false
+        });
+
+      if (upsertError) {
+        console.error('❌ 同步交易記錄到雲端失敗:', upsertError);
+        console.error('❌ 錯誤詳情:', upsertError.message, upsertError.details, upsertError.hint);
+      } else {
+        console.log('✅ 雲端交易記錄同步成功:', transaction.id);
+      }
+
+    } catch (error) {
+      console.error('❌ 同步交易到雲端異常:', error);
     }
   }
 
