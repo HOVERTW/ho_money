@@ -39,7 +39,10 @@
     "docker:test": "bash scripts/docker-test.sh",
     "docker:dev": "docker-compose up web-dev",
     "docker:prod": "docker-compose up web-prod",
-    "docker:ios": "docker-compose up ios-dev"
+    "docker:ios": "docker-compose up ios-dev",
+    "test:comprehensive": "node scripts/run-comprehensive-tests.js",
+    "test:core-functions": "jest __tests__/integration/core-functions.test.js --verbose",
+    "test:verify-functions": "npm run test:core-functions && echo '🎉 五個核心功能驗證完成！'"
   },
   "dependencies": {
     "@babel/plugin-transform-runtime": "^7.27.3",
