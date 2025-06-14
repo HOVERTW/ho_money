@@ -3,7 +3,7 @@
  * 提供快速的同步反饋和狀態更新
  */
 
-import { supabase } from '../config/supabaseConfig';
+import { supabase, TABLES } from './supabase';
 import { eventEmitter, EVENTS } from './eventEmitter';
 
 export interface SyncStatus {
@@ -87,7 +87,7 @@ class InstantSyncService {
       };
 
       const { error } = await supabase
-        .from('transactions')
+        .from(TABLES.TRANSACTIONS)
         .upsert(supabaseTransaction, {
           onConflict: 'id',
           ignoreDuplicates: false
@@ -119,7 +119,7 @@ class InstantSyncService {
       };
 
       const { error } = await supabase
-        .from('assets')
+        .from(TABLES.ASSETS)
         .upsert(supabaseAsset, {
           onConflict: 'id',
           ignoreDuplicates: false
@@ -153,7 +153,7 @@ class InstantSyncService {
   async checkConnectionStatus(): Promise<boolean> {
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from(TABLES.PROFILES)
         .select('id')
         .limit(1);
       
