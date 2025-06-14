@@ -88,8 +88,28 @@ class AppInitializationService {
     try {
       console.log('🧹 檢查並清除舊的預設數據...');
 
-      // 檢查是否有舊的預設資產
-      const { AsyncStorage } = await import('@react-native-async-storage/async-storage');
+      // 獲取跨平台存儲服務 - 優先手機原生，Web 使用 localStorage fallback
+      let AsyncStorage;
+      try {
+        // 手機環境：使用原生 AsyncStorage
+        const asyncStorageModule = await import('@react-native-async-storage/async-storage');
+        AsyncStorage = asyncStorageModule.default;
+        console.log('✅ 使用原生 AsyncStorage (手機環境)');
+      } catch (importError) {
+        // Web 環境：使用 localStorage 作為 fallback
+        console.log('⚠️ 原生 AsyncStorage 不可用，使用 localStorage (Web 環境)');
+        if (typeof window !== 'undefined' && window.localStorage) {
+          AsyncStorage = {
+            getItem: (key: string) => Promise.resolve(localStorage.getItem(key)),
+            setItem: (key: string, value: string) => Promise.resolve(localStorage.setItem(key, value)),
+            removeItem: (key: string) => Promise.resolve(localStorage.removeItem(key)),
+          };
+        } else {
+          console.log('❌ 無可用的存儲服務，跳過清除舊數據');
+          return;
+        }
+      }
+
       const assetsData = await AsyncStorage.getItem('fintranzo_assets');
 
       if (assetsData) {
