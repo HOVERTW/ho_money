@@ -547,8 +547,19 @@ class AssetTransactionSyncService {
       // 保存到本地存儲
       await this.saveToStorage();
 
-      // 同步到雲端
-      await this.syncAssetToSupabase(asset);
+      // 使用新的實時同步服務
+      try {
+        const { realTimeSyncService } = await import('./realTimeSyncService');
+        await realTimeSyncService.initialize();
+        const result = await realTimeSyncService.syncAsset(asset);
+        if (!result.success) {
+          console.error('❌ 實時同步資產失敗:', result.error);
+        } else {
+          console.log('✅ 實時同步資產成功');
+        }
+      } catch (syncError) {
+        console.error('❌ 實時同步服務調用失敗:', syncError);
+      }
 
       console.log('✅ 資產本地添加完成，ID:', asset.id);
     } catch (error) {

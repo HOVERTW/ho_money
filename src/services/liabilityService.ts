@@ -227,14 +227,18 @@ class LiabilityService {
     this.notifyListeners();
     await this.saveToStorage();
 
-    // 即時同步到雲端
+    // 使用新的實時同步服務
     try {
-      const { instantSyncService } = await import('./instantSyncService');
-      await instantSyncService.syncLiabilityInstantly(liability);
-      console.log('✅ 負債已即時同步到雲端');
+      const { realTimeSyncService } = await import('./realTimeSyncService');
+      await realTimeSyncService.initialize();
+      const result = await realTimeSyncService.syncLiability(liability);
+      if (!result.success) {
+        console.error('❌ 實時同步負債失敗:', result.error);
+      } else {
+        console.log('✅ 實時同步負債成功');
+      }
     } catch (syncError) {
-      console.error('❌ 負債即時同步失敗:', syncError);
-      // 同步失敗不影響本地操作
+      console.error('❌ 實時同步服務調用失敗:', syncError);
     }
 
     // 🔥 發射負債添加事件
