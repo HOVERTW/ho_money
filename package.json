@@ -20,7 +20,7 @@
     "update:tw": "node scripts/update-taiwan-stocks.js",
     "update:us": "node scripts/update-us-stocks.js",
     "update:rates": "node scripts/update-exchange-rates.js",
-    "build:web": "expo export:web",
+    "build:web": "expo export --platform web",
     "test:github": "node test-github-actions-simple.js",
     "test:local": "node test-local-updates.js",
     "test:apis": "node -e \"require('./test-local-updates.js')\"",
