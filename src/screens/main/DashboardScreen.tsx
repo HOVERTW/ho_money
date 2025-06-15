@@ -1043,33 +1043,68 @@ export default function DashboardScreen() {
           setLiabilities([]);
           setForceRefresh(prev => prev + 10);
 
-          // 3. 清除所有服務的內存數據
+          // 3. 先同步刪除到雲端，再清除本地數據
+          console.log('🔄 同步刪除到雲端...');
+
+          try {
+            // 檢查用戶是否已登錄
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+            if (currentUser) {
+              console.log('👤 用戶已登錄，同步刪除雲端數據...');
+
+              // 刪除用戶的所有雲端數據
+              const deletePromises = [
+                supabase.from('transactions').delete().eq('user_id', currentUser.id),
+                supabase.from('assets').delete().eq('user_id', currentUser.id),
+                supabase.from('liabilities').delete().eq('user_id', currentUser.id)
+              ];
+
+              const results = await Promise.allSettled(deletePromises);
+
+              results.forEach((result, index) => {
+                const tableName = ['transactions', 'assets', 'liabilities'][index];
+                if (result.status === 'fulfilled' && !result.value.error) {
+                  console.log(`✅ ${tableName} 雲端數據刪除成功`);
+                } else {
+                  console.error(`❌ ${tableName} 雲端數據刪除失敗:`, result.status === 'fulfilled' ? result.value.error : result.reason);
+                }
+              });
+            } else {
+              console.log('📝 用戶未登錄，跳過雲端數據刪除');
+            }
+          } catch (syncError) {
+            console.error('❌ 雲端數據刪除失敗:', syncError);
+            // 即使雲端刪除失敗，也繼續清除本地數據
+          }
+
+          // 4. 清除所有服務的內存數據
           console.log('🔄 清除服務內存數據...');
 
           // 清除交易數據服務
-          transactionDataService.clearAllData();
+          await transactionDataService.clearAllData();
 
           // 清除資產交易同步服務
-          assetTransactionSyncService.clearAllData();
+          await assetTransactionSyncService.clearAllData();
 
           // 清除負債服務
-          liabilityService.clearAllData();
+          await liabilityService.clearAllData();
 
           // 清除循環交易服務
-          recurringTransactionService.clearAllData();
+          await recurringTransactionService.clearAllData();
 
-          // 4. 重新初始化所有服務
+          // 5. 重新初始化所有服務
           console.log('🔄 重新初始化所有服務...');
           await transactionDataService.initialize();
           await assetTransactionSyncService.initialize();
           await liabilityService.initialize();
           await recurringTransactionService.initialize();
 
-          // 5. 發送全局刷新事件
+          // 6. 發送全局刷新事件
           console.log('📡 發送全局刷新事件...');
           eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL, { source: 'clear_all_data' });
 
-          console.log('✅ 清除完成！所有資料已清除完成！應用程式已重新初始化。');
+          console.log('✅ 清除完成！所有資料已清除完成（包含雲端同步刪除）！應用程式已重新初始化。');
         } else {
           console.error('❌ 清除資料失敗');
         }

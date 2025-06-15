@@ -125,16 +125,16 @@ class RealTimeSyncService {
     try {
       console.log('🔄 開始同步資產:', asset.name);
 
-      // 準備數據
+      // 準備數據 - 確保必填字段不為空
       const assetData = {
         id: asset.id,
         user_id: this.userId,
         name: asset.name || '未命名資產',
         asset_name: asset.name || '未命名資產', // 備用字段
         type: asset.type || 'bank',
-        value: Number(asset.current_value || asset.cost_basis || 0),
-        current_value: Number(asset.current_value || asset.cost_basis || 0),
-        cost_basis: Number(asset.cost_basis || asset.current_value || 0),
+        value: Number(asset.current_value || asset.cost_basis || asset.value || 0), // 確保 value 不為空
+        current_value: Number(asset.current_value || asset.cost_basis || asset.value || 0),
+        cost_basis: Number(asset.cost_basis || asset.current_value || asset.value || 0),
         quantity: Number(asset.quantity || 1),
         stock_code: asset.stock_code || null,
         purchase_price: Number(asset.purchase_price || 0),
@@ -229,17 +229,18 @@ class RealTimeSyncService {
     try {
       console.log('🔄 開始同步負債:', liability.name);
 
-      // 準備數據
+      // 準備數據 - 修復字段映射 (移除不存在的字段)
       const liabilityData = {
         id: liability.id,
         user_id: this.userId,
         name: liability.name || '未命名負債',
         type: liability.type || 'credit_card',
-        amount: Number(liability.amount || liability.balance || 0),
-        current_amount: Number(liability.current_amount || liability.balance || 0),
+        balance: Number(liability.balance || liability.amount || 0),
         interest_rate: Number(liability.interest_rate || 0),
         due_date: liability.due_date || null,
-        minimum_payment: Number(liability.minimum_payment || 0),
+        monthly_payment: Number(liability.monthly_payment || liability.minimum_payment || 0),
+        payment_day: Number(liability.payment_day || 0),
+        payment_account: liability.payment_account || null,
         description: liability.description || '',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()

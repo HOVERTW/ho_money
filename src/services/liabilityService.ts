@@ -315,8 +315,20 @@ class LiabilityService {
       console.error('❌ 實時同步服務調用失敗:', syncError);
     }
 
-    // 🔥 發射負債添加事件
+    // 🔥 強制觸發負債循環交易創建
     console.log('🔥 負債添加事件發射:', liability.name);
+    try {
+      // 動態導入並立即觸發循環交易同步
+      const { liabilityTransactionSyncService } = await import('./liabilityTransactionSyncService');
+      await liabilityTransactionSyncService.initialize();
+      await liabilityTransactionSyncService.syncLiabilityToRecurringTransaction(liability);
+      await liabilityTransactionSyncService.immediatelySync(liability);
+      console.log('✅ 負債循環交易同步完成');
+    } catch (syncError) {
+      console.error('❌ 負債循環交易同步失敗:', syncError);
+    }
+
+    // 發射事件
     eventEmitter.emit(EVENTS.LIABILITY_ADDED, liability);
     eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL, { type: 'liability_added', liability });
   }
@@ -331,11 +343,16 @@ class LiabilityService {
       this.notifyListeners();
       await this.saveToStorage();
 
-      // 即時同步到雲端
+      // 使用新的實時同步服務
       try {
-        const { instantSyncService } = await import('./instantSyncService');
-        await instantSyncService.syncLiabilityInstantly(this.liabilities[index]);
-        console.log('✅ 負債更新已即時同步到雲端');
+        const { realTimeSyncService } = await import('./realTimeSyncService');
+        await realTimeSyncService.initialize();
+        const result = await realTimeSyncService.syncLiability(this.liabilities[index]);
+        if (!result.success) {
+          console.error('❌ 實時同步負債更新失敗:', result.error);
+        } else {
+          console.log('✅ 負債更新已即時同步到雲端');
+        }
       } catch (syncError) {
         console.error('❌ 負債更新即時同步失敗:', syncError);
         // 同步失敗不影響本地操作
@@ -352,11 +369,16 @@ class LiabilityService {
     this.notifyListeners();
     await this.saveToStorage();
 
-    // 即時同步刪除到雲端
+    // 使用新的實時同步服務刪除
     try {
-      const { instantSyncService } = await import('./instantSyncService');
-      await instantSyncService.syncDeleteInstantly('liabilities', id, liability?.name || '未知負債');
-      console.log('✅ 負債刪除已即時同步到雲端');
+      const { realTimeSyncService } = await import('./realTimeSyncService');
+      await realTimeSyncService.initialize();
+      const result = await realTimeSyncService.deleteData('liabilities', id);
+      if (!result.success) {
+        console.error('❌ 實時同步負債刪除失敗:', result.error);
+      } else {
+        console.log('✅ 負債刪除已即時同步到雲端');
+      }
     } catch (syncError) {
       console.error('❌ 負債刪除即時同步失敗:', syncError);
       // 同步失敗不影響本地操作

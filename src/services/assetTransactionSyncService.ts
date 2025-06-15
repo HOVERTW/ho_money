@@ -180,8 +180,42 @@ class AssetTransactionSyncService {
    */
   async forceReload(): Promise<void> {
     console.log('🔄 強制重新加載資產數據...');
+
+    // 清除當前狀態
     this.isInitialized = false;
+    this.assets = [];
+
+    // 重新初始化
     await this.initialize();
+
+    // 強制通知監聽器
+    this.notifyListeners();
+
+    console.log(`✅ 強制重新加載完成，當前資產數量: ${this.assets.length}`);
+  }
+
+  /**
+   * 確保資產數據穩定加載
+   */
+  async ensureAssetsLoaded(): Promise<AssetData[]> {
+    console.log('🔍 確保資產數據穩定加載...');
+
+    // 如果未初始化，先初始化
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+
+    // 如果資產為空且用戶已登錄，嘗試重新加載
+    if (this.assets.length === 0) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        console.log('🔄 資產為空但用戶已登錄，重新從 Supabase 加載...');
+        await this.loadFromSupabase(user.id);
+      }
+    }
+
+    console.log(`✅ 資產數據確保完成，數量: ${this.assets.length}`);
+    return this.getAssets();
   }
 
   /**

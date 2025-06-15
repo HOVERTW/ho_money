@@ -199,50 +199,21 @@ export class FinancialCalculator {
     const topIncomes: any[] = [];
     const topExpenses: any[] = [];
 
-    // 找出每個類別中金額最大的單筆交易
-    const incomeByCategory: { [key: string]: { amount: number, description: string } } = {};
-    const expenseByCategory: { [key: string]: { amount: number, description: string } } = {};
-
+    // 🔥 修復：不按類別分組，直接取前5筆最大交易（允許重複類別）
     currentMonthTransactions.forEach(transaction => {
-      if (transaction.type === 'income') {
-        const category = transaction.category;
-        if (!incomeByCategory[category] || transaction.amount > incomeByCategory[category].amount) {
-          incomeByCategory[category] = {
-            amount: transaction.amount,
-            description: transaction.description || ''
-          };
-        }
-      } else if (transaction.type === 'expense') {
-        const category = transaction.category;
-        if (!expenseByCategory[category] || transaction.amount > expenseByCategory[category].amount) {
-          expenseByCategory[category] = {
-            amount: transaction.amount,
-            description: transaction.description || ''
-          };
-        }
-      }
-    });
-
-    // 添加收入到最大收入列表
-    Object.entries(incomeByCategory).forEach(([category, data]) => {
-      if (data.amount > 0) {
+      if (transaction.type === 'income' && transaction.amount > 0) {
         topIncomes.push({
-          id: `income_${category}`,
-          name: category,
-          amount: data.amount,
-          type: data.description || '', // 使用描述，如果沒有描述則為空白
+          id: `income_${transaction.id || Date.now()}_${Math.random()}`,
+          name: transaction.description || transaction.category || '未命名收入',
+          amount: transaction.amount,
+          type: transaction.category || '其他',
         });
-      }
-    });
-
-    // 添加支出到最大支出列表
-    Object.entries(expenseByCategory).forEach(([category, data]) => {
-      if (data.amount > 0) {
+      } else if (transaction.type === 'expense' && transaction.amount > 0) {
         topExpenses.push({
-          id: `expense_${category}`,
-          name: category,
-          amount: data.amount,
-          type: data.description || '', // 使用描述，如果沒有描述則為空白
+          id: `expense_${transaction.id || Date.now()}_${Math.random()}`,
+          name: transaction.description || transaction.category || '未命名支出',
+          amount: transaction.amount,
+          type: transaction.category || '其他',
         });
       }
     });
