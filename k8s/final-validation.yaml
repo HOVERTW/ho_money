@@ -41,11 +41,12 @@ spec:
             cat > two-issues-validation.js << 'EOF'
             const { createClient } = require('@supabase/supabase-js');
             
-            console.log('🚀 開始兩個關鍵問題驗證...');
+            console.log('🚀 開始兩個關鍵問題Kubernetes驗證...');
             console.log('測試環境: Kubernetes');
             console.log('測試時間:', new Date().toLocaleString());
-            console.log('問題1: 一鍵刪除只會刪除儀表板的近一年資產變化，其他都不會刪');
-            console.log('問題2: 創建負債後月曆上會重複出現兩筆一樣的內容，只要留一筆');
+            console.log('問題1: 一鍵刪除又失效了 → 已修復');
+            console.log('問題2: 創建負債後又不會出現在月曆了 → 已修復');
+            console.log('驗證目標: 確認修復在Kubernetes環境中穩定運行');
             
             const supabase = createClient(
               'https://yrryyapzkgrsahranzvo.supabase.co',

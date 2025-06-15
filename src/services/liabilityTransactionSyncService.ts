@@ -645,14 +645,36 @@ class LiabilityTransactionSyncService {
   }
 
   /**
-   * 🔥 方法3：立即同步新負債到所有頁面
+   * 🔥 方法3：立即同步新負債到所有頁面（避免重複創建交易）
    */
   async immediatelySync(liability: LiabilityData): Promise<void> {
     console.log('🔥 方法3 - 立即同步新負債到所有頁面:', liability.name);
 
     try {
-      // 1. 立即創建當月交易記錄
-      await this.ensureCurrentMonthTransaction(liability);
+      // 1. 檢查是否已經有當月交易記錄，避免重複創建
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth();
+
+      const existingTransactions = transactionDataService.getTransactions();
+      const currentMonthPayments = existingTransactions.filter(transaction => {
+        const transactionDate = new Date(transaction.date);
+        return transactionDate.getFullYear() === currentYear &&
+               transactionDate.getMonth() === currentMonth &&
+               transaction.category === '還款' &&
+               transaction.description === liability.name &&
+               transaction.amount === liability.monthly_payment;
+      });
+
+      console.log(`🔍 方法3 - 檢查當月交易: ${currentMonthPayments.length} 筆`);
+
+      // 只有在沒有當月交易時才創建
+      if (currentMonthPayments.length === 0) {
+        console.log('🔥 方法3 - 創建當月交易記錄');
+        await this.ensureCurrentMonthTransaction(liability);
+      } else {
+        console.log('✅ 方法3 - 當月交易已存在，跳過創建');
+      }
 
       // 2. 發射所有可能的事件
       console.log('🔥 方法3 - 發射所有同步事件');
