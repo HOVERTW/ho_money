@@ -1,0 +1,71 @@
+# Multi-stage Dockerfile for Web Production
+FROM node:20-alpine AS base
+
+# Install system dependencies
+RUN apk add --no-cache \
+    git \
+    python3 \
+    make \
+    g++ \
+    curl
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY yarn.lock* ./
+
+# ===== Dependencies Stage =====
+FROM base AS deps
+RUN npm ci --legacy-peer-deps --only=production && npm cache clean --force
+
+# ===== Build Dependencies Stage =====
+FROM base AS build-deps
+RUN npm ci --legacy-peer-deps && npm cache clean --force
+
+# ===== Build Stage =====
+FROM build-deps AS builder
+
+# Copy source code
+COPY . .
+
+# Set build environment
+ENV NODE_ENV=production
+ENV EXPO_PUBLIC_PLATFORM=web
+
+# Build for web
+RUN npm run build:web
+
+# ===== Production Stage =====
+FROM nginx:alpine AS production
+
+# Install curl for health checks
+RUN apk add --no-cache curl
+
+# Copy custom nginx config
+COPY docker/nginx.prod.conf /etc/nginx/nginx.conf
+
+# Copy built application
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost/health || exit 1
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
+
+# Set ownership
+RUN chown -R nextjs:nodejs /usr/share/nginx/html
+RUN chown -R nextjs:nodejs /var/cache/nginx
+RUN chown -R nextjs:nodejs /var/log/nginx
+RUN chown -R nextjs:nodejs /etc/nginx/conf.d
+RUN touch /var/run/nginx.pid
+RUN chown -R nextjs:nodejs /var/run/nginx.pid
+
+USER nextjs
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

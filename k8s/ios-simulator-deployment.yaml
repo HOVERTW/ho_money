@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fintranzo-ios-simulator
+  namespace: fintranzo
+  labels:
+    app: fintranzo-ios-simulator
+    tier: development
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fintranzo-ios-simulator
+  template:
+    metadata:
+      labels:
+        app: fintranzo-ios-simulator
+        tier: development
+    spec:
+      containers:
+      - name: fintranzo-ios-simulator
+        image: fintranzo/ios-simulator:latest
+        ports:
+        - containerPort: 19000
+          name: expo-devtools
+        - containerPort: 19001
+          name: expo-metro
+        - containerPort: 19002
+          name: expo-tunnel
+        - containerPort: 8081
+          name: metro-bundler
+        env:
+        - name: NODE_ENV
+          value: "development"
+        - name: EXPO_PUBLIC_PLATFORM
+          value: "ios"
+        - name: EXPO_DEVTOOLS_LISTEN_ADDRESS
+          value: "0.0.0.0"
+        - name: EXPO_PUBLIC_SUPABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: fintranzo-secrets
+              key: EXPO_PUBLIC_SUPABASE_URL
+        - name: EXPO_PUBLIC_SUPABASE_ANON_KEY
+          valueFrom:
+            secretKeyRef:
+              name: fintranzo-secrets
+              key: EXPO_PUBLIC_SUPABASE_ANON_KEY
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 19000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 19000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: expo-cache
+          mountPath: /root/.expo
+        - name: npm-cache
+          mountPath: /root/.npm
+      volumes:
+      - name: expo-cache
+        emptyDir: {}
+      - name: npm-cache
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fintranzo-ios-simulator-service
+  namespace: fintranzo
+  labels:
+    app: fintranzo-ios-simulator
+spec:
+  type: NodePort
+  ports:
+  - port: 19000
+    targetPort: 19000
+    protocol: TCP
+    name: expo-devtools
+    nodePort: 30000
+  - port: 19001
+    targetPort: 19001
+    protocol: TCP
+    name: expo-metro
+    nodePort: 30001
+  - port: 19002
+    targetPort: 19002
+    protocol: TCP
+    name: expo-tunnel
+    nodePort: 30002
+  - port: 8081
+    targetPort: 8081
+    protocol: TCP
+    name: metro-bundler
+    nodePort: 30081
+  selector:
+    app: fintranzo-ios-simulator

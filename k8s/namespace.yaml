@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fintranzo
+  labels:
+    name: fintranzo
+    environment: production
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fintranzo-config
+  namespace: fintranzo
+data:
+  NODE_ENV: "production"
+  EXPO_PUBLIC_PLATFORM: "web"
+  EXPO_PUBLIC_WEB_URL: "https://19930913.xyz"
+  EXPO_PUBLIC_REDIRECT_URL: "https://19930913.xyz"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fintranzo-secrets
+  namespace: fintranzo
+type: Opaque
+data:
+  # Base64 encoded values - 需要替換為實際值
+  EXPO_PUBLIC_SUPABASE_URL: aHR0cHM6Ly95cnJ5eWFwemtncnNhaHJhbnp2by5zdXBhYmFzZS5jbw==
+  EXPO_PUBLIC_SUPABASE_ANON_KEY: ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5

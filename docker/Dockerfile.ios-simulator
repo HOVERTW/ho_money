@@ -1,0 +1,53 @@
+# iOS Simulator Environment for Testing
+FROM node:20-alpine AS base
+
+# Install system dependencies for iOS simulation
+RUN apk add --no-cache \
+    git \
+    python3 \
+    make \
+    g++ \
+    curl \
+    bash \
+    openssh-client
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY yarn.lock* ./
+
+# Install dependencies
+RUN npm ci --legacy-peer-deps && npm cache clean --force
+
+# Install Expo CLI and EAS CLI
+RUN npm install -g @expo/cli eas-cli
+
+# Copy source code
+COPY . .
+
+# Set environment for iOS development
+ENV NODE_ENV=development
+ENV EXPO_PUBLIC_PLATFORM=ios
+ENV EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0
+
+# Expose ports for Expo
+EXPOSE 19000 19001 19002 8081
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:19000 || exit 1
+
+# Create development script
+RUN echo '#!/bin/bash\n\
+echo "🚀 Starting FinTranzo iOS Simulator Environment"\n\
+echo "📱 Platform: iOS"\n\
+echo "🌐 Environment: Development"\n\
+echo "🔗 Expo DevTools: http://localhost:19000"\n\
+echo "📡 Metro Bundler: http://localhost:8081"\n\
+\n\
+# Start Expo for iOS\n\
+npx expo start --ios --host 0.0.0.0 --port 19000\n\
+' > /app/start-ios.sh && chmod +x /app/start-ios.sh
+
+CMD ["/app/start-ios.sh"]
