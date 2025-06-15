@@ -315,15 +315,16 @@ class LiabilityService {
       console.error('❌ 實時同步服務調用失敗:', syncError);
     }
 
-    // 🔥 強制觸發負債循環交易創建
+    // 🔥 修復：只調用一次同步，避免重複創建交易
     console.log('🔥 負債添加事件發射:', liability.name);
     try {
-      // 動態導入並立即觸發循環交易同步
+      // 動態導入並只調用一次同步方法
       const { liabilityTransactionSyncService } = await import('./liabilityTransactionSyncService');
       await liabilityTransactionSyncService.initialize();
+
+      // 只調用 syncLiabilityToRecurringTransaction，它內部已經包含了所有必要的邏輯
       await liabilityTransactionSyncService.syncLiabilityToRecurringTransaction(liability);
-      await liabilityTransactionSyncService.immediatelySync(liability);
-      console.log('✅ 負債循環交易同步完成');
+      console.log('✅ 負債循環交易同步完成（避免重複）');
     } catch (syncError) {
       console.error('❌ 負債循環交易同步失敗:', syncError);
     }

@@ -1,13 +1,13 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: fintranzo-final-validation
+  name: fintranzo-two-issues-validation
   namespace: default
   labels:
     app: fintranzo
-    component: final-validation
-    version: v1.0.0
-    test-type: seven-issues
+    component: two-issues-validation
+    version: v1.1.0
+    test-type: two-critical-issues
 spec:
   ttlSecondsAfterFinished: 7200  # 2小時後清理
   backoffLimit: 2
@@ -27,22 +27,25 @@ spec:
         args:
           - -c
           - |
-            echo "🎯 FinTranzo Final 7 Issues Validation"
-            echo "======================================"
+            echo "🎯 FinTranzo Two Critical Issues Validation"
+            echo "==========================================="
             echo "開始時間: $(date)"
             echo "Kubernetes Pod: $HOSTNAME"
-            
+            echo "測試類型: 兩個關鍵問題修復驗證"
+
             # 安裝依賴
             echo "📦 安裝依賴..."
             npm install @supabase/supabase-js
-            
-            # 創建最終驗證腳本
-            cat > final-validation.js << 'EOF'
+
+            # 創建兩個問題驗證腳本
+            cat > two-issues-validation.js << 'EOF'
             const { createClient } = require('@supabase/supabase-js');
             
-            console.log('🚀 開始最終7個問題驗證...');
+            console.log('🚀 開始兩個關鍵問題驗證...');
             console.log('測試環境: Kubernetes');
             console.log('測試時間:', new Date().toLocaleString());
+            console.log('問題1: 一鍵刪除只會刪除儀表板的近一年資產變化，其他都不會刪');
+            console.log('問題2: 創建負債後月曆上會重複出現兩筆一樣的內容，只要留一筆');
             
             const supabase = createClient(
               'https://yrryyapzkgrsahranzvo.supabase.co',
