@@ -227,6 +227,16 @@ class LiabilityService {
     this.notifyListeners();
     await this.saveToStorage();
 
+    // 即時同步到雲端
+    try {
+      const { instantSyncService } = await import('./instantSyncService');
+      await instantSyncService.syncLiabilityInstantly(liability);
+      console.log('✅ 負債已即時同步到雲端');
+    } catch (syncError) {
+      console.error('❌ 負債即時同步失敗:', syncError);
+      // 同步失敗不影響本地操作
+    }
+
     // 🔥 發射負債添加事件
     console.log('🔥 負債添加事件發射:', liability.name);
     eventEmitter.emit(EVENTS.LIABILITY_ADDED, liability);
@@ -243,8 +253,15 @@ class LiabilityService {
       this.notifyListeners();
       await this.saveToStorage();
 
-      // 同步更新到雲端
-      await enhancedSyncService.syncLiabilityUpdate(id, this.liabilities[index]);
+      // 即時同步到雲端
+      try {
+        const { instantSyncService } = await import('./instantSyncService');
+        await instantSyncService.syncLiabilityInstantly(this.liabilities[index]);
+        console.log('✅ 負債更新已即時同步到雲端');
+      } catch (syncError) {
+        console.error('❌ 負債更新即時同步失敗:', syncError);
+        // 同步失敗不影響本地操作
+      }
     }
   }
 
@@ -252,12 +269,20 @@ class LiabilityService {
    * 刪除負債
    */
   async deleteLiability(id: string): Promise<void> {
+    const liability = this.liabilities.find(l => l.id === id);
     this.liabilities = this.liabilities.filter(l => l.id !== id);
     this.notifyListeners();
     await this.saveToStorage();
 
-    // 同步刪除到雲端
-    await enhancedSyncService.syncLiabilityDelete(id);
+    // 即時同步刪除到雲端
+    try {
+      const { instantSyncService } = await import('./instantSyncService');
+      await instantSyncService.syncDeleteInstantly('liabilities', id, liability?.name || '未知負債');
+      console.log('✅ 負債刪除已即時同步到雲端');
+    } catch (syncError) {
+      console.error('❌ 負債刪除即時同步失敗:', syncError);
+      // 同步失敗不影響本地操作
+    }
   }
 
   /**

@@ -82,12 +82,19 @@ class InstantSyncService {
       const supabaseTransaction = {
         id: transaction.id,
         user_id: user.id,
-        amount: transaction.amount,
+        amount: Number(transaction.amount) || 0,
         type: transaction.type,
-        description: transaction.description,
-        category: transaction.category,
-        account: transaction.account,
-        date: transaction.date,
+        description: transaction.description || '',
+        category: transaction.category || '',
+        account: transaction.account || '',
+        from_account: transaction.fromAccount || null,
+        to_account: transaction.toAccount || null,
+        date: transaction.date || new Date().toISOString().split('T')[0],
+        is_recurring: Boolean(transaction.is_recurring),
+        recurring_frequency: transaction.recurring_frequency || null,
+        max_occurrences: transaction.max_occurrences || null,
+        start_date: transaction.start_date || null,
+        is_deleted: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -134,12 +141,17 @@ class InstantSyncService {
       const supabaseAsset = {
         id: asset.id,
         user_id: user.id,
-        name: asset.name,
-        type: asset.type,
-        value: asset.current_value || asset.cost_basis || 0,
-        current_value: asset.current_value || asset.cost_basis || 0,
-        cost_basis: asset.cost_basis || asset.current_value || 0,
-        quantity: asset.quantity || 1,
+        name: asset.name || '未命名資產',
+        asset_name: asset.name || '未命名資產', // 備用字段
+        type: asset.type || 'bank',
+        value: Number(asset.current_value || asset.cost_basis || 0),
+        current_value: Number(asset.current_value || asset.cost_basis || 0),
+        cost_basis: Number(asset.cost_basis || asset.current_value || 0),
+        quantity: Number(asset.quantity || 1),
+        stock_code: asset.stock_code || null,
+        purchase_price: Number(asset.purchase_price || 0),
+        current_price: Number(asset.current_price || 0),
+        sort_order: Number(asset.sort_order || 0),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -173,6 +185,60 @@ class InstantSyncService {
 
       console.log('✅ 資產同步驗證成功:', asset.id);
     }, `資產同步: ${asset.name}`);
+  }
+
+  /**
+   * 即時同步負債
+   */
+  async syncLiabilityInstantly(liability: any): Promise<void> {
+    await this.addToSyncQueue(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('用戶未登錄');
+
+      const supabaseLiability = {
+        id: liability.id,
+        user_id: user.id,
+        name: liability.name || '未命名負債',
+        type: liability.type || 'credit_card',
+        amount: Number(liability.amount || 0),
+        current_amount: Number(liability.current_amount || liability.amount || 0),
+        interest_rate: Number(liability.interest_rate || 0),
+        due_date: liability.due_date || null,
+        minimum_payment: Number(liability.minimum_payment || 0),
+        description: liability.description || '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // 執行 upsert 操作
+      const { data, error } = await supabase
+        .from('liabilities')
+        .upsert(supabaseLiability, {
+          onConflict: 'id',
+          ignoreDuplicates: false
+        })
+        .select();
+
+      if (error) {
+        console.error('❌ 負債同步失敗:', error);
+        throw error;
+      }
+
+      // 驗證數據是否真的插入/更新成功
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('liabilities')
+        .select('id')
+        .eq('id', liability.id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (verifyError || !verifyData) {
+        console.error('❌ 負債同步驗證失敗:', verifyError);
+        throw new Error('負債同步後驗證失敗');
+      }
+
+      console.log('✅ 負債同步驗證成功:', liability.id);
+    }, `負債同步: ${liability.name}`);
   }
 
   /**
