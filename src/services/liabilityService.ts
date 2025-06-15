@@ -46,7 +46,17 @@ class LiabilityService {
    */
   async initialize(): Promise<void> {
     try {
-      await this.loadFromStorage();
+      // 檢查用戶是否已登錄
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        console.log('👤 用戶已登錄，從 Supabase 加載負債...');
+        await this.loadFromSupabase();
+      } else {
+        console.log('📝 用戶未登錄，從本地存儲加載負債...');
+        await this.loadFromStorage();
+      }
+
       this.isInitialized = true;
       console.log(`✅ 負債服務已初始化，加載了 ${this.liabilities.length} 項負債`);
     } catch (error) {
@@ -73,6 +83,70 @@ class LiabilityService {
   private async handleDataSyncCompleted(): Promise<void> {
     console.log('📡 收到數據同步完成事件，重新加載負債數據...');
     await this.forceReload();
+  }
+
+  /**
+   * 從 Supabase 加載負債數據
+   */
+  private async loadFromSupabase(): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('⚠️ 用戶未登錄，無法從 Supabase 加載負債');
+        return;
+      }
+
+      console.log('🔄 從 Supabase 加載用戶負債...', user.id);
+
+      const { data: liabilitiesData, error } = await supabase
+        .from('liabilities')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ 從 Supabase 加載負債失敗:', error);
+        // 如果 Supabase 加載失敗，嘗試從本地存儲加載
+        await this.loadFromStorage();
+        return;
+      }
+
+      if (liabilitiesData && liabilitiesData.length > 0) {
+        // 轉換 Supabase 數據格式
+        this.liabilities = liabilitiesData.map(liability => ({
+          id: liability.id,
+          name: liability.name,
+          type: liability.type,
+          balance: liability.current_amount || liability.amount || 0,
+          interest_rate: liability.interest_rate || 0,
+          dueDate: liability.due_date || null,
+          monthly_payment: liability.monthly_payment || 0,
+          payment_account: liability.payment_account || '',
+          payment_day: liability.payment_day || 1,
+          createdAt: liability.created_at,
+          updatedAt: liability.updated_at
+        }));
+
+        console.log(`✅ 從 Supabase 加載了 ${this.liabilities.length} 個負債`);
+
+        // 顯示負債詳情
+        this.liabilities.forEach((liability, index) => {
+          console.log(`  ${index + 1}. ${liability.name} (${liability.type}) - 餘額: ${liability.balance}`);
+        });
+
+        // 保存到本地存儲
+        await AsyncStorage.setItem(STORAGE_KEYS.LIABILITIES, JSON.stringify(this.liabilities));
+        console.log('💾 負債數據已保存到本地存儲');
+      } else {
+        console.log('📝 Supabase 中沒有負債數據');
+        this.liabilities = [];
+      }
+
+    } catch (error) {
+      console.error('❌ 從 Supabase 加載負債異常:', error);
+      // 如果出現異常，嘗試從本地存儲加載
+      await this.loadFromStorage();
+    }
   }
 
   /**

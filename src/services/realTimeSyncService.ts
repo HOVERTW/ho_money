@@ -146,14 +146,50 @@ class RealTimeSyncService {
 
       console.log('📊 準備同步的資產數據:', assetData);
 
-      // 使用 upsert 確保數據同步
-      const { data, error } = await supabase
+      // 先檢查是否存在相同名稱和類型的資產（覆蓋邏輯）
+      const { data: existingAssets, error: checkError } = await supabase
         .from('assets')
-        .upsert(assetData, {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        })
-        .select();
+        .select('id')
+        .eq('user_id', this.userId)
+        .eq('name', assetData.name)
+        .eq('type', assetData.type);
+
+      if (checkError) {
+        console.error('❌ 檢查現有資產失敗:', checkError);
+        return { success: false, error: checkError.message };
+      }
+
+      let data, error;
+
+      if (existingAssets && existingAssets.length > 0) {
+        // 覆蓋現有資產
+        console.log(`🔄 覆蓋現有資產: ${assetData.name} (${assetData.type})`);
+        const existingId = existingAssets[0].id;
+
+        const { data: updateData, error: updateError } = await supabase
+          .from('assets')
+          .update({
+            ...assetData,
+            id: existingId, // 保持原有ID
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingId)
+          .select();
+
+        data = updateData;
+        error = updateError;
+      } else {
+        // 創建新資產
+        console.log(`➕ 創建新資產: ${assetData.name} (${assetData.type})`);
+
+        const { data: insertData, error: insertError } = await supabase
+          .from('assets')
+          .insert(assetData)
+          .select();
+
+        data = insertData;
+        error = insertError;
+      }
 
       if (error) {
         console.error('❌ 資產同步失敗:', error);

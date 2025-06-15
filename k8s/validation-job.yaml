@@ -1,0 +1,269 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fintranzo-validation-job
+  labels:
+    app: fintranzo-validation
+    test-iteration: "8"
+spec:
+  template:
+    metadata:
+      labels:
+        app: fintranzo-validation
+        test-iteration: "8"
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: fintranzo-validator
+        image: fintranzo:latest
+        command: ["/bin/bash"]
+        args: ["-c", "
+          echo '🎯 第8次測試：Kubernetes驗證';
+          echo '============================';
+          
+          # 設置環境
+          export NODE_ENV=test;
+          export EXPO_PUBLIC_SUPABASE_URL=https://yrryyapzkgrsahranzvo.supabase.co;
+          export EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxNzM2MzUsImV4cCI6MjA2Mzc0OTYzNX0.TccJJ9KGG6R4KiaDb-548kRkhTaPMODYa6vlQsj8dmM;
+          
+          # 驗證1: 基礎連接
+          echo '🔌 驗證1: 基礎連接';
+          node -e \"
+            const { createClient } = require('@supabase/supabase-js');
+            const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL, process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+            supabase.auth.signInWithPassword({email: 'user01@gmail.com', password: 'user01'})
+              .then(r => {
+                if (r.error) {
+                  console.log('❌ 連接失敗:', r.error.message);
+                  process.exit(1);
+                } else {
+                  console.log('✅ 連接成功');
+                  process.exit(0);
+                }
+              })
+              .catch(e => {
+                console.log('❌ 連接異常:', e.message);
+                process.exit(1);
+              });
+          \" || exit 1;
+          
+          # 驗證2: 服務文件
+          echo '📁 驗證2: 服務文件';
+          if [ -f 'src/services/realTimeSyncService.ts' ]; then
+            echo '✅ realTimeSyncService.ts 存在';
+          else
+            echo '❌ realTimeSyncService.ts 不存在';
+            exit 1;
+          fi;
+          
+          if [ -f 'src/services/liabilityService.ts' ]; then
+            echo '✅ liabilityService.ts 存在';
+          else
+            echo '❌ liabilityService.ts 不存在';
+            exit 1;
+          fi;
+          
+          # 驗證3: 負債數據
+          echo '💳 驗證3: 負債數據';
+          node -e \"
+            const { createClient } = require('@supabase/supabase-js');
+            const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL, process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+            (async () => {
+              try {
+                const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+                  email: 'user01@gmail.com',
+                  password: 'user01'
+                });
+                
+                if (loginError) {
+                  console.log('❌ 登錄失敗');
+                  process.exit(1);
+                }
+                
+                const { data: liabilities, error: liabilityError } = await supabase
+                  .from('liabilities')
+                  .select('*')
+                  .eq('user_id', loginData.user.id);
+                
+                if (liabilityError) {
+                  console.log('❌ 負債查詢失敗:', liabilityError.message);
+                  process.exit(1);
+                }
+                
+                console.log('✅ 負債查詢成功，數量:', liabilities?.length || 0);
+                process.exit(0);
+              } catch (error) {
+                console.log('❌ 驗證異常:', error.message);
+                process.exit(1);
+              }
+            })();
+          \" || exit 1;
+          
+          # 驗證4: 資產數據
+          echo '💰 驗證4: 資產數據';
+          node -e \"
+            const { createClient } = require('@supabase/supabase-js');
+            const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL, process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+            (async () => {
+              try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                  console.log('❌ 用戶未登錄');
+                  process.exit(1);
+                }
+                
+                const { data: assets, error: assetError } = await supabase
+                  .from('assets')
+                  .select('*')
+                  .eq('user_id', user.id);
+                
+                if (assetError) {
+                  console.log('❌ 資產查詢失敗:', assetError.message);
+                  process.exit(1);
+                }
+                
+                console.log('✅ 資產查詢成功，數量:', assets?.length || 0);
+                process.exit(0);
+              } catch (error) {
+                console.log('❌ 驗證異常:', error.message);
+                process.exit(1);
+              }
+            })();
+          \" || exit 1;
+          
+          # 驗證5: 交易數據
+          echo '📝 驗證5: 交易數據';
+          node -e \"
+            const { createClient } = require('@supabase/supabase-js');
+            const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL, process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+            (async () => {
+              try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                  console.log('❌ 用戶未登錄');
+                  process.exit(1);
+                }
+                
+                const { data: transactions, error: transactionError } = await supabase
+                  .from('transactions')
+                  .select('*')
+                  .eq('user_id', user.id)
+                  .limit(5);
+                
+                if (transactionError) {
+                  console.log('❌ 交易查詢失敗:', transactionError.message);
+                  process.exit(1);
+                }
+                
+                console.log('✅ 交易查詢成功，數量:', transactions?.length || 0);
+                process.exit(0);
+              } catch (error) {
+                console.log('❌ 驗證異常:', error.message);
+                process.exit(1);
+              }
+            })();
+          \" || exit 1;
+          
+          echo '🎉 第8次Kubernetes驗證完成！';
+          echo '所有驗證項目通過';
+        "]
+        env:
+        - name: NODE_ENV
+          value: "test"
+        - name: EXPO_PUBLIC_SUPABASE_URL
+          value: "https://yrryyapzkgrsahranzvo.supabase.co"
+        - name: EXPO_PUBLIC_SUPABASE_ANON_KEY
+          value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxNzM2MzUsImV4cCI6MjA2Mzc0OTYzNX0.TccJJ9KGG6R4KiaDb-548kRkhTaPMODYa6vlQsj8dmM"
+        - name: TEST_USER_EMAIL
+          value: "user01@gmail.com"
+        - name: TEST_USER_PASSWORD
+          value: "user01"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: validation-results
+          mountPath: /app/validation-results
+      volumes:
+      - name: validation-results
+        emptyDir: {}
+  backoffLimit: 2
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: validation-config
+data:
+  validation-script: |
+    #!/bin/bash
+    echo "🎯 Kubernetes驗證腳本"
+    echo "===================="
+    
+    # 檢查環境變量
+    if [ -z "$EXPO_PUBLIC_SUPABASE_URL" ]; then
+      echo "❌ SUPABASE_URL 未設置"
+      exit 1
+    fi
+    
+    if [ -z "$EXPO_PUBLIC_SUPABASE_ANON_KEY" ]; then
+      echo "❌ SUPABASE_ANON_KEY 未設置"
+      exit 1
+    fi
+    
+    echo "✅ 環境變量檢查通過"
+    
+    # 檢查Node.js
+    if command -v node &> /dev/null; then
+      echo "✅ Node.js 可用: $(node --version)"
+    else
+      echo "❌ Node.js 不可用"
+      exit 1
+    fi
+    
+    # 檢查依賴
+    if [ -d "node_modules/@supabase/supabase-js" ]; then
+      echo "✅ Supabase 依賴可用"
+    else
+      echo "❌ Supabase 依賴不可用"
+      exit 1
+    fi
+    
+    echo "🎉 所有檢查通過！"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: fintranzo-periodic-validation
+spec:
+  schedule: "0 */4 * * *"  # 每4小時運行一次
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: fintranzo-periodic-validation
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: fintranzo-validator
+            image: fintranzo:latest
+            command: ["/bin/bash"]
+            args: ["/app/scripts/enhanced-docker-test.sh"]
+            env:
+            - name: NODE_ENV
+              value: "test"
+            - name: EXPO_PUBLIC_SUPABASE_URL
+              value: "https://yrryyapzkgrsahranzvo.supabase.co"
+            - name: EXPO_PUBLIC_SUPABASE_ANON_KEY
+              value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxNzM2MzUsImV4cCI6MjA2Mzc0OTYzNX0.TccJJ9KGG6R4KiaDb-548kRkhTaPMODYa6vlQsj8dmM"
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "200m"

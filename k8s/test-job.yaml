@@ -22,10 +22,11 @@ spec:
         - name: EXPO_PUBLIC_SUPABASE_URL
           value: "https://yrryyapzkgrsahranzvo.supabase.co"
         - name: EXPO_PUBLIC_SUPABASE_ANON_KEY
-          valueFrom:
-            secretKeyRef:
-              name: supabase-secret
-              key: anon-key
+          value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxNzM2MzUsImV4cCI6MjA2Mzc0OTYzNX0.TccJJ9KGG6R4KiaDb-548kRkhTaPMODYa6vlQsj8dmM"
+        - name: TEST_USER_EMAIL
+          value: "user01@gmail.com"
+        - name: TEST_USER_PASSWORD
+          value: "user01"
         resources:
           requests:
             memory: "512Mi"

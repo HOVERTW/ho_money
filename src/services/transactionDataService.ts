@@ -117,25 +117,32 @@ class TransactionDataService {
   }
 
   /**
-   * 清除所有數據並重置為空狀態
+   * 清除所有數據並重置為空狀態（保留類別）
    */
   async clearAllData(): Promise<void> {
     try {
-      // 清除本地存儲
+      console.log('🧹 開始清除交易數據（保留類別）...');
+
+      // 清除本地存儲（但保留類別）
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.TRANSACTIONS,
-        STORAGE_KEYS.CATEGORIES,
         STORAGE_KEYS.ACCOUNTS,
         STORAGE_KEYS.INITIALIZED,
       ]);
 
-      // 重置內存中的數據
+      // 重置內存中的數據（但保留類別）
       this.transactions = [];
-      this.categories = [];
       this.accounts = [];
       this.isInitialized = false;
 
-      console.log('✅ 所有交易數據已清除');
+      // 重新初始化預設類別（確保類別完整）
+      this.initializeDefaultCategories();
+
+      // 保存類別到本地存儲
+      await AsyncStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(this.categories));
+
+      console.log('✅ 交易數據已清除（類別已保留）');
+      console.log(`📊 保留的類別數量: ${this.categories.length}`);
       this.notifyListeners();
     } catch (error) {
       console.error('❌ 清除數據失敗:', error);
