@@ -36,10 +36,33 @@ class UserDataSyncService {
       // 3. 同步雲端數據到本地
       await this.syncCloudDataToLocal();
 
+      // 4. 重新加載交易數據服務（關鍵修復）
+      await this.reloadTransactionDataService(user.id);
+
       console.log('✅ 用戶數據初始化完成');
     } catch (error) {
       console.error('❌ 用戶數據初始化失敗:', error);
       throw error;
+    }
+  }
+
+  /**
+   * 重新加載交易數據服務
+   */
+  private async reloadTransactionDataService(userId: string): Promise<void> {
+    try {
+      console.log('🔄 重新加載交易數據服務...', userId);
+
+      // 動態導入避免循環依賴
+      const { transactionDataService } = await import('./transactionDataService');
+
+      // 調用重新加載用戶數據
+      await transactionDataService.reloadUserData(userId);
+
+      console.log('✅ 交易數據服務重新加載完成');
+    } catch (error) {
+      console.error('❌ 重新加載交易數據服務失敗:', error);
+      // 不拋出錯誤，允許繼續使用應用
     }
   }
 

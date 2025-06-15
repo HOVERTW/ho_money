@@ -68,23 +68,33 @@ class TransactionDataService {
     try {
       console.log('🔄 開始初始化交易資料服務...');
 
-      // 檢查是否已經初始化過
-      const hasInitialized = await AsyncStorage.getItem(STORAGE_KEYS.INITIALIZED);
+      // 檢查用戶是否已登錄
+      const { data: { user } } = await supabase.auth.getUser();
 
-      if (hasInitialized) {
-        // 從本地存儲加載數據
-        await this.loadFromStorage();
-        console.log('✅ 從本地存儲加載數據完成');
-
-        // 強制更新類別到最新版本（包含轉移類別）
-        await this.forceUpdateCategories();
+      if (user) {
+        console.log('👤 用戶已登錄，從 Supabase 加載數據...');
+        // 用戶已登錄，優先從 Supabase 加載數據
+        await this.loadFromSupabase(user.id);
+        console.log('✅ 從 Supabase 加載數據完成');
       } else {
-        // 首次使用，初始化空數據
-        this.initializeDefaultData();
-        await this.saveToStorage();
-        await AsyncStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
-        console.log('✅ 首次初始化空數據完成');
+        console.log('👤 用戶未登錄，使用本地數據...');
+        // 用戶未登錄，從本地存儲加載數據
+        const hasInitialized = await AsyncStorage.getItem(STORAGE_KEYS.INITIALIZED);
+
+        if (hasInitialized) {
+          await this.loadFromStorage();
+          console.log('✅ 從本地存儲加載數據完成');
+        } else {
+          // 首次使用，初始化空數據
+          this.initializeDefaultData();
+          await this.saveToStorage();
+          await AsyncStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+          console.log('✅ 首次初始化空數據完成');
+        }
       }
+
+      // 強制更新類別到最新版本（包含轉移類別）
+      await this.forceUpdateCategories();
 
       this.isInitialized = true;
       this.notifyListeners();
@@ -130,6 +140,75 @@ class TransactionDataService {
     } catch (error) {
       console.error('❌ 清除數據失敗:', error);
       throw error;
+    }
+  }
+
+  /**
+   * 從 Supabase 加載用戶數據
+   */
+  private async loadFromSupabase(userId: string): Promise<void> {
+    try {
+      console.log('🔄 從 Supabase 加載用戶數據...', userId);
+
+      // 加載用戶交易記錄
+      const { data: transactions, error: transactionsError } = await supabase
+        .from(TABLES.TRANSACTIONS)
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (transactionsError) {
+        console.error('❌ 加載交易記錄失敗:', transactionsError);
+      } else {
+        // 轉換 Supabase 格式到本地格式
+        this.transactions = (transactions || []).map(t => ({
+          id: t.id,
+          amount: t.amount || 0,
+          type: t.type,
+          description: t.description || '',
+          category: t.category || '',
+          account: t.account || '',
+          fromAccount: t.from_account,
+          toAccount: t.to_account,
+          date: t.date || new Date().toISOString().split('T')[0],
+          is_recurring: t.is_recurring || false,
+          recurring_frequency: t.recurring_frequency,
+          max_occurrences: t.max_occurrences,
+          start_date: t.start_date
+        }));
+        console.log(`✅ 加載了 ${this.transactions.length} 筆交易記錄`);
+      }
+
+      // 加載用戶資產（作為帳戶）
+      const { data: assets, error: assetsError } = await supabase
+        .from(TABLES.ASSETS)
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (assetsError) {
+        console.error('❌ 加載資產失敗:', assetsError);
+        this.initializeDefaultAccounts();
+      } else {
+        // 轉換資產為帳戶格式
+        this.accounts = (assets || []).map(asset => ({
+          id: asset.id,
+          name: asset.name || asset.asset_name || '未命名資產',
+          type: asset.type || 'asset'
+        }));
+        console.log(`✅ 加載了 ${this.accounts.length} 個資產帳戶`);
+      }
+
+      // 使用預設類別
+      this.initializeDefaultCategories();
+
+      // 同步到本地存儲作為備份
+      await this.saveToStorage();
+
+    } catch (error) {
+      console.error('❌ 從 Supabase 加載數據失敗:', error);
+      // 如果 Supabase 加載失敗，嘗試從本地存儲加載
+      await this.loadFromStorage();
     }
   }
 
@@ -314,6 +393,99 @@ class TransactionDataService {
   setTransactions(transactions: Transaction[]): void {
     this.transactions = [...transactions];
     this.notifyListeners();
+  }
+
+  /**
+   * 用戶登錄後重新加載數據
+   */
+  async reloadUserData(userId: string): Promise<void> {
+    try {
+      console.log('🔄 用戶登錄，重新加載數據...', userId);
+
+      // 清除當前數據
+      this.transactions = [];
+      this.accounts = [];
+
+      // 從 Supabase 重新加載用戶數據
+      await this.loadFromSupabase(userId);
+
+      // 通知監聽器更新
+      this.notifyListeners();
+
+      console.log('✅ 用戶數據重新加載完成');
+    } catch (error) {
+      console.error('❌ 重新加載用戶數據失敗:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 用戶登出後清除數據
+   */
+  async clearUserData(): Promise<void> {
+    try {
+      console.log('🔄 用戶登出，清除數據...');
+
+      // 清除用戶相關數據
+      this.transactions = [];
+      this.accounts = [];
+
+      // 重置為預設數據
+      this.initializeDefaultData();
+
+      // 通知監聽器更新
+      this.notifyListeners();
+
+      console.log('✅ 用戶數據已清除');
+    } catch (error) {
+      console.error('❌ 清除用戶數據失敗:', error);
+    }
+  }
+
+  /**
+   * 強制刷新用戶數據（用於調試和修復）
+   */
+  async forceRefreshUserData(): Promise<void> {
+    try {
+      console.log('🔄 強制刷新用戶數據...');
+
+      // 檢查用戶是否已登錄
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        console.log('👤 用戶已登錄，強制重新加載數據...', user.email);
+
+        // 清除當前數據
+        this.transactions = [];
+        this.accounts = [];
+
+        // 重新從 Supabase 加載
+        await this.loadFromSupabase(user.id);
+
+        // 通知監聽器更新
+        this.notifyListeners();
+
+        console.log('✅ 強制刷新完成');
+        console.log(`📊 當前交易數量: ${this.transactions.length}`);
+        console.log(`📊 當前帳戶數量: ${this.accounts.length}`);
+      } else {
+        console.log('👤 用戶未登錄，無法刷新數據');
+      }
+    } catch (error) {
+      console.error('❌ 強制刷新用戶數據失敗:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 獲取數據統計信息（用於調試）
+   */
+  getDataStats(): { transactions: number; accounts: number; categories: number } {
+    return {
+      transactions: this.transactions.length,
+      accounts: this.accounts.length,
+      categories: this.categories.length
+    };
   }
 
   /**

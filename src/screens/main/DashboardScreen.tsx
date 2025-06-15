@@ -725,6 +725,39 @@ export default function DashboardScreen() {
     clearError();
   };
 
+  // 強制刷新用戶數據（修復數據顯示問題）
+  const handleForceRefreshData = async () => {
+    try {
+      console.log('🔄 強制刷新用戶數據...');
+
+      // 檢查用戶是否已登錄
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        console.log('❌ 用戶未登錄，無法刷新數據');
+        return;
+      }
+
+      // 強制刷新 transactionDataService
+      await transactionDataService.forceRefreshUserData();
+
+      // 獲取數據統計
+      const stats = transactionDataService.getDataStats();
+      console.log('📊 刷新後數據統計:', stats);
+
+      // 顯示結果
+      Alert.alert(
+        '數據刷新完成',
+        `交易: ${stats.transactions} 筆\n帳戶: ${stats.accounts} 個\n類別: ${stats.categories} 個`,
+        [{ text: '確定' }]
+      );
+
+    } catch (error) {
+      console.error('❌ 強制刷新數據失敗:', error);
+      Alert.alert('刷新失敗', error.message);
+    }
+  };
+
   // 手動觸發數據同步到 Supabase - 使用專門的上傳服務
   const handleSyncToSupabase = async () => {
     try {
@@ -1090,6 +1123,14 @@ export default function DashboardScreen() {
             <TouchableOpacity onPress={handleSyncToSupabase} style={styles.uploadButton}>
               <Ionicons name="cloud-upload-outline" size={20} color="#007AFF" />
               <Text style={{ fontSize: 10, color: '#007AFF' }}>上傳</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* 刷新數據按鈕 - 只在已登錄時顯示 */}
+          {user && (
+            <TouchableOpacity onPress={handleForceRefreshData} style={[styles.uploadButton, { marginLeft: 8 }]}>
+              <Ionicons name="refresh-outline" size={20} color="#34C759" />
+              <Text style={{ fontSize: 10, color: '#34C759' }}>刷新</Text>
             </TouchableOpacity>
           )}
 

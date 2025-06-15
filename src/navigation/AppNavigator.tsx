@@ -203,7 +203,14 @@ export default function AppNavigator() {
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             try {
               console.log('🔄 開始初始化用戶數據...');
+
+              // 1. 初始化用戶數據（遷移和同步）
               await userDataSyncService.initializeUserData(session.user);
+
+              // 2. 直接重新加載交易數據服務（確保數據顯示）
+              const { transactionDataService } = await import('../services/transactionDataService');
+              await transactionDataService.reloadUserData(session.user.id);
+
               console.log('✅ 用戶數據初始化完成');
             } catch (error) {
               console.error('❌ 用戶數據初始化失敗:', error);
