@@ -69,7 +69,21 @@ class AssetTransactionSyncService {
    */
   async initialize(): Promise<void> {
     try {
-      await this.loadFromStorage();
+      console.log('🔄 開始初始化資產服務...');
+
+      // 檢查用戶是否已登錄
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        console.log('👤 用戶已登錄，從 Supabase 加載資產...');
+        // 用戶已登錄，優先從 Supabase 加載
+        await this.loadFromSupabase(user.id);
+      } else {
+        console.log('👤 用戶未登錄，從本地存儲加載...');
+        // 用戶未登錄，從本地存儲加載
+        await this.loadFromStorage();
+      }
+
       this.isInitialized = true;
       console.log(`✅ 資產服務已初始化，加載了 ${this.assets.length} 項資產`);
     } catch (error) {
@@ -79,6 +93,86 @@ class AssetTransactionSyncService {
       this.isInitialized = true;
     }
     this.notifyListeners();
+  }
+
+  /**
+   * 從 Supabase 加載用戶資產
+   */
+  private async loadFromSupabase(userId: string): Promise<void> {
+    try {
+      console.log('🔄 從 Supabase 加載用戶資產...', userId);
+
+      // 使用多種方法確保加載成功
+      let assets = null;
+
+      // 方法1: 標準查詢
+      try {
+        const { data, error } = await supabase
+          .from('assets')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (!error && data) {
+          assets = data;
+          console.log(`📊 方法1成功: ${assets.length} 個資產`);
+        }
+      } catch (error) {
+        console.error('❌ 方法1失敗:', error);
+      }
+
+      // 方法2: 如果方法1失敗，嘗試不同查詢
+      if (!assets || assets.length === 0) {
+        try {
+          const { data, error } = await supabase
+            .from(TABLES.ASSETS)
+            .select('*')
+            .eq('user_id', userId);
+
+          if (!error && data) {
+            assets = data;
+            console.log(`📊 方法2成功: ${assets.length} 個資產`);
+          }
+        } catch (error) {
+          console.error('❌ 方法2失敗:', error);
+        }
+      }
+
+      if (assets && assets.length > 0) {
+        // 轉換 Supabase 格式到本地格式
+        this.assets = assets.map(asset => ({
+          id: asset.id,
+          name: asset.name || asset.asset_name || '未命名資產',
+          type: asset.type || 'bank',
+          quantity: Number(asset.quantity) || 1,
+          cost_basis: Number(asset.cost_basis || asset.value || 0),
+          current_value: Number(asset.current_value || asset.value || 0),
+          stock_code: asset.stock_code,
+          purchase_price: Number(asset.purchase_price || 0),
+          current_price: Number(asset.current_price || 0),
+          last_updated: asset.updated_at || asset.created_at || new Date().toISOString(),
+          sort_order: Number(asset.sort_order) || 0
+        }));
+
+        console.log(`✅ 從 Supabase 加載了 ${this.assets.length} 個資產`);
+
+        // 詳細記錄每個資產
+        this.assets.forEach((asset, index) => {
+          console.log(`  ${index + 1}. ${asset.name} (${asset.type}) - 價值: ${asset.current_value}`);
+        });
+
+        // 同步到本地存儲作為備份
+        await this.saveToLocalStorage();
+      } else {
+        console.log('📝 Supabase 中沒有找到用戶資產');
+        this.assets = [];
+      }
+
+    } catch (error) {
+      console.error('❌ 從 Supabase 加載資產失敗:', error);
+      // 如果 Supabase 加載失敗，嘗試從本地存儲加載
+      await this.loadFromStorage();
+    }
   }
 
   /**
@@ -132,6 +226,18 @@ class AssetTransactionSyncService {
     } catch (error) {
       console.error('❌ 從本地存儲加載資產數據失敗:', error);
       this.assets = [];
+    }
+  }
+
+  /**
+   * 僅保存到本地存儲（不同步到雲端）
+   */
+  private async saveToLocalStorage(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
+      console.log('💾 資產數據已保存到本地存儲');
+    } catch (error) {
+      console.error('❌ 保存資產數據到本地存儲失敗:', error);
     }
   }
 

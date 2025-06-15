@@ -179,24 +179,84 @@ class TransactionDataService {
         console.log(`✅ 加載了 ${this.transactions.length} 筆交易記錄`);
       }
 
-      // 加載用戶資產（作為帳戶）
-      const { data: assets, error: assetsError } = await supabase
-        .from(TABLES.ASSETS)
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      // 加載用戶資產（作為帳戶）- 使用多種方法確保成功
+      console.log('🔄 開始加載用戶資產...');
+
+      let assets = null;
+      let assetsError = null;
+
+      // 方法1: 標準查詢
+      try {
+        const result = await supabase
+          .from(TABLES.ASSETS)
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        assets = result.data;
+        assetsError = result.error;
+        console.log(`📊 方法1 - 標準查詢: ${assets?.length || 0} 個資產`);
+      } catch (error) {
+        console.error('❌ 方法1失敗:', error);
+      }
+
+      // 方法2: 如果方法1失敗，嘗試不同的查詢
+      if (!assets || assets.length === 0) {
+        try {
+          const result = await supabase
+            .from('assets')
+            .select('*')
+            .eq('user_id', userId);
+
+          if (result.data && result.data.length > 0) {
+            assets = result.data;
+            assetsError = result.error;
+            console.log(`📊 方法2 - 直接表名查詢: ${assets?.length || 0} 個資產`);
+          }
+        } catch (error) {
+          console.error('❌ 方法2失敗:', error);
+        }
+      }
+
+      // 方法3: 如果還是沒有，嘗試查詢所有資產然後過濾
+      if (!assets || assets.length === 0) {
+        try {
+          const result = await supabase
+            .from('assets')
+            .select('*')
+            .limit(100);
+
+          if (result.data) {
+            const userAssets = result.data.filter(asset => asset.user_id === userId);
+            if (userAssets.length > 0) {
+              assets = userAssets;
+              console.log(`📊 方法3 - 過濾查詢: ${assets?.length || 0} 個資產`);
+            }
+          }
+        } catch (error) {
+          console.error('❌ 方法3失敗:', error);
+        }
+      }
 
       if (assetsError) {
         console.error('❌ 加載資產失敗:', assetsError);
         this.initializeDefaultAccounts();
-      } else {
+      } else if (assets && assets.length > 0) {
         // 轉換資產為帳戶格式
-        this.accounts = (assets || []).map(asset => ({
+        this.accounts = assets.map(asset => ({
           id: asset.id,
           name: asset.name || asset.asset_name || '未命名資產',
           type: asset.type || 'asset'
         }));
-        console.log(`✅ 加載了 ${this.accounts.length} 個資產帳戶`);
+        console.log(`✅ 成功加載了 ${this.accounts.length} 個資產帳戶`);
+
+        // 詳細記錄每個資產
+        assets.forEach((asset, index) => {
+          console.log(`  ${index + 1}. ${asset.name || '未命名'} (${asset.type || 'asset'}) - 價值: ${asset.current_value || asset.value || 0}`);
+        });
+      } else {
+        console.log('📝 沒有找到用戶資產，使用空帳戶列表');
+        this.initializeDefaultAccounts();
       }
 
       // 使用預設類別

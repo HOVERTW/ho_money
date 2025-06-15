@@ -34,6 +34,7 @@ import { supabase } from '../../services/supabase';
 import { manualUploadService } from '../../services/manualUploadService';
 import { DiagnosticButton } from '../../components/DiagnosticButton';
 import SyncStatusIndicator from '../../components/SyncStatusIndicator';
+import { assetDisplayFixService } from '../../services/assetDisplayFixService';
 // import { SupabaseTableChecker } from '../../utils/supabaseTableChecker';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -725,36 +726,60 @@ export default function DashboardScreen() {
     clearError();
   };
 
-  // 強制刷新用戶數據（修復數據顯示問題）
+  // 強制刷新用戶數據（使用三種方法確保修復）
   const handleForceRefreshData = async () => {
     try {
-      console.log('🔄 強制刷新用戶數據...');
+      console.log('🔄 開始三重修復數據...');
 
       // 檢查用戶是否已登錄
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
         console.log('❌ 用戶未登錄，無法刷新數據');
+        Alert.alert('錯誤', '用戶未登錄，無法刷新數據');
         return;
       }
 
-      // 強制刷新 transactionDataService
+      // 使用綜合修復服務
+      const fixResult = await assetDisplayFixService.comprehensiveFix();
+
+      // 同時刷新交易數據
       await transactionDataService.forceRefreshUserData();
 
-      // 獲取數據統計
-      const stats = transactionDataService.getDataStats();
-      console.log('📊 刷新後數據統計:', stats);
+      // 獲取最終統計
+      const transactionStats = transactionDataService.getDataStats();
+      const validation = await assetDisplayFixService.validateAssetData();
 
-      // 顯示結果
+      console.log('📊 三重修復完成，最終統計:', {
+        transactions: transactionStats.transactions,
+        accounts: transactionStats.accounts,
+        assets: validation.serviceCount,
+        supabaseAssets: validation.supabaseCount
+      });
+
+      // 顯示詳細結果
+      const resultMessage = `修復結果：
+
+✅ 方法1 (直接加載): ${fixResult.methods.method1.success ? '成功' : '失敗'} - ${fixResult.methods.method1.count} 個資產
+✅ 方法2 (服務重載): ${fixResult.methods.method2.success ? '成功' : '失敗'} - ${fixResult.methods.method2.count} 個資產
+✅ 方法3 (同步帳戶): ${fixResult.methods.method3.success ? '成功' : '失敗'} - ${fixResult.methods.method3.count} 個資產
+
+最終統計：
+• 交易: ${transactionStats.transactions} 筆
+• 帳戶: ${transactionStats.accounts} 個
+• 資產: ${validation.serviceCount} 個
+• Supabase資產: ${validation.supabaseCount} 個
+• 數據一致性: ${validation.consistent ? '✅' : '❌'}`;
+
       Alert.alert(
-        '數據刷新完成',
-        `交易: ${stats.transactions} 筆\n帳戶: ${stats.accounts} 個\n類別: ${stats.categories} 個`,
+        fixResult.success ? '修復成功' : '修復失敗',
+        resultMessage,
         [{ text: '確定' }]
       );
 
     } catch (error) {
-      console.error('❌ 強制刷新數據失敗:', error);
-      Alert.alert('刷新失敗', error.message);
+      console.error('❌ 三重修復失敗:', error);
+      Alert.alert('修復失敗', `錯誤: ${error.message}`);
     }
   };
 
