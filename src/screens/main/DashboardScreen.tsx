@@ -1053,25 +1053,83 @@ export default function DashboardScreen() {
             const { data: { user: currentUser } } = await supabase.auth.getUser();
 
             if (currentUser) {
-              console.log('👤 用戶已登錄，同步刪除雲端數據...');
+              console.log('👤 修復：用戶已登錄，強化雲端數據刪除...');
 
-              // 刪除用戶的所有雲端數據
-              const deletePromises = [
-                supabase.from('transactions').delete().eq('user_id', currentUser.id),
-                supabase.from('assets').delete().eq('user_id', currentUser.id),
-                supabase.from('liabilities').delete().eq('user_id', currentUser.id)
-              ];
+              // 修復：使用更強的刪除邏輯，多次嘗試確保刪除成功
+              const tables = ['transactions', 'assets', 'liabilities'];
 
-              const results = await Promise.allSettled(deletePromises);
+              for (const tableName of tables) {
+                let deleteSuccess = false;
+                let attempts = 0;
+                const maxAttempts = 3;
 
-              results.forEach((result, index) => {
-                const tableName = ['transactions', 'assets', 'liabilities'][index];
-                if (result.status === 'fulfilled' && !result.value.error) {
-                  console.log(`✅ ${tableName} 雲端數據刪除成功`);
-                } else {
-                  console.error(`❌ ${tableName} 雲端數據刪除失敗:`, result.status === 'fulfilled' ? result.value.error : result.reason);
+                while (!deleteSuccess && attempts < maxAttempts) {
+                  attempts++;
+                  console.log(`🔄 修復：嘗試刪除 ${tableName} (第${attempts}次)...`);
+
+                  try {
+                    // 先查詢確認有數據
+                    const { data: existingData, error: queryError } = await supabase
+                      .from(tableName)
+                      .select('id')
+                      .eq('user_id', currentUser.id);
+
+                    if (queryError) {
+                      console.error(`❌ 查詢 ${tableName} 失敗:`, queryError);
+                      continue;
+                    }
+
+                    const recordCount = existingData?.length || 0;
+                    console.log(`📊 ${tableName} 有 ${recordCount} 筆記錄需要刪除`);
+
+                    if (recordCount === 0) {
+                      console.log(`✅ ${tableName} 已經是空的，跳過刪除`);
+                      deleteSuccess = true;
+                      continue;
+                    }
+
+                    // 執行刪除
+                    const { error: deleteError } = await supabase
+                      .from(tableName)
+                      .delete()
+                      .eq('user_id', currentUser.id);
+
+                    if (deleteError) {
+                      console.error(`❌ 刪除 ${tableName} 失敗 (第${attempts}次):`, deleteError);
+                      if (attempts < maxAttempts) {
+                        await new Promise(resolve => setTimeout(resolve, 1000)); // 等待1秒後重試
+                      }
+                    } else {
+                      // 驗證刪除結果
+                      const { data: verifyData, error: verifyError } = await supabase
+                        .from(tableName)
+                        .select('id')
+                        .eq('user_id', currentUser.id);
+
+                      const remainingCount = verifyData?.length || 0;
+
+                      if (verifyError || remainingCount > 0) {
+                        console.error(`❌ ${tableName} 刪除驗證失敗，還有 ${remainingCount} 筆記錄`);
+                        if (attempts < maxAttempts) {
+                          await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+                      } else {
+                        console.log(`✅ ${tableName} 雲端數據刪除成功並驗證`);
+                        deleteSuccess = true;
+                      }
+                    }
+                  } catch (error) {
+                    console.error(`❌ ${tableName} 刪除過程異常 (第${attempts}次):`, error);
+                    if (attempts < maxAttempts) {
+                      await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                  }
                 }
-              });
+
+                if (!deleteSuccess) {
+                  console.error(`❌ ${tableName} 刪除最終失敗，已嘗試 ${maxAttempts} 次`);
+                }
+              }
             } else {
               console.log('📝 用戶未登錄，跳過雲端數據刪除');
             }
@@ -1285,22 +1343,39 @@ export default function DashboardScreen() {
                 );
               }
 
-              // 修復：年度變化計算邏輯
+              // 修復：年度變化計算邏輯（正確處理成長率）
               const latestValue = netWorthData.datasets[0].data[netWorthData.datasets[0].data.length - 1];
               const firstValue = netWorthData.datasets[0].data[0];
               const change = latestValue - firstValue;
 
-              // 修復：當只有當月數據時，顯示當前總資產而不是變化
-              const isFirstMonth = netWorthData.datasets[0].data.length === 1 || change === 0;
-              const displayValue = isFirstMonth ? latestValue : change;
-              const changePercent = !isFirstMonth && firstValue !== 0 ?
-                Math.round((change / firstValue) * 100) : 0;
+              // 修復：正確計算年度變化
+              const isFirstMonth = netWorthData.datasets[0].data.length === 1;
+              let displayLabel, displayValue, changePercent;
+
+              if (isFirstMonth) {
+                // 只有當月數據，顯示當前總資產
+                displayLabel = '當前總資產';
+                displayValue = latestValue;
+                changePercent = 0;
+              } else {
+                // 有歷史數據，計算年度變化
+                displayLabel = '年度變化';
+                displayValue = change;
+
+                if (firstValue === 0) {
+                  // 從0開始，成長率為無限大
+                  changePercent = '∞';
+                } else {
+                  // 正常計算成長率
+                  changePercent = Math.round((change / Math.abs(firstValue)) * 100);
+                }
+              }
 
               return (
                 <View style={styles.chartDataContainer}>
                   <View style={styles.chartSummaryRow}>
                     <Text style={styles.chartSummaryLabel}>
-                      {isFirstMonth ? '當前總資產' : '年度變化'}
+                      {displayLabel}
                     </Text>
                     <Text style={[
                       styles.chartSummaryValue,
@@ -1308,7 +1383,7 @@ export default function DashboardScreen() {
                     ]}>
                       {isFirstMonth ?
                         formatCurrency(displayValue) :
-                        `${change >= 0 ? '+' : ''}${formatCurrency(change)} (${changePercent}%)`
+                        `${change >= 0 ? '+' : ''}${formatCurrency(change)} (${changePercent}${changePercent === '∞' ? '' : '%'})`
                       }
                     </Text>
                   </View>
