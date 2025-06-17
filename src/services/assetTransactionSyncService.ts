@@ -581,9 +581,8 @@ class AssetTransactionSyncService {
       // 保存到本地存儲
       await this.saveToStorage();
 
-      // 修復：移除自動同步，避免重複上傳
-      // 同步將由用戶手動觸發或統一的同步服務處理
-      console.log('📝 修復：資產已添加到本地，同步將由統一服務處理');
+      // 徹底修復：完全移除自動同步，避免重複上傳
+      console.log('📝 徹底修復：資產已添加到本地，不自動同步');
 
       console.log('✅ 資產本地添加完成，ID:', asset.id);
     } catch (error) {
@@ -602,8 +601,8 @@ class AssetTransactionSyncService {
       this.notifyListeners();
       await this.saveToStorage();
 
-      // 同步更新到雲端
-      await enhancedSyncService.syncAssetUpdate(assetId, this.assets[index]);
+      // 徹底修復：禁用自動同步更新
+      console.log('📝 徹底修復：資產更新不自動同步');
     }
   }
 
@@ -615,8 +614,8 @@ class AssetTransactionSyncService {
     this.notifyListeners();
     await this.saveToStorage();
 
-    // 同步刪除到雲端
-    await enhancedSyncService.syncAssetDelete(assetId);
+    // 徹底修復：禁用自動同步刪除
+    console.log('📝 徹底修復：資產刪除不自動同步');
   }
 
   /**

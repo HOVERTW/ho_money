@@ -1343,12 +1343,12 @@ export default function DashboardScreen() {
                 );
               }
 
-              // 修復：年度變化計算邏輯（正確處理成長率）
+              // 徹底修復：年度變化計算邏輯（正確處理成長率）
               const latestValue = netWorthData.datasets[0].data[netWorthData.datasets[0].data.length - 1];
               const firstValue = netWorthData.datasets[0].data[0];
               const change = latestValue - firstValue;
 
-              // 修復：正確計算年度變化
+              // 徹底修復：正確計算年度變化
               const isFirstMonth = netWorthData.datasets[0].data.length === 1;
               let displayLabel, displayValue, changePercent;
 
@@ -1366,8 +1366,9 @@ export default function DashboardScreen() {
                   // 從0開始，成長率為無限大
                   changePercent = '∞';
                 } else {
-                  // 正常計算成長率
-                  changePercent = Math.round((change / Math.abs(firstValue)) * 100);
+                  // 徹底修復：正確計算成長率
+                  // 如果一年前是100萬，現在是500萬，那成長400萬，成長400%
+                  changePercent = Math.round((change / firstValue) * 100);
                 }
               }
 

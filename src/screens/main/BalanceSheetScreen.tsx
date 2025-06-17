@@ -125,10 +125,16 @@ export default function BalanceSheetScreen() {
 
   const handleAddLiability = async (newLiability: any) => {
     try {
-      console.log('📝 修復：BalanceSheetScreen 處理新增負債:', newLiability);
-      // 修復：只調用 addLiability，它內部已經包含同步邏輯，避免重複調用
+      console.log('📝 徹底修復：BalanceSheetScreen 處理新增負債:', newLiability);
+
+      // 1. 先添加負債到本地
       await liabilityService.addLiability(newLiability);
-      console.log('✅ 修復：負債已添加到服務（包含同步）');
+      console.log('✅ 負債已添加到本地');
+
+      // 2. 統一在這裡處理同步，確保只調用一次
+      await liabilityTransactionSyncService.syncLiabilityToRecurringTransaction(newLiability);
+      console.log('✅ 徹底修復：負債同步完成，只調用一次');
+
     } catch (error) {
       console.error('❌ 處理新增負債時發生錯誤:', error);
       Alert.alert('錯誤', '處理負債時發生錯誤，請重試');
@@ -156,18 +162,19 @@ export default function BalanceSheetScreen() {
 
   const handleUpdateLiability = async (updatedLiability: any) => {
     try {
-      console.log('🔥 修復：BalanceSheetScreen 處理負債更新/添加:', updatedLiability);
+      console.log('🔥 徹底修復：BalanceSheetScreen 處理負債更新/添加:', updatedLiability);
 
       if (editingLiability) {
         console.log('📝 更新現有負債:', editingLiability.id);
         await liabilityService.updateLiability(editingLiability.id, updatedLiability);
         setEditingLiability(null);
-        // 修復：更新時需要同步，因為 updateLiability 不包含同步邏輯
+        // 更新時需要同步
         await liabilityTransactionSyncService.syncLiabilityToRecurringTransaction(updatedLiability);
       } else {
-        console.log('➕ 修復：添加新負債（避免重複同步）');
-        // 修復：只調用 addLiability，它內部已經包含同步邏輯
-        await liabilityService.addLiability(updatedLiability);
+        console.log('➕ 徹底修復：添加新負債（統一調用）');
+        // 調用統一的添加方法
+        await handleAddLiability(updatedLiability);
+        return; // 直接返回，避免重複處理
       }
 
       // 🔥 方法6：使用強制刷新管理器的重試機制
