@@ -25,7 +25,20 @@
     "test:apis": "node -e \"require('./test-local-updates.js')\"",
     "test:simple": "node scripts/simple-function-test.js",
     "test:verify": "node scripts/verify-core-functions.js",
-    "monitor": "node scripts/monitor.js"
+    "monitor": "node scripts/monitor.js",
+    "docker:web": "docker-compose up fintranzo-web",
+    "docker:ios": "docker-compose up fintranzo-ios-simulator",
+    "docker:prod": "docker-compose -f docker-compose.production.yml up",
+    "docker:test": "bash scripts/docker-comprehensive-test.sh",
+    "docker:build": "docker-compose build",
+    "docker:clean": "docker system prune -a",
+    "k8s:deploy": "kubectl apply -f k8s/",
+    "k8s:test": "kubectl apply -f k8s/test-job.yaml",
+    "k8s:validate": "kubectl apply -f k8s/validation-job.yaml",
+    "k8s:logs": "kubectl logs -f deployment/fintranzo-app -n fintranzo",
+    "test:five-core": "node scripts/comprehensive-five-functions-test.js",
+    "test:real-env": "node scripts/real-environment-10-rounds-test.js",
+    "test:sync": "node scripts/comprehensive-sync-test.js"
   },
   "dependencies": {
     "@babel/plugin-transform-runtime": "^7.27.3",
