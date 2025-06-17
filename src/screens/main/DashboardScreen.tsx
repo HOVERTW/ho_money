@@ -489,22 +489,24 @@ export default function DashboardScreen() {
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-    // 使用統一的淨值計算邏輯
-    const netWorth = calculateCorrectNetWorth(safeTransactions, safeAssets, safeLiabilities);
-
-    // 計算調整後的總資產（從淨值反推）
+    // 修復：使用與資產負債頁面相同的總資產計算邏輯
+    const totalAssets = safeAssets.reduce((sum, asset) => sum + (asset?.current_value || asset?.value || 0), 0);
     const totalLiabilities = safeLiabilities.reduce((sum, liability) => sum + (liability?.balance || 0), 0);
-    const adjustedTotalAssets = netWorth + totalLiabilities;
+    const netWorth = totalAssets - totalLiabilities;
 
-    console.log('📊 財務摘要計算結果:');
-    console.log('- 調整後總資產:', adjustedTotalAssets);
+    console.log('🔧 修復：使用正確的總資產計算邏輯');
+    console.log('- 原始資產值求和:', totalAssets);
+    console.log('- 不再使用複雜的交易影響計算');
+
+    console.log('📊 修復後財務摘要計算結果:');
+    console.log('- 總資產:', totalAssets);
     console.log('- 總負債:', totalLiabilities);
     console.log('- 淨值:', netWorth);
 
     return {
       monthlyIncome,
       monthlyExpenses,
-      totalAssets: adjustedTotalAssets,
+      totalAssets: totalAssets,
       totalLiabilities,
       netWorth
     };
@@ -1100,11 +1102,28 @@ export default function DashboardScreen() {
           await liabilityService.initialize();
           await recurringTransactionService.initialize();
 
-          // 6. 發送全局刷新事件
-          console.log('📡 發送全局刷新事件...');
-          eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL, { source: 'clear_all_data' });
+          // 6. 修復：發送多個全局刷新事件確保所有頁面都能收到
+          console.log('📡 修復：發送多個全局刷新事件...');
 
-          console.log('✅ 清除完成！所有資料已清除完成（包含雲端同步刪除）！應用程式已重新初始化。');
+          // 發送多種刷新事件確保所有頁面都能響應
+          eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL, { source: 'clear_all_data', timestamp: Date.now() });
+          eventEmitter.emit(EVENTS.FORCE_REFRESH_DASHBOARD, { source: 'clear_all_data' });
+          eventEmitter.emit(EVENTS.FORCE_REFRESH_TRANSACTIONS, { source: 'clear_all_data' });
+          eventEmitter.emit(EVENTS.FORCE_REFRESH_CASHFLOW, { source: 'clear_all_data' });
+          eventEmitter.emit(EVENTS.FORCE_REFRESH_CHARTS, { source: 'clear_all_data' });
+          eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, {
+            type: 'clear_all_data',
+            source: 'dashboard_clear_button',
+            timestamp: Date.now()
+          });
+
+          // 額外延遲確保事件傳播
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          // 再次發送刷新事件
+          eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL, { source: 'clear_all_data_final', timestamp: Date.now() });
+
+          console.log('✅ 修復：清除完成！所有資料已清除完成（包含雲端同步刪除）！應用程式已重新初始化。');
         } else {
           console.error('❌ 清除資料失敗');
         }
@@ -1266,21 +1285,31 @@ export default function DashboardScreen() {
                 );
               }
 
-              // 簡化的圖表顯示
+              // 修復：年度變化計算邏輯
               const latestValue = netWorthData.datasets[0].data[netWorthData.datasets[0].data.length - 1];
               const firstValue = netWorthData.datasets[0].data[0];
               const change = latestValue - firstValue;
-              const changePercent = firstValue !== 0 ? ((change / firstValue) * 100).toFixed(1) : '0';
+
+              // 修復：當只有當月數據時，顯示當前總資產而不是變化
+              const isFirstMonth = netWorthData.datasets[0].data.length === 1 || change === 0;
+              const displayValue = isFirstMonth ? latestValue : change;
+              const changePercent = !isFirstMonth && firstValue !== 0 ?
+                Math.round((change / firstValue) * 100) : 0;
 
               return (
                 <View style={styles.chartDataContainer}>
                   <View style={styles.chartSummaryRow}>
-                    <Text style={styles.chartSummaryLabel}>年度變化</Text>
+                    <Text style={styles.chartSummaryLabel}>
+                      {isFirstMonth ? '當前總資產' : '年度變化'}
+                    </Text>
                     <Text style={[
                       styles.chartSummaryValue,
-                      change >= 0 ? styles.positiveChange : styles.negativeChange
+                      isFirstMonth ? styles.neutralChange : (change >= 0 ? styles.positiveChange : styles.negativeChange)
                     ]}>
-                      {change >= 0 ? '+' : ''}{formatCurrency(change)} ({changePercent}%)
+                      {isFirstMonth ?
+                        formatCurrency(displayValue) :
+                        `${change >= 0 ? '+' : ''}${formatCurrency(change)} (${changePercent}%)`
+                      }
                     </Text>
                   </View>
                   <View style={styles.chartTrendContainer}>
@@ -1818,6 +1847,9 @@ const styles = StyleSheet.create({
   },
   negativeChange: {
     color: '#FF3B30',
+  },
+  neutralChange: {
+    color: '#007AFF',
   },
   chartTrendContainer: {
     flexDirection: 'row',

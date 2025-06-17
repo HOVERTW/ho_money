@@ -146,7 +146,7 @@ class RealTimeSyncService {
 
       console.log('📊 準備同步的資產數據:', assetData);
 
-      // 先檢查是否存在相同名稱和類型的資產（覆蓋邏輯）
+      // 修復：檢查是否存在相同名稱和類型的資產，先刪除舊記錄再插入新記錄
       const { data: existingAssets, error: checkError } = await supabase
         .from('assets')
         .select('id')
@@ -162,22 +162,31 @@ class RealTimeSyncService {
       let data, error;
 
       if (existingAssets && existingAssets.length > 0) {
-        // 覆蓋現有資產
-        console.log(`🔄 覆蓋現有資產: ${assetData.name} (${assetData.type})`);
-        const existingId = existingAssets[0].id;
+        // 修復：先刪除所有相同名稱和類型的舊記錄
+        console.log(`🗑️ 修復：刪除 ${existingAssets.length} 筆舊資產記錄: ${assetData.name} (${assetData.type})`);
 
-        const { data: updateData, error: updateError } = await supabase
+        for (const existingAsset of existingAssets) {
+          const { error: deleteError } = await supabase
+            .from('assets')
+            .delete()
+            .eq('id', existingAsset.id);
+
+          if (deleteError) {
+            console.error(`❌ 刪除舊資產記錄失敗: ${existingAsset.id}`, deleteError);
+          } else {
+            console.log(`✅ 已刪除舊資產記錄: ${existingAsset.id}`);
+          }
+        }
+
+        // 然後插入新記錄
+        console.log(`➕ 修復：插入新資產記錄: ${assetData.name} (${assetData.type})`);
+        const { data: insertData, error: insertError } = await supabase
           .from('assets')
-          .update({
-            ...assetData,
-            id: existingId, // 保持原有ID
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingId)
+          .insert(assetData)
           .select();
 
-        data = updateData;
-        error = updateError;
+        data = insertData;
+        error = insertError;
       } else {
         // 創建新資產
         console.log(`➕ 創建新資產: ${assetData.name} (${assetData.type})`);

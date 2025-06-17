@@ -456,28 +456,33 @@ class LiabilityTransactionSyncService {
   }
 
   /**
-   * 確保當月有實際交易記錄（改進版，增強重複檢查）
+   * 修復：確保當月有實際交易記錄（增強重複檢查，防止多次創建）
    */
   private async ensureCurrentMonthTransaction(liability: LiabilityData): Promise<void> {
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
     const currentMonth = currentDate.getMonth();
 
-    // 檢查當月是否已經有還款交易記錄
+    // 修復：更嚴格的重複檢查，包括所有可能的匹配條件
     const existingTransactions = transactionDataService.getTransactions();
     const currentMonthPayments = existingTransactions.filter(transaction => {
       const transactionDate = new Date(transaction.date);
-      return transactionDate.getFullYear() === currentYear &&
-             transactionDate.getMonth() === currentMonth &&
-             transaction.category === '還款' &&
-             transaction.description === liability.name &&
-             transaction.amount === liability.monthly_payment;
+      const isSameMonth = transactionDate.getFullYear() === currentYear && transactionDate.getMonth() === currentMonth;
+      const isSameCategory = transaction.category === '還款';
+      const isSameDescription = transaction.description === liability.name;
+      const isSameAmount = Math.abs(transaction.amount - (liability.monthly_payment || 0)) < 0.01; // 允許小數點誤差
+
+      return isSameMonth && isSameCategory && isSameDescription && isSameAmount;
     });
 
-    console.log(`🔍 負債 "${liability.name}" 當月還款交易數量: ${currentMonthPayments.length}`);
+    console.log(`🔍 修復：負債 "${liability.name}" 當月還款交易數量: ${currentMonthPayments.length}`);
 
-    if (currentMonthPayments.length === 0) {
-      console.log(`🔥 負債 "${liability.name}" 當月沒有還款交易記錄，立即創建`);
+    // 修復：如果已經有交易記錄，直接返回，不創建新的
+    if (currentMonthPayments.length > 0) {
+      console.log(`✅ 修復：負債 "${liability.name}" 當月已有 ${currentMonthPayments.length} 筆還款交易，跳過創建`);
+      return;
+    }
+      console.log(`🔥 修復：負債 "${liability.name}" 當月沒有還款交易記錄，立即創建`);
 
       // 🔥 修復2：正確處理月末日期調整邏輯
       const paymentDay = liability.payment_day || 1;
