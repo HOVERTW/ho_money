@@ -463,7 +463,7 @@ class LiabilityTransactionSyncService {
     const currentYear = currentDate.getFullYear();
     const currentMonth = currentDate.getMonth();
 
-    // 修復：更嚴格的重複檢查，包括所有可能的匹配條件
+    // 修復：超強重複檢查，檢查本地和Supabase
     const existingTransactions = transactionDataService.getTransactions();
     const currentMonthPayments = existingTransactions.filter(transaction => {
       const transactionDate = new Date(transaction.date);
@@ -477,9 +477,30 @@ class LiabilityTransactionSyncService {
 
     console.log(`🔍 修復：負債 "${liability.name}" 當月還款交易數量: ${currentMonthPayments.length}`);
 
-    // 修復：如果已經有交易記錄，直接返回，不創建新的
+    // 修復：如果已經有交易記錄，先清理重複，只保留一筆
     if (currentMonthPayments.length > 0) {
-      console.log(`✅ 修復：負債 "${liability.name}" 當月已有 ${currentMonthPayments.length} 筆還款交易，跳過創建`);
+      console.log(`⚠️ 修復：負債 "${liability.name}" 當月已有 ${currentMonthPayments.length} 筆還款交易`);
+
+      if (currentMonthPayments.length > 1) {
+        console.log(`🧹 修復：清理重複交易，保留最新的一筆`);
+
+        // 按創建時間排序，保留最新的
+        const sortedPayments = currentMonthPayments.sort((a, b) =>
+          new Date(b.created_at || b.date).getTime() - new Date(a.created_at || a.date).getTime()
+        );
+
+        const toKeep = sortedPayments[0];
+        const toDelete = sortedPayments.slice(1);
+
+        console.log(`✅ 保留交易: ${toKeep.id}, 刪除 ${toDelete.length} 筆重複交易`);
+
+        for (const transaction of toDelete) {
+          await transactionDataService.deleteTransaction(transaction.id);
+          console.log(`🗑️ 已刪除重複交易: ${transaction.id}`);
+        }
+      }
+
+      console.log(`✅ 修復：負債 "${liability.name}" 當月交易已處理完成，跳過創建新交易`);
       return;
     }
 
