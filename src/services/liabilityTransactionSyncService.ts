@@ -482,7 +482,8 @@ class LiabilityTransactionSyncService {
       console.log(`✅ 修復：負債 "${liability.name}" 當月已有 ${currentMonthPayments.length} 筆還款交易，跳過創建`);
       return;
     }
-      console.log(`🔥 修復：負債 "${liability.name}" 當月沒有還款交易記錄，立即創建`);
+
+    console.log(`🔥 修復：負債 "${liability.name}" 當月沒有還款交易記錄，立即創建`);
 
       // 🔥 修復2：正確處理月末日期調整邏輯
       const paymentDay = liability.payment_day || 1;
@@ -533,26 +534,39 @@ class LiabilityTransactionSyncService {
       };
 
       await transactionDataService.addTransaction(actualTransaction);
-    } else if (currentMonthPayments.length === 1) {
-      console.log(`✅ 負債 "${liability.name}" 當月已有1筆還款交易記錄`);
-    } else {
-      console.log(`⚠️ 負債 "${liability.name}" 當月有 ${currentMonthPayments.length} 筆重複還款交易，需要清理`);
+  }
 
-      // 保留最新的一筆，刪除其他的
-      const sortedPayments = currentMonthPayments.sort((a, b) =>
-        new Date(b.created_at || b.date).getTime() - new Date(a.created_at || a.date).getTime()
-      );
+  // 檢查是否有重複交易需要清理（這段代碼已經不會執行，因為上面已經return了）
+  // 但保留以防萬一有其他調用路徑
+  const allTransactions = transactionDataService.getTransactions();
+  const duplicateCheck = allTransactions.filter(transaction => {
+    const transactionDate = new Date(transaction.date);
+    const isSameMonth = transactionDate.getFullYear() === currentYear && transactionDate.getMonth() === currentMonth;
+    const isSameCategory = transaction.category === '還款';
+    const isSameDescription = transaction.description === liability.name;
+    const isSameAmount = Math.abs(transaction.amount - (liability.monthly_payment || 0)) < 0.01;
 
-      const toKeep = sortedPayments[0];
-      const toDelete = sortedPayments.slice(1);
+    return isSameMonth && isSameCategory && isSameDescription && isSameAmount;
+  });
 
-      console.log(`✅ 保留交易: ${toKeep.id}, 刪除 ${toDelete.length} 筆重複交易`);
+  if (duplicateCheck.length > 1) {
+    console.log(`⚠️ 發現 ${duplicateCheck.length} 筆重複還款交易，進行清理`);
 
-      for (const transaction of toDelete) {
-        await transactionDataService.deleteTransaction(transaction.id);
-        console.log(`🗑️ 已刪除重複交易: ${transaction.id}`);
-      }
+    // 保留最新的一筆，刪除其他的
+    const sortedPayments = duplicateCheck.sort((a, b) =>
+      new Date(b.created_at || b.date).getTime() - new Date(a.created_at || a.date).getTime()
+    );
+
+    const toKeep = sortedPayments[0];
+    const toDelete = sortedPayments.slice(1);
+
+    console.log(`✅ 保留交易: ${toKeep.id}, 刪除 ${toDelete.length} 筆重複交易`);
+
+    for (const transaction of toDelete) {
+      await transactionDataService.deleteTransaction(transaction.id);
+      console.log(`🗑️ 已刪除重複交易: ${transaction.id}`);
     }
+  }
   }
 
   /**
