@@ -485,55 +485,55 @@ class LiabilityTransactionSyncService {
 
     console.log(`🔥 修復：負債 "${liability.name}" 當月沒有還款交易記錄，立即創建`);
 
-      // 🔥 修復2：正確處理月末日期調整邏輯
-      const paymentDay = liability.payment_day || 1;
+    // 🔥 修復2：正確處理月末日期調整邏輯
+    const paymentDay = liability.payment_day || 1;
 
-      // 獲取當月的最後一天
-      const lastDayOfCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    // 獲取當月的最後一天
+    const lastDayOfCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-      // 🔥 關鍵修復：只有當設定日期超過該月最大天數時才調整
-      let actualPaymentDay: number;
-      if (paymentDay > lastDayOfCurrentMonth) {
-        // 如果設定的還款日超過當月最大天數，使用當月最後一天
-        actualPaymentDay = lastDayOfCurrentMonth;
-        console.log(`🔥🔥🔥 修復2生效 - 月末日期調整: 原定${paymentDay}號，${currentYear}年${currentMonth + 1}月只有${lastDayOfCurrentMonth}天，調整為${lastDayOfCurrentMonth}號`);
-      } else {
-        // 如果當月有該日期，直接使用原始日期
-        actualPaymentDay = paymentDay;
-        console.log(`🔥🔥🔥 修復2生效 - 無需調整: ${currentYear}年${currentMonth + 1}月有${lastDayOfCurrentMonth}天，${paymentDay}號正常`);
-      }
+    // 🔥 關鍵修復：只有當設定日期超過該月最大天數時才調整
+    let actualPaymentDay: number;
+    if (paymentDay > lastDayOfCurrentMonth) {
+      // 如果設定的還款日超過當月最大天數，使用當月最後一天
+      actualPaymentDay = lastDayOfCurrentMonth;
+      console.log(`🔥🔥🔥 修復2生效 - 月末日期調整: 原定${paymentDay}號，${currentYear}年${currentMonth + 1}月只有${lastDayOfCurrentMonth}天，調整為${lastDayOfCurrentMonth}號`);
+    } else {
+      // 如果當月有該日期，直接使用原始日期
+      actualPaymentDay = paymentDay;
+      console.log(`🔥🔥🔥 修復2生效 - 無需調整: ${currentYear}年${currentMonth + 1}月有${lastDayOfCurrentMonth}天，${paymentDay}號正常`);
+    }
 
-      // 🔥 關鍵修復：確保日期創建正確，避免時區問題
-      // 設定為中午12點避免時區轉換問題
-      const paymentDate = new Date(currentYear, currentMonth, actualPaymentDay, 12, 0, 0, 0);
+    // 🔥 關鍵修復：確保日期創建正確，避免時區問題
+    // 設定為中午12點避免時區轉換問題
+    const paymentDate = new Date(currentYear, currentMonth, actualPaymentDay, 12, 0, 0, 0);
 
-      // 驗證日期是否正確
-      if (paymentDate.getDate() !== actualPaymentDay || paymentDate.getMonth() !== currentMonth) {
-        console.error(`❌ 日期創建錯誤: 期望${actualPaymentDay}號，實際${paymentDate.getDate()}號`);
-        // 如果日期不正確，強制使用月末最後一天
-        paymentDate.setDate(lastDayOfCurrentMonth);
-        paymentDate.setHours(12, 0, 0, 0); // 確保時間也正確
-        console.log(`🔧 強制修正為月末: ${lastDayOfCurrentMonth}號`);
-      }
+    // 驗證日期是否正確
+    if (paymentDate.getDate() !== actualPaymentDay || paymentDate.getMonth() !== currentMonth) {
+      console.error(`❌ 日期創建錯誤: 期望${actualPaymentDay}號，實際${paymentDate.getDate()}號`);
+      // 如果日期不正確，強制使用月末最後一天
+      paymentDate.setDate(lastDayOfCurrentMonth);
+      paymentDate.setHours(12, 0, 0, 0); // 確保時間也正確
+      console.log(`🔧 強制修正為月末: ${lastDayOfCurrentMonth}號`);
+    }
 
-      console.log(`📅 日期創建: 設定${paymentDay}號 -> 實際${actualPaymentDay}號 -> ${paymentDate.toLocaleDateString('zh-TW')} (${paymentDate.getDate()}號)`);
+    console.log(`📅 日期創建: 設定${paymentDay}號 -> 實際${actualPaymentDay}號 -> ${paymentDate.toLocaleDateString('zh-TW')} (${paymentDate.getDate()}號)`);
 
-      const actualTransaction = {
-        id: `ensure_debt_payment_${liability.id}_${Date.now()}`,
-        amount: liability.monthly_payment!,
-        type: 'expense' as const,
-        description: liability.name,
-        category: '還款',
-        account: liability.payment_account!,
-        date: paymentDate.toISOString(),
-        is_recurring: true,
-        recurring_frequency: 'monthly',
-        max_occurrences: liability.payment_periods,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+    const actualTransaction = {
+      id: `ensure_debt_payment_${liability.id}_${Date.now()}`,
+      amount: liability.monthly_payment!,
+      type: 'expense' as const,
+      description: liability.name,
+      category: '還款',
+      account: liability.payment_account!,
+      date: paymentDate.toISOString(),
+      is_recurring: true,
+      recurring_frequency: 'monthly',
+      max_occurrences: liability.payment_periods,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
 
-      await transactionDataService.addTransaction(actualTransaction);
+    await transactionDataService.addTransaction(actualTransaction);
   }
 
   // 檢查是否有重複交易需要清理（這段代碼已經不會執行，因為上面已經return了）
@@ -566,7 +566,6 @@ class LiabilityTransactionSyncService {
       await transactionDataService.deleteTransaction(transaction.id);
       console.log(`🗑️ 已刪除重複交易: ${transaction.id}`);
     }
-  }
   }
 
   /**
