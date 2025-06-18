@@ -27,10 +27,11 @@ class AppInitializationService {
       // 1. 初始化交易資料服務
       await this.safeExecute('交易服務', () => this.initializeTransactionService());
 
-      // 2. 初始化資產服務
+      // 2. 緊急修復：安全初始化資產服務（防止清除用戶資產）
       await this.safeExecute('資產服務', async () => {
         await assetTransactionSyncService.initialize();
-        console.log('✅ 資產服務已初始化（空列表）');
+        const assetCount = assetTransactionSyncService.getAssets().length;
+        console.log(`✅ 緊急修復：資產服務已安全初始化（${assetCount} 個資產）`);
       });
 
       // 3. 初始化負債服務

@@ -66,31 +66,53 @@ class AssetTransactionSyncService {
   }
 
   /**
-   * 異步初始化資產服務
+   * 緊急修復：安全初始化資產服務（防止資產消失）
    */
   async initialize(): Promise<void> {
     try {
-      console.log('🔄 開始初始化資產服務...');
+      console.log('🔄 緊急修復：安全初始化資產服務...');
+
+      // 緊急修復：如果已經初始化且有資產，不要重複初始化
+      if (this.isInitialized && this.assets.length > 0) {
+        console.log(`⚠️ 緊急修復：服務已初始化且有 ${this.assets.length} 個資產，跳過重複初始化`);
+        return;
+      }
+
+      // 緊急修復：備份現有資產
+      const backupAssets = [...this.assets];
 
       // 檢查用戶是否已登錄
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        console.log('👤 用戶已登錄，從 Supabase 加載資產...');
+        console.log('👤 緊急修復：用戶已登錄，從 Supabase 加載資產...');
         // 用戶已登錄，優先從 Supabase 加載
         await this.loadFromSupabase(user.id);
       } else {
-        console.log('👤 用戶未登錄，從本地存儲加載...');
+        console.log('👤 緊急修復：用戶未登錄，從本地存儲加載...');
         // 用戶未登錄，從本地存儲加載
         await this.loadFromStorage();
       }
 
+      // 緊急修復：如果加載後資產為空且有備份，恢復備份
+      if (this.assets.length === 0 && backupAssets.length > 0) {
+        console.log('🚨 緊急修復：加載後資產為空，恢復備份資產');
+        this.assets = backupAssets;
+      }
+
       this.isInitialized = true;
-      console.log(`✅ 資產服務已初始化，加載了 ${this.assets.length} 項資產`);
+      console.log(`✅ 緊急修復：資產服務安全初始化完成，加載了 ${this.assets.length} 項資產`);
     } catch (error) {
-      console.error('❌ 資產服務初始化失敗:', error);
-      // 如果加載失敗，使用空列表
-      this.assets = [];
+      console.error('❌ 緊急修復：資產服務初始化失敗:', error);
+      // 緊急修復：初始化失敗時不清空現有資產
+      if (this.assets.length === 0) {
+        console.log('⚠️ 緊急修復：初始化失敗且無現有資產，嘗試從本地存儲恢復');
+        try {
+          await this.loadFromStorage();
+        } catch (storageError) {
+          console.error('❌ 緊急修復：從本地存儲恢復也失敗:', storageError);
+        }
+      }
       this.isInitialized = true;
     }
     this.notifyListeners();
@@ -155,7 +177,7 @@ class AssetTransactionSyncService {
           sort_order: Number(asset.sort_order) || 0
         }));
 
-        console.log(`✅ 從 Supabase 加載了 ${this.assets.length} 個資產`);
+        console.log(`✅ 緊急修復：從 Supabase 加載了 ${this.assets.length} 個資產`);
 
         // 詳細記錄每個資產
         this.assets.forEach((asset, index) => {
@@ -165,8 +187,9 @@ class AssetTransactionSyncService {
         // 同步到本地存儲作為備份
         await this.saveToLocalStorage();
       } else {
-        console.log('📝 Supabase 中沒有找到用戶資產');
-        this.assets = [];
+        console.log('📝 緊急修復：Supabase 中沒有找到用戶資產，保持現有資產不變');
+        // 緊急修復：不清空現有資產，可能是網絡問題或數據還在同步中
+        console.log(`⚠️ 緊急修復：保持現有 ${this.assets.length} 個資產不變`);
       }
 
     } catch (error) {
@@ -177,22 +200,44 @@ class AssetTransactionSyncService {
   }
 
   /**
-   * 強制重新加載數據（用於雲端同步後）
+   * 緊急修復：安全重新加載數據（防止資產消失）
    */
   async forceReload(): Promise<void> {
-    console.log('🔄 強制重新加載資產數據...');
+    console.log('🔄 緊急修復：安全重新加載資產數據...');
 
-    // 清除當前狀態
-    this.isInitialized = false;
-    this.assets = [];
+    // 緊急修復：備份當前資產，防止意外清空
+    const backupAssets = [...this.assets];
+    console.log(`💾 緊急修復：備份當前 ${backupAssets.length} 個資產`);
 
-    // 重新初始化
-    await this.initialize();
+    try {
+      // 緊急修復：不清空資產，直接重新加載
+      const { data: { user } } = await supabase.auth.getUser();
 
-    // 強制通知監聽器
-    this.notifyListeners();
+      if (user) {
+        console.log('👤 緊急修復：用戶已登錄，從 Supabase 重新加載...');
+        await this.loadFromSupabase(user.id);
+      } else {
+        console.log('👤 緊急修復：用戶未登錄，從本地存儲重新加載...');
+        await this.loadFromStorage();
+      }
 
-    console.log(`✅ 強制重新加載完成，當前資產數量: ${this.assets.length}`);
+      // 緊急修復：如果重新加載後資產為空，恢復備份
+      if (this.assets.length === 0 && backupAssets.length > 0) {
+        console.log('🚨 緊急修復：重新加載後資產為空，恢復備份資產');
+        this.assets = backupAssets;
+        // 保存備份資產到本地存儲
+        await this.saveToLocalStorage();
+      }
+
+      // 強制通知監聽器
+      this.notifyListeners();
+
+      console.log(`✅ 緊急修復：安全重新加載完成，當前資產數量: ${this.assets.length}`);
+    } catch (error) {
+      console.error('❌ 緊急修復：重新加載失敗，恢復備份資產:', error);
+      this.assets = backupAssets;
+      this.notifyListeners();
+    }
   }
 
   /**
@@ -220,11 +265,20 @@ class AssetTransactionSyncService {
   }
 
   /**
-   * 處理數據同步完成事件
+   * 緊急修復：安全處理數據同步完成事件（防止資產消失）
    */
   private async handleDataSyncCompleted(): Promise<void> {
-    console.log('📡 收到數據同步完成事件，重新加載資產數據...');
-    await this.forceReload();
+    console.log('📡 緊急修復：收到數據同步完成事件，安全檢查資產數據...');
+
+    // 緊急修復：不立即重新加載，先檢查當前狀態
+    if (this.assets.length > 0) {
+      console.log(`⚠️ 緊急修復：當前有 ${this.assets.length} 個資產，跳過強制重新加載`);
+      // 只通知監聽器更新UI
+      this.notifyListeners();
+    } else {
+      console.log('🔄 緊急修復：當前無資產，執行安全重新加載');
+      await this.forceReload();
+    }
   }
 
   /**
@@ -277,19 +331,48 @@ class AssetTransactionSyncService {
   }
 
   /**
-   * 終極修復：保存資產數據到本地存儲（完全禁用所有自動同步）
+   * 緊急修復：安全保存資產數據到本地存儲（防止資產消失）
    */
   private async saveToStorage(): Promise<void> {
     try {
-      // 終極修復：只保存到本地存儲，完全禁用所有自動雲端同步
-      await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
-      console.log('💾 終極修復：資產數據已保存到本地存儲（完全禁用所有自動同步）');
+      // 緊急修復：檢查資產數據有效性
+      if (!Array.isArray(this.assets)) {
+        console.error('❌ 緊急修復：資產數據無效，跳過保存');
+        return;
+      }
 
-      // 終極修復：設置標記防止其他服務自動同步
+      // 緊急修復：備份現有數據
+      const existingData = await AsyncStorage.getItem(STORAGE_KEYS.ASSETS);
+      if (existingData && this.assets.length === 0) {
+        console.warn('⚠️ 緊急修復：嘗試保存空資產列表，可能會丟失數據，跳過保存');
+        return;
+      }
+
+      await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
+      console.log(`💾 緊急修復：已安全保存 ${this.assets.length} 個資產到本地存儲`);
+
+      // 緊急修復：設置標記防止其他服務自動同步
       this.autoSyncDisabled = true;
-      console.log('🚫 終極修復：已設置自動同步禁用標記，防止重複上傳');
+      console.log('🚫 緊急修復：已設置自動同步禁用標記，防止重複上傳');
     } catch (error) {
-      console.error('❌ 保存資產數據失敗:', error);
+      console.error('❌ 緊急修復：保存資產數據失敗:', error);
+    }
+  }
+
+  /**
+   * 緊急修復：專用的本地存儲保存方法
+   */
+  private async saveToLocalStorage(): Promise<void> {
+    try {
+      if (this.assets.length === 0) {
+        console.warn('⚠️ 緊急修復：資產列表為空，跳過本地存儲保存');
+        return;
+      }
+
+      await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
+      console.log(`💾 緊急修復：已保存 ${this.assets.length} 個資產到本地存儲`);
+    } catch (error) {
+      console.error('❌ 緊急修復：本地存儲保存失敗:', error);
     }
   }
 
