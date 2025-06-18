@@ -1,0 +1,3 @@
+id,user_id,name,type,balance,interest_rate,monthly_payment,sort_order,payment_account,payment_day,payment_periods,last_payment_date,next_payment_date,remaining_periods,created_at,updated_at
+279cd73b-c6ca-4d88-b00f-6cb6871147d9,4f8cb880-6390-4cd0-b53d-3800d80cc857,信用貸款,personal_loan,120000.00,0.00,10000.00,0,,,,,,,2025-06-18 12:37:48.638+00,2025-06-18 12:37:48.638+00
+83ce2a22-90ea-4ba4-b071-d38bb24b3854,4f8cb880-6390-4cd0-b53d-3800d80cc857,信用貸款,personal_loan,120000.00,0.00,10000.00,0,,,,,,,2025-06-18 12:37:43.556+00,2025-06-18 12:37:43.556+00

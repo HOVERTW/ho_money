@@ -651,30 +651,68 @@ class TransactionDataService {
   }
 
   /**
-   * 刪除交易
+   * 深度修復：刪除交易（強化刪除邏輯）
    */
   async deleteTransaction(id: string): Promise<void> {
     try {
-      console.log('🗑️ 開始刪除交易記錄:', id);
+      console.log('🗑️ 深度修復：開始刪除交易記錄:', id);
 
-      // 從本地數據中移除
+      // 深度修復：查找要刪除的交易
+      const transactionToDelete = this.transactions.find(t => t.id === id);
+      if (!transactionToDelete) {
+        console.warn('⚠️ 深度修復：找不到要刪除的交易:', id);
+        return;
+      }
+
+      console.log('🎯 深度修復：找到要刪除的交易:', transactionToDelete.description);
+
+      // 深度修復：從本地數據中移除
+      const beforeCount = this.transactions.length;
       this.transactions = this.transactions.filter(t => t.id !== id);
+      const afterCount = this.transactions.length;
 
-      // 保存到本地存儲
-      await this.saveToStorage();
+      console.log(`🗑️ 深度修復：交易數量變化: ${beforeCount} → ${afterCount}`);
 
-      // 同步刪除到 Supabase (使用兩種方法確保成功)
-      await this.syncDeleteToSupabase(id);
+      // 深度修復：強制保存到本地存儲
+      await AsyncStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(this.transactions));
+      console.log('💾 深度修復：交易刪除已強制保存到本地存儲');
 
-      // 使用增強同步服務作為備選
-      await enhancedSyncService.syncTransactionDelete(id);
+      // 深度修復：多次嘗試同步刪除到雲端
+      let cloudDeleteSuccess = false;
+      const maxAttempts = 3;
 
-      // 通知監聽器
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          console.log(`🔄 深度修復：第${attempt}次嘗試同步刪除交易到雲端`);
+          await this.syncDeleteToSupabase(id);
+          cloudDeleteSuccess = true;
+          console.log(`✅ 深度修復：第${attempt}次雲端刪除成功`);
+          break;
+        } catch (syncError) {
+          console.error(`❌ 深度修復：第${attempt}次雲端刪除失敗:`, syncError);
+          if (attempt < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+
+      // 深度修復：使用增強同步服務作為備選
+      if (!cloudDeleteSuccess) {
+        try {
+          console.log('🔄 深度修復：使用增強同步服務作為備選');
+          await enhancedSyncService.syncTransactionDelete(id);
+          console.log('✅ 深度修復：增強同步服務刪除成功');
+        } catch (enhancedError) {
+          console.error('❌ 深度修復：增強同步服務刪除失敗:', enhancedError);
+        }
+      }
+
+      // 深度修復：立即通知監聽器
       this.notifyListeners();
 
-      console.log('✅ 交易記錄本地刪除完成，ID:', id);
+      console.log('✅ 深度修復：交易記錄刪除完成，ID:', id);
     } catch (error) {
-      console.error('❌ 刪除交易記錄失敗:', error);
+      console.error('❌ 深度修復：刪除交易記錄失敗:', error);
       throw error;
     }
   }

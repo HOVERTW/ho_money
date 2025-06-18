@@ -1,0 +1,116 @@
+version: '3.8'
+
+services:
+  # Web 環境測試
+  fintranzo-web-test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      target: development
+    ports:
+      - "8080:80"
+      - "8081:8081"
+    environment:
+      - NODE_ENV=development
+      - EXPO_PUBLIC_SUPABASE_URL=https://yrryyapzkgrsahranzvo.supabase.co
+      - EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2MzI4NzEsImV4cCI6MjA1MTIwODg3MX0.Ey6Nt9TgKJVLJOJQjKpJxJQJQJQJQJQJQJQJQJQJQJQ
+      - EXPO_PUBLIC_REDIRECT_URL=http://localhost:8081
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+        echo '🐳 啟動 Web 測試環境...' &&
+        npm install &&
+        echo '🧪 運行五大問題修復測試...' &&
+        node scripts/docker-kubernetes-five-issues-fix-test.js &&
+        echo '🌐 啟動 Web 服務...' &&
+        npx expo start --web --port 8081
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # iOS 模擬器環境測試
+  fintranzo-ios-test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ios-simulator
+    ports:
+      - "19000:19000"
+      - "19001:19001"
+    environment:
+      - NODE_ENV=development
+      - EXPO_PUBLIC_SUPABASE_URL=https://yrryyapzkgrsahranzvo.supabase.co
+      - EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2MzI4NzEsImV4cCI6MjA1MTIwODg3MX0.Ey6Nt9TgKJVLJOJQjKpJxJQJQJQJQJQJQJQJQJQJQJQ
+      - EXPO_PUBLIC_REDIRECT_URL=http://localhost:19000
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+        echo '📱 啟動 iOS 模擬器測試環境...' &&
+        npm install &&
+        echo '🧪 運行五大問題修復測試...' &&
+        node scripts/docker-kubernetes-five-issues-fix-test.js &&
+        echo '📱 啟動 iOS 模擬器...' &&
+        npx expo start --port 19000
+      "
+
+  # 純測試環境（不啟動服務）
+  fintranzo-test-only:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      target: development
+    environment:
+      - NODE_ENV=test
+      - EXPO_PUBLIC_SUPABASE_URL=https://yrryyapzkgrsahranzvo.supabase.co
+      - EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2MzI4NzEsImV4cCI6MjA1MTIwODg3MX0.Ey6Nt9TgKJVLJOJQjKpJxJQJQJQJQJQJQJQJQJQJQJQ
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+        echo '🧪 純測試環境 - 五大問題修復測試' &&
+        npm install &&
+        echo '📊 開始測試...' &&
+        node scripts/docker-kubernetes-five-issues-fix-test.js &&
+        echo '✅ 測試完成'
+      "
+
+  # 10輪測試環境
+  fintranzo-10-rounds-test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      target: development
+    environment:
+      - NODE_ENV=test
+      - EXPO_PUBLIC_SUPABASE_URL=https://yrryyapzkgrsahranzvo.supabase.co
+      - EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2MzI4NzEsImV4cCI6MjA1MTIwODg3MX0.Ey6Nt9TgKJVLJOJQjKpJxJQJQJQJQJQJQJQJQJQJQJQ
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+        echo '🔄 10輪測試環境 - 五大問題修復測試' &&
+        npm install &&
+        for i in \$$(seq 1 10); do
+          echo \"📊 第 \$$i 輪測試開始...\" &&
+          node scripts/docker-kubernetes-five-issues-fix-test.js &&
+          echo \"✅ 第 \$$i 輪測試完成\" &&
+          sleep 2
+        done &&
+        echo '🎉 10輪測試全部完成'
+      "
+
+networks:
+  default:
+    driver: bridge
+
+volumes:
+  node_modules:
+    driver: local

@@ -221,19 +221,68 @@ export default function BalanceSheetScreen() {
   };
 
   const handleDeleteAsset = (assetId: string) => {
+    console.log('🗑️ 深度修復：資產刪除被觸發，資產ID:', assetId);
+
     const asset = assets.find(a => a.id === assetId);
-    if (!asset) return;
+    if (!asset) {
+      console.error('❌ 深度修復：找不到要刪除的資產:', assetId);
+      Alert.alert('錯誤', '找不到要刪除的資產');
+      return;
+    }
+
+    console.log('🎯 深度修復：找到要刪除的資產:', asset.name);
 
     Alert.alert(
       '確認刪除',
-      `確定要刪除資產 "${asset.name}" 嗎？`,
+      `確定要刪除資產 "${asset.name}" 嗎？此操作無法撤銷。`,
       [
-        { text: '取消', style: 'cancel' },
+        {
+          text: '取消',
+          style: 'cancel',
+          onPress: () => {
+            console.log('🗑️ 深度修復：用戶取消刪除資產');
+          }
+        },
         {
           text: '刪除',
           style: 'destructive',
           onPress: async () => {
-            await assetTransactionSyncService.deleteAsset(assetId);
+            console.log('🗑️ 深度修復：用戶確認刪除資產，開始執行刪除');
+            try {
+              // 深度修復：顯示加載狀態
+              console.log('⏳ 深度修復：正在刪除資產...');
+
+              await assetTransactionSyncService.deleteAsset(assetId);
+
+              console.log('✅ 深度修復：資產刪除完成');
+
+              // 深度修復：強制刷新頁面
+              console.log('🔄 深度修復：強制刷新頁面');
+
+              // 觸發多個刷新事件確保頁面更新
+              eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL, {
+                source: 'asset_delete',
+                timestamp: Date.now()
+              });
+
+              eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, {
+                type: 'asset_deleted',
+                assetId: assetId,
+                timestamp: Date.now()
+              });
+
+              // 延遲後再次刷新確保數據同步
+              setTimeout(() => {
+                eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL, {
+                  source: 'asset_delete_delayed',
+                  timestamp: Date.now()
+                });
+              }, 500);
+
+            } catch (error) {
+              console.error('❌ 深度修復：資產刪除失敗:', error);
+              Alert.alert('刪除失敗', '資產刪除時發生錯誤，請重試');
+            }
           },
         },
       ]
@@ -383,13 +432,17 @@ export default function BalanceSheetScreen() {
     return labels[type] || type;
   };
 
-  // 渲染右滑刪除按鈕
+  // 修復：渲染右滑刪除按鈕（增強事件處理）
   const renderRightActions = (onDelete: () => void) => {
     return (
       <Animated.View style={styles.deleteAction}>
         <TouchableOpacity
           style={styles.deleteButton}
-          onPress={onDelete}
+          onPress={() => {
+            console.log('🗑️ 修復：滑動刪除按鈕被點擊');
+            onDelete();
+          }}
+          activeOpacity={0.7}
         >
           <Ionicons name="trash" size={20} color="#fff" />
         </TouchableOpacity>

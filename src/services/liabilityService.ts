@@ -170,23 +170,23 @@ class LiabilityService {
   }
 
   /**
-   * 保存負債數據到本地存儲和雲端
+   * 終極修復：保存負債數據到本地存儲（禁用自動雲端同步）
    */
   private async saveToStorage(): Promise<void> {
     try {
-      // 1. 保存到本地存儲
+      // 終極修復：只保存到本地存儲，禁用自動雲端同步
       await AsyncStorage.setItem(STORAGE_KEYS.LIABILITIES, JSON.stringify(this.liabilities));
-      console.log('💾 負債數據已保存到本地存儲');
+      console.log('💾 終極修復：負債數據已保存到本地存儲（禁用自動雲端同步）');
 
-      // 2. 如果用戶已登錄，同時保存到雲端
-      await this.syncToSupabase();
+      // 終極修復：不自動同步到雲端，避免重複上傳
+      console.log('🚫 終極修復：已禁用負債自動雲端同步，防止重複上傳');
     } catch (error) {
       console.error('❌ 保存負債數據失敗:', error);
     }
   }
 
   /**
-   * 同步負債數據到 Supabase
+   * 同步負債數據到 Supabase (修復：使用upsert避免重複)
    */
   private async syncToSupabase(): Promise<void> {
     try {
@@ -199,49 +199,61 @@ class LiabilityService {
 
       console.log('🔄 開始同步負債數據到雲端...');
 
-      // 轉換負債數據格式以匹配 Supabase 表結構
+      // 深度修復：根據CSV文件確認的實際數據庫結構使用正確的欄位名稱
       const convertedLiabilities = this.liabilities.map((liability: LiabilityData) => ({
+        id: liability.id, // 修復：包含ID用於upsert
         user_id: user.id,
         name: liability.name,
         type: liability.type,
-        balance: liability.balance,
+        balance: liability.balance, // 深度修復：CSV確認實際數據庫使用balance欄位存儲負債金額
         interest_rate: liability.interest_rate || 0,
-        monthly_payment: liability.monthly_payment || 0,
+        monthly_payment: liability.monthly_payment || 0, // 深度修復：CSV確認有monthly_payment欄位
+        sort_order: liability.sort_order || 0, // 深度修復：CSV確認有sort_order欄位
+        payment_account: liability.payment_account || null,
+        payment_day: liability.payment_day || null,
+        payment_periods: liability.payment_periods || null,
+        last_payment_date: liability.last_payment_date || null,
+        next_payment_date: liability.next_payment_date || null,
+        remaining_periods: liability.remaining_periods || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }));
 
-      // 先清除用戶的現有負債數據
-      const { error: deleteError } = await supabase
-        .from(TABLES.LIABILITIES)
-        .delete()
-        .eq('user_id', user.id);
-
-      if (deleteError) {
-        console.error('❌ 清除舊負債數據失敗:', deleteError);
-        return;
-      }
-
-      // 插入新的負債數據
+      // 修復：使用upsert避免重複數據，不再先刪除
       if (convertedLiabilities.length > 0) {
-        const { error: insertError } = await supabase
+        const { error: upsertError } = await supabase
           .from(TABLES.LIABILITIES)
-          .insert(convertedLiabilities);
+          .upsert(convertedLiabilities, {
+            onConflict: 'id',
+            ignoreDuplicates: false
+          });
 
-        if (insertError) {
-          console.error('❌ 同步負債數據到雲端失敗:', insertError);
+        if (upsertError) {
+          console.error('❌ 同步負債數據到雲端失敗:', upsertError);
         } else {
-          // 驗證負債數據是否真的同步成功
+          // 深度修復：驗證負債數據是否真的同步成功，檢查balance欄位
           const { data: verifyData, error: verifyError } = await supabase
             .from(TABLES.LIABILITIES)
-            .select('id')
+            .select('id, balance, interest_rate, monthly_payment')
             .eq('user_id', user.id);
 
           if (verifyError) {
             console.error('❌ 負債數據同步驗證失敗:', verifyError);
           } else {
             const actualCount = verifyData?.length || 0;
-            console.log(`✅ 負債數據同步驗證成功: 雲端實際有 ${actualCount} 筆記錄`);
+            console.log(`✅ 修復：負債數據upsert成功，雲端實際有 ${actualCount} 筆記錄`);
+
+            // 深度修復：驗證balance欄位是否正確同步
+            verifyData?.forEach(item => {
+              console.log(`📊 負債ID: ${item.id}, Balance: ${item.balance}, Interest Rate: ${item.interest_rate}, Monthly Payment: ${item.monthly_payment}`);
+
+              // 深度修復：檢查balance欄位是否有值
+              if (!item.balance) {
+                console.warn(`⚠️ 負債 ${item.id} 的balance欄位為空`);
+              } else {
+                console.log(`✅ 負債 ${item.id} 的balance欄位正確: ${item.balance}`);
+              }
+            });
           }
         }
       } else {

@@ -1,0 +1,146 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fintranzo-test
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fintranzo-test-config
+  namespace: fintranzo-test
+data:
+  EXPO_PUBLIC_SUPABASE_URL: "https://yrryyapzkgrsahranzvo.supabase.co"
+  EXPO_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2MzI4NzEsImV4cCI6MjA1MTIwODg3MX0.Ey6Nt9TgKJVLJOJQjKpJxJQJQJQJQJQJQJQJQJQJQJQ"
+  NODE_ENV: "test"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fintranzo-five-issues-test
+  namespace: fintranzo-test
+  labels:
+    app: fintranzo-test
+    test-type: five-issues-fix
+spec:
+  template:
+    metadata:
+      labels:
+        app: fintranzo-test
+        test-type: five-issues-fix
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: fintranzo-test
+        image: node:18-alpine
+        envFrom:
+        - configMapRef:
+            name: fintranzo-test-config
+        workingDir: /app
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          echo "🐳 Kubernetes 五大問題修復測試"
+          echo "================================"
+          
+          # 安裝依賴
+          echo "📦 安裝依賴..."
+          npm install --production
+          
+          # 運行測試
+          echo "🧪 開始五大問題修復測試..."
+          node scripts/docker-kubernetes-five-issues-fix-test.js
+          
+          echo "✅ Kubernetes 測試完成"
+        volumeMounts:
+        - name: app-source
+          mountPath: /app
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: app-source
+        configMap:
+          name: fintranzo-source-code
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fintranzo-10-rounds-test
+  namespace: fintranzo-test
+  labels:
+    app: fintranzo-test
+    test-type: ten-rounds
+spec:
+  template:
+    metadata:
+      labels:
+        app: fintranzo-test
+        test-type: ten-rounds
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: fintranzo-10-rounds-test
+        image: node:18-alpine
+        envFrom:
+        - configMapRef:
+            name: fintranzo-test-config
+        workingDir: /app
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          echo "🔄 Kubernetes 10輪測試"
+          echo "======================"
+          
+          # 安裝依賴
+          echo "📦 安裝依賴..."
+          npm install --production
+          
+          # 10輪測試
+          for i in $(seq 1 10); do
+            echo "📊 第 $i 輪測試開始..."
+            node scripts/docker-kubernetes-five-issues-fix-test.js
+            echo "✅ 第 $i 輪測試完成"
+            sleep 3
+          done
+          
+          echo "🎉 Kubernetes 10輪測試全部完成"
+        volumeMounts:
+        - name: app-source
+          mountPath: /app
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: app-source
+        configMap:
+          name: fintranzo-source-code
+  backoffLimit: 1
+  activeDeadlineSeconds: 1800
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fintranzo-test-service
+  namespace: fintranzo-test
+  labels:
+    app: fintranzo-test
+spec:
+  selector:
+    app: fintranzo-test
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  type: ClusterIP

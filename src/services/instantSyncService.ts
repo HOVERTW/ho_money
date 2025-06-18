@@ -131,9 +131,12 @@ class InstantSyncService {
   }
 
   /**
-   * 即時同步資產
+   * 終極修復：禁用即時同步資產（防止重複上傳）
    */
   async syncAssetInstantly(asset: any): Promise<void> {
+    console.log('🚫 終極修復：即時資產同步已禁用，防止重複上傳:', asset.name);
+    return; // 終極修復：完全禁用即時同步
+
     await this.addToSyncQueue(async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('用戶未登錄');
@@ -188,9 +191,12 @@ class InstantSyncService {
   }
 
   /**
-   * 即時同步負債
+   * 終極修復：禁用即時同步負債（防止重複上傳）
    */
   async syncLiabilityInstantly(liability: any): Promise<void> {
+    console.log('🚫 終極修復：即時負債同步已禁用，防止重複上傳:', liability.name);
+    return; // 終極修復：完全禁用即時同步
+
     await this.addToSyncQueue(async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('用戶未登錄');

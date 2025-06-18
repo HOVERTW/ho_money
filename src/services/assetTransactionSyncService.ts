@@ -56,6 +56,7 @@ class AssetTransactionSyncService {
   private assets: AssetData[] = [];
   private listeners: Array<(assets: AssetData[]) => void> = [];
   private isInitialized = false;
+  private autoSyncDisabled = false; // 終極修復：添加自動同步禁用標記
 
   constructor() {
     // 不在構造函數中初始化，改為異步初始化
@@ -276,25 +277,17 @@ class AssetTransactionSyncService {
   }
 
   /**
-   * 保存資產數據到本地存儲和雲端
+   * 終極修復：保存資產數據到本地存儲（完全禁用所有自動同步）
    */
   private async saveToStorage(): Promise<void> {
     try {
-      // 1. 保存到本地存儲
+      // 終極修復：只保存到本地存儲，完全禁用所有自動雲端同步
       await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
-      console.log('💾 資產數據已保存到本地存儲');
+      console.log('💾 終極修復：資產數據已保存到本地存儲（完全禁用所有自動同步）');
 
-      // 2. 如果用戶已登錄，即時同步到雲端
-      try {
-        // 對所有資產進行即時同步
-        for (const asset of this.assets) {
-          await instantSyncService.syncAssetInstantly(asset);
-        }
-        console.log('✅ 所有資產已即時同步到雲端');
-      } catch (error) {
-        console.error('❌ 即時同步失敗，降級到批量同步:', error);
-        await this.syncToSupabase();
-      }
+      // 終極修復：設置標記防止其他服務自動同步
+      this.autoSyncDisabled = true;
+      console.log('🚫 終極修復：已設置自動同步禁用標記，防止重複上傳');
     } catch (error) {
       console.error('❌ 保存資產數據失敗:', error);
     }
@@ -560,11 +553,11 @@ class AssetTransactionSyncService {
   }
 
   /**
-   * 添加新資產
+   * 添加新資產 (修復：避免重複上傳)
    */
   async addAsset(asset: AssetData): Promise<void> {
     try {
-      console.log('📝 開始添加資產:', asset.name);
+      console.log('📝 修復：開始添加資產:', asset.name);
 
       // 如果沒有指定排序順序，設置為最後
       if (asset.sort_order === undefined) {
@@ -572,19 +565,25 @@ class AssetTransactionSyncService {
         asset.sort_order = maxOrder + 1;
       }
 
-      // 添加到本地數據
-      this.assets.push(asset);
+      // 修復：檢查是否已存在相同ID的資產，避免重複添加
+      const existingAssetIndex = this.assets.findIndex(a => a.id === asset.id);
+      if (existingAssetIndex !== -1) {
+        console.log('⚠️ 修復：資產已存在，更新而非添加:', asset.id);
+        this.assets[existingAssetIndex] = asset;
+      } else {
+        // 添加到本地數據
+        this.assets.push(asset);
+        console.log('✅ 修復：新資產已添加到本地');
+      }
 
       // 通知監聽器
       this.notifyListeners();
 
-      // 保存到本地存儲
-      await this.saveToStorage();
+      // 修復：只保存到本地存儲，不自動同步到雲端
+      await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
+      console.log('💾 修復：資產數據已保存到本地存儲（不自動同步）');
 
-      // 徹底修復：完全移除自動同步，避免重複上傳
-      console.log('📝 徹底修復：資產已添加到本地，不自動同步');
-
-      console.log('✅ 資產本地添加完成，ID:', asset.id);
+      console.log('✅ 修復：資產本地添加完成，ID:', asset.id);
     } catch (error) {
       console.error('❌ 添加資產失敗:', error);
       throw error;
@@ -592,30 +591,97 @@ class AssetTransactionSyncService {
   }
 
   /**
-   * 更新資產
+   * 深度修復：更新資產（完全禁用自動同步）
    */
   async updateAsset(assetId: string, updatedAsset: Partial<AssetData>): Promise<void> {
     const index = this.assets.findIndex(asset => asset.id === assetId);
     if (index !== -1) {
       this.assets[index] = { ...this.assets[index], ...updatedAsset };
       this.notifyListeners();
-      await this.saveToStorage();
 
-      // 徹底修復：禁用自動同步更新
-      console.log('📝 徹底修復：資產更新不自動同步');
+      // 深度修復：只保存到本地，完全禁用自動同步
+      await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
+      console.log('💾 深度修復：資產更新已保存到本地（完全禁用自動同步）');
     }
   }
 
   /**
-   * 刪除資產
+   * 深度修復：刪除資產（強化刪除邏輯）
    */
   async deleteAsset(assetId: string): Promise<void> {
-    this.assets = this.assets.filter(asset => asset.id !== assetId);
-    this.notifyListeners();
-    await this.saveToStorage();
+    try {
+      console.log('🗑️ 深度修復：開始刪除資產:', assetId);
 
-    // 徹底修復：禁用自動同步刪除
-    console.log('📝 徹底修復：資產刪除不自動同步');
+      // 深度修復：查找要刪除的資產
+      const assetToDelete = this.assets.find(asset => asset.id === assetId);
+      if (!assetToDelete) {
+        console.warn('⚠️ 深度修復：找不到要刪除的資產:', assetId);
+        return;
+      }
+
+      console.log('🎯 深度修復：找到要刪除的資產:', assetToDelete.name);
+
+      // 深度修復：從本地數據中移除
+      const beforeCount = this.assets.length;
+      this.assets = this.assets.filter(asset => asset.id !== assetId);
+      const afterCount = this.assets.length;
+
+      console.log(`🗑️ 深度修復：資產數量變化: ${beforeCount} → ${afterCount}`);
+
+      // 深度修復：立即通知監聽器
+      this.notifyListeners();
+
+      // 深度修復：強制保存到本地存儲
+      await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
+      console.log('💾 深度修復：資產刪除已強制保存到本地存儲');
+
+      // 深度修復：多次嘗試同步刪除到雲端
+      let cloudDeleteSuccess = false;
+      const maxAttempts = 3;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            console.log(`🔄 深度修復：第${attempt}次嘗試同步刪除資產到雲端`);
+            const { error } = await supabase
+              .from(TABLES.ASSETS)
+              .delete()
+              .eq('id', assetId)
+              .eq('user_id', user.id);
+
+            if (error) {
+              console.error(`❌ 深度修復：第${attempt}次雲端刪除失敗:`, error);
+              if (attempt < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+              }
+            } else {
+              console.log(`✅ 深度修復：第${attempt}次雲端刪除成功`);
+              cloudDeleteSuccess = true;
+              break;
+            }
+          } else {
+            console.log('📝 深度修復：用戶未登錄，跳過雲端刪除');
+            cloudDeleteSuccess = true;
+            break;
+          }
+        } catch (syncError) {
+          console.error(`❌ 深度修復：第${attempt}次雲端刪除異常:`, syncError);
+          if (attempt < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+
+      if (!cloudDeleteSuccess) {
+        console.warn('⚠️ 深度修復：雲端刪除失敗，但本地刪除已完成');
+      }
+
+      console.log('✅ 深度修復：資產刪除完成');
+    } catch (error) {
+      console.error('❌ 深度修復：資產刪除失敗:', error);
+      throw error;
+    }
   }
 
   /**
