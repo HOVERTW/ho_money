@@ -1471,35 +1471,37 @@ export default function DashboardScreen() {
               console.log('- 一年前值:', firstValue);
               console.log('- 變化:', change);
 
-              // 精準修復：根據實際數據情況計算年度變化
-              let displayLabel, displayValue, changePercent;
+              // 緊急修復：根據實際數據情況計算年度變化
+              let displayLabel, displayValue, changePercent, isFirstMonth;
 
-              // 精準修復：檢查是否有足夠的歷史數據
+              // 緊急修復：檢查是否有足夠的歷史數據
               const hasHistoricalData = netWorthData.datasets[0].data.some((value, index) =>
                 index < netWorthData.datasets[0].data.length - 1 && value > 0
               );
 
               if (!hasHistoricalData || firstValue === 0) {
-                // 精準修復：沒有歷史數據或一年前為0，顯示當前總資產
+                // 緊急修復：沒有歷史數據或一年前為0，顯示當前總資產
                 displayLabel = '當前總資產';
                 displayValue = latestValue;
                 changePercent = 0;
-                console.log('📊 精準修復：無歷史數據，顯示當前總資產');
+                isFirstMonth = true; // 緊急修復：定義 isFirstMonth 變數
+                console.log('📊 緊急修復：無歷史數據，顯示當前總資產');
               } else {
-                // 精準修復：有歷史數據，計算年度變化
+                // 緊急修復：有歷史數據，計算年度變化
                 displayLabel = '年度變化';
                 displayValue = change;
+                isFirstMonth = false; // 緊急修復：定義 isFirstMonth 變數
 
                 if (firstValue === 0) {
-                  // 精準修復：從0開始，成長率為無限大（0→100萬顯示+100萬(∞%)）
+                  // 緊急修復：從0開始，成長率為無限大（0→100萬顯示+100萬(∞%)）
                   changePercent = '∞';
-                  console.log('📊 精準修復：從0成長，顯示∞%');
+                  console.log('📊 緊急修復：從0成長，顯示∞%');
                 } else {
-                  // 精準修復：正確計算成長率
+                  // 緊急修復：正確計算成長率
                   // 當月資產/一年前的資產 - 1 = 成長率
                   // 例如：500萬/100萬 - 1 = 4 = 400%
                   changePercent = Math.round(((latestValue / firstValue) - 1) * 100);
-                  console.log('📊 精準修復：計算成長率:', `${latestValue}/${firstValue} - 1 = ${changePercent}%`);
+                  console.log('📊 緊急修復：計算成長率:', `${latestValue}/${firstValue} - 1 = ${changePercent}%`);
                 }
               }
 
