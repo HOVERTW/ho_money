@@ -81,8 +81,8 @@ services:
         echo '✅ 測試完成'
       "
 
-  # 負債和刪除問題專項測試
-  fintranzo-liability-delete-test:
+  # 手動上傳和刪除功能專項測試
+  fintranzo-manual-upload-delete-test:
     build:
       context: .
       dockerfile: docker/Dockerfile.web
@@ -96,13 +96,12 @@ services:
       - /app/node_modules
     command: >
       sh -c "
-        echo '🐳 Docker 環境 - 負債數據上傳和刪除操作修復測試' &&
+        echo '🐳 Docker 環境 - 手動上傳和刪除功能測試' &&
+        echo '🚫 即時同步已停用，專注於手動上傳和本地端正確性' &&
         npm install &&
-        echo '📊 開始專項測試...' &&
-        node scripts/docker-liability-delete-fix-test.js &&
-        echo '🔧 開始修復驗證測試...' &&
-        node scripts/fix-liability-delete-issues.js &&
-        echo '✅ 所有測試完成'
+        echo '📊 開始手動上傳和刪除測試...' &&
+        node scripts/docker-manual-upload-delete-test.js &&
+        echo '✅ 測試完成'
       "
 
   # 10輪測試環境

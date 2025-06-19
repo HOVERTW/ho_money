@@ -331,22 +331,8 @@ class LiabilityService {
     this.notifyListeners();
     await this.saveToStorage();
 
-    // 使用新的實時同步服務
-    try {
-      const { realTimeSyncService } = await import('./realTimeSyncService');
-      await realTimeSyncService.initialize();
-      const result = await realTimeSyncService.syncLiability(liability);
-      if (!result.success) {
-        console.error('❌ 實時同步負債失敗:', result.error);
-      } else {
-        console.log('✅ 實時同步負債成功');
-      }
-    } catch (syncError) {
-      console.error('❌ 實時同步服務調用失敗:', syncError);
-    }
-
-    // 🔥 徹底修復：完全移除自動同步，由外部統一控制
-    console.log('🔥 負債添加完成，不自動同步:', liability.name);
+    // 🚫 停用即時同步：專注於手動上傳
+    console.log('🚫 即時同步已停用，負債添加完成，僅保存到本地:', liability.name);
 
     // 發射事件
     eventEmitter.emit(EVENTS.LIABILITY_ADDED, liability);
@@ -363,20 +349,8 @@ class LiabilityService {
       this.notifyListeners();
       await this.saveToStorage();
 
-      // 使用新的實時同步服務
-      try {
-        const { realTimeSyncService } = await import('./realTimeSyncService');
-        await realTimeSyncService.initialize();
-        const result = await realTimeSyncService.syncLiability(this.liabilities[index]);
-        if (!result.success) {
-          console.error('❌ 實時同步負債更新失敗:', result.error);
-        } else {
-          console.log('✅ 負債更新已即時同步到雲端');
-        }
-      } catch (syncError) {
-        console.error('❌ 負債更新即時同步失敗:', syncError);
-        // 同步失敗不影響本地操作
-      }
+      // 🚫 停用即時同步：專注於手動上傳
+      console.log('🚫 即時同步已停用，負債更新完成，僅保存到本地:', id);
     }
   }
 
@@ -389,20 +363,8 @@ class LiabilityService {
     this.notifyListeners();
     await this.saveToStorage();
 
-    // 使用新的實時同步服務刪除
-    try {
-      const { realTimeSyncService } = await import('./realTimeSyncService');
-      await realTimeSyncService.initialize();
-      const result = await realTimeSyncService.deleteData('liabilities', id);
-      if (!result.success) {
-        console.error('❌ 實時同步負債刪除失敗:', result.error);
-      } else {
-        console.log('✅ 負債刪除已即時同步到雲端');
-      }
-    } catch (syncError) {
-      console.error('❌ 負債刪除即時同步失敗:', syncError);
-      // 同步失敗不影響本地操作
-    }
+    // 🚫 停用即時同步：專注於手動上傳
+    console.log('🚫 即時同步已停用，負債刪除完成，僅從本地移除:', id);
   }
 
   /**

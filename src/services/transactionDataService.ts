@@ -632,19 +632,8 @@ class TransactionDataService {
         // 即使本地存儲失敗，也繼續雲端同步
       }
 
-      // 使用新的實時同步服務
-      try {
-        const { realTimeSyncService } = await import('./realTimeSyncService');
-        await realTimeSyncService.initialize();
-        const result = await realTimeSyncService.syncTransaction(transaction);
-        if (!result.success) {
-          console.error('❌ 實時同步交易失敗:', result.error);
-        } else {
-          console.log('✅ 實時同步交易成功');
-        }
-      } catch (syncError) {
-        console.error('❌ 實時同步服務調用失敗:', syncError);
-      }
+      // 🚫 停用即時同步：專注於手動上傳
+      console.log('🚫 即時同步已停用，交易添加完成，僅保存到本地:', transaction.description);
 
       // 通知監聽器
       this.notifyListeners();
