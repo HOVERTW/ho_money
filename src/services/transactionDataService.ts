@@ -463,25 +463,54 @@ class TransactionDataService {
   }
 
   /**
-   * 用戶登錄後重新加載數據
+   * 緊急修復：用戶登錄後重新加載數據（保護本地數據）
    */
   async reloadUserData(userId: string): Promise<void> {
     try {
-      console.log('🔄 用戶登錄，重新加載數據...', userId);
+      console.log('🔄 緊急修復：用戶登錄，重新加載數據...', userId);
 
-      // 清除當前數據
-      this.transactions = [];
-      this.accounts = [];
+      // 緊急修復：備份當前本地數據，避免丟失
+      const backupTransactions = [...this.transactions];
+      const backupAccounts = [...this.accounts];
 
-      // 從 Supabase 重新加載用戶數據
-      await this.loadFromSupabase(userId);
+      console.log(`💾 緊急修復：備份本地數據 - 交易: ${backupTransactions.length}, 帳戶: ${backupAccounts.length}`);
+
+      try {
+        // 從 Supabase 重新加載用戶數據
+        await this.loadFromSupabase(userId);
+
+        // 緊急修復：如果 Supabase 沒有數據，恢復本地備份
+        if (this.transactions.length === 0 && backupTransactions.length > 0) {
+          console.log('🔄 緊急修復：Supabase 無交易數據，恢復本地備份');
+          this.transactions = backupTransactions;
+
+          // 立即保存到本地存儲
+          await this.saveToStorage();
+        }
+
+        if (this.accounts.length === 0 && backupAccounts.length > 0) {
+          console.log('🔄 緊急修復：Supabase 無帳戶數據，恢復本地備份');
+          this.accounts = backupAccounts;
+
+          // 立即保存到本地存儲
+          await this.saveToStorage();
+        }
+
+      } catch (supabaseError) {
+        console.error('❌ 緊急修復：Supabase 載入失敗，恢復本地備份:', supabaseError);
+
+        // 緊急修復：如果 Supabase 載入失敗，完全恢復本地備份
+        this.transactions = backupTransactions;
+        this.accounts = backupAccounts;
+      }
 
       // 通知監聽器更新
       this.notifyListeners();
 
-      console.log('✅ 用戶數據重新加載完成');
+      console.log('✅ 緊急修復：用戶數據重新加載完成');
+      console.log(`📊 緊急修復：最終數據 - 交易: ${this.transactions.length}, 帳戶: ${this.accounts.length}`);
     } catch (error) {
-      console.error('❌ 重新加載用戶數據失敗:', error);
+      console.error('❌ 緊急修復：重新加載用戶數據失敗:', error);
       throw error;
     }
   }
