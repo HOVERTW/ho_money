@@ -5,6 +5,7 @@ import {
   shouldExecuteRecurring,
   updateNextExecutionDate,
 } from '../utils/recurringTransactions';
+import { generateUUID } from '../utils/uuid';
 
 /**
  * 循環交易管理服務
@@ -45,7 +46,7 @@ export class RecurringTransactionService {
     const nextExecutionDate = calculateNextDate(startDate, transactionData.frequency, originalTargetDay);
 
     const recurringTransaction: RecurringTransaction = {
-      id: `recurring_${Date.now()}`,
+      id: generateUUID(),
       user_id: 'current_user', // 在實際應用中應該從認證系統獲取
       account_id: transactionData.account,
       category_id: transactionData.category,

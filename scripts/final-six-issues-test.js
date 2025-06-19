@@ -24,7 +24,11 @@ function logTest(testNum, testName, passed, details = '') {
 }
 
 function generateTestId(prefix = 'final_test') {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
 
 // 問題1: SUPABASE的債務沒有顯示

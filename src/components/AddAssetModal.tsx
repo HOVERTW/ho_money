@@ -18,6 +18,7 @@ import USStockSearchInput from './USStockSearchInput';
 import { StockSearchResult, taiwanStockService } from '../services/taiwanStockService';
 import { USStockSearchResult } from '../services/usStockQueryService';
 import { exchangeRateService } from '../services/exchangeRateService';
+import { generateUUID, ensureValidUUID } from '../utils/uuid';
 
 
 
@@ -341,7 +342,7 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
     const finalName = name.trim() || defaultName;
 
     const asset = {
-      id: editingAsset?.id || Date.now().toString(),
+      id: ensureValidUUID(editingAsset?.id),
       name: finalName,
       type,
       quantity: type === 'real_estate' ? parseFloat(area) || 1 : (type === 'cash' || type === 'bank' || type === 'vehicle' || type === 'insurance' ? 1 : parseFloat(quantity)),
