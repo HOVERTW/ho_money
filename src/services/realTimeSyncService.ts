@@ -304,6 +304,24 @@ class RealTimeSyncService {
     try {
       console.log(`🔄 開始刪除 ${table} 數據:`, id);
 
+      // 🔧 修復：先檢查記錄是否存在
+      const { data: existingData, error: checkError } = await supabase
+        .from(table)
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', this.userId);
+
+      if (checkError) {
+        console.error(`❌ ${table} 刪除前檢查失敗:`, checkError);
+        return { success: false, error: checkError.message };
+      }
+
+      if (!existingData || existingData.length === 0) {
+        console.log(`⚠️ ${table} 記錄不存在，跳過刪除:`, id);
+        return { success: true }; // 記錄不存在視為刪除成功
+      }
+
+      // 執行刪除
       const { error } = await supabase
         .from(table)
         .delete()

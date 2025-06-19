@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { eventEmitter, EVENTS } from './eventEmitter';
 import { supabase, TABLES } from './supabase';
 import { enhancedSyncService } from './enhancedSyncService';
+import { generateUUID, ensureValidUUID } from '../utils/uuid';
 
 // 本地存儲的鍵名
 const STORAGE_KEYS = {
@@ -304,11 +305,28 @@ class LiabilityService {
    * 添加負債
    */
   async addLiability(liability: LiabilityData): Promise<void> {
+    // 🔧 修復：確保 ID 是有效的 UUID
+    liability.id = ensureValidUUID(liability.id);
+
+    // 🔧 修復：驗證必需字段
+    if (!liability.name || liability.name.trim() === '') {
+      throw new Error('負債名稱不能為空');
+    }
+
+    if (!liability.type || liability.type.trim() === '') {
+      liability.type = 'other';
+    }
+
+    if (typeof liability.balance !== 'number' || liability.balance < 0) {
+      liability.balance = 0;
+    }
+
     // 如果沒有指定排序順序，設置為最後
     if (liability.sort_order === undefined) {
       const maxOrder = Math.max(...this.liabilities.map(l => l.sort_order || 0), -1);
       liability.sort_order = maxOrder + 1;
     }
+
     this.liabilities.push(liability);
     this.notifyListeners();
     await this.saveToStorage();

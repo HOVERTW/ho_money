@@ -81,6 +81,30 @@ services:
         echo '✅ 測試完成'
       "
 
+  # 負債和刪除問題專項測試
+  fintranzo-liability-delete-test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      target: development
+    environment:
+      - NODE_ENV=test
+      - EXPO_PUBLIC_SUPABASE_URL=https://yrryyapzkgrsahranzvo.supabase.co
+      - EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2MzI4NzEsImV4cCI6MjA1MTIwODg3MX0.Ey6Nt9TgKJVLJOJQjKpJxJQJQJQJQJQJQJQJQJQJQJQ
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+        echo '🐳 Docker 環境 - 負債數據上傳和刪除操作修復測試' &&
+        npm install &&
+        echo '📊 開始專項測試...' &&
+        node scripts/docker-liability-delete-fix-test.js &&
+        echo '🔧 開始修復驗證測試...' &&
+        node scripts/fix-liability-delete-issues.js &&
+        echo '✅ 所有測試完成'
+      "
+
   # 10輪測試環境
   fintranzo-10-rounds-test:
     build:

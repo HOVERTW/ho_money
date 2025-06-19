@@ -347,17 +347,25 @@ class ManualUploadService {
         console.log(`🔄 為負債生成新的 UUID: ${liabilityId}`);
       }
 
-      return {
+      // 🔧 修復：驗證和清理數據
+      const cleanedLiability = {
         id: liabilityId,
         user_id: userId,
-        name: liability.name,
-        type: liability.type,
-        balance: liability.balance,
-        interest_rate: liability.interest_rate || 0,
-        monthly_payment: liability.monthly_payment || 0,
+        name: (liability.name || '未命名負債').trim(),
+        type: (liability.type || 'other').trim(),
+        balance: typeof liability.balance === 'number' ? liability.balance : 0,
+        interest_rate: typeof liability.interest_rate === 'number' ? liability.interest_rate : 0,
+        monthly_payment: typeof liability.monthly_payment === 'number' ? liability.monthly_payment : 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
+
+      // 🔧 修復：驗證必需字段
+      if (!cleanedLiability.name || cleanedLiability.name === '未命名負債') {
+        console.warn(`⚠️ 負債 ${liabilityId} 缺少有效名稱`);
+      }
+
+      return cleanedLiability;
     });
 
     console.log('📝 轉換後的負債數據示例:', convertedLiabilities[0]);
