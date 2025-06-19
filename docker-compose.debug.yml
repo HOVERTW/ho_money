@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # 真實環境模擬 - WEB 版本
+  fintranzo-web-debug:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "19930:3000"  # 模擬 19930913.xyz
+    environment:
+      - NODE_ENV=production
+      - EXPO_PUBLIC_SUPABASE_URL=https://yrryyapzkgrsahranzvo.supabase.co
+      - EXPO_PUBLIC_SUPABASE_ANON_KEY=${EXPO_PUBLIC_SUPABASE_ANON_KEY}
+      - EXPO_PUBLIC_GOOGLE_CLIENT_ID=${EXPO_PUBLIC_GOOGLE_CLIENT_ID}
+    volumes:
+      - ./src:/app/src:ro
+      - ./assets:/app/assets:ro
+      - ./app.json:/app/app.json:ro
+      - ./package.json:/app/package.json:ro
+      - ./debug-logs:/app/debug-logs
+    networks:
+      - fintranzo-debug
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # 調試代理 - 捕獲所有 API 請求
+  debug-proxy:
+    image: nginx:alpine
+    ports:
+      - "19931:80"
+    volumes:
+      - ./debug/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./debug-logs:/var/log/nginx
+    depends_on:
+      - fintranzo-web-debug
+    networks:
+      - fintranzo-debug
+
+  # 數據庫調試工具
+  supabase-debug:
+    image: supabase/postgres:15.1.0.147
+    environment:
+      POSTGRES_PASSWORD: debug123
+      POSTGRES_DB: fintranzo_debug
+    ports:
+      - "5433:5432"
+    volumes:
+      - debug_db_data:/var/lib/postgresql/data
+      - ./debug/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - fintranzo-debug
+
+  # 日誌收集器
+  log-collector:
+    image: fluent/fluent-bit:latest
+    volumes:
+      - ./debug-logs:/fluent-bit/logs
+      - ./debug/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+    depends_on:
+      - fintranzo-web-debug
+    networks:
+      - fintranzo-debug
+
+networks:
+  fintranzo-debug:
+    driver: bridge
+
+volumes:
+  debug_db_data:

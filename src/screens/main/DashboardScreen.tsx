@@ -31,7 +31,7 @@ import { useAuthStore } from '../../store/authStore';
 import { userDataSyncService } from '../../services/userDataSyncService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../services/supabase';
-import { manualUploadService } from '../../services/manualUploadService';
+import { unifiedDataManager } from '../../services/unifiedDataManager';
 import { DiagnosticButton } from '../../components/DiagnosticButton';
 import SyncStatusIndicator from '../../components/SyncStatusIndicator';
 import { assetDisplayFixService } from '../../services/assetDisplayFixService';
@@ -827,10 +827,10 @@ export default function DashboardScreen() {
     }
   };
 
-  // 精準修復：手動觸發數據同步到 Supabase
+  // 🚀 全新上傳邏輯：使用統一數據管理器
   const handleSyncToSupabase = async () => {
     try {
-      console.log('🚀 精準修復：開始手動上傳本地數據到 Supabase...');
+      console.log('🚀 全新上傳：開始使用統一數據管理器上傳...');
 
       // 檢查用戶是否已登錄
       const { data: { user } } = await supabase.auth.getUser();
@@ -839,48 +839,41 @@ export default function DashboardScreen() {
         return;
       }
 
-      console.log('✅ 精準修復：用戶已登錄，開始上傳流程');
+      console.log('✅ 全新上傳：用戶已登錄，開始上傳流程');
 
-      // 精準修復：顯示上傳進度
+      // 顯示上傳進度
       Alert.alert('上傳中', '正在上傳本地數據到雲端，請稍候...', [], { cancelable: false });
 
-      // 使用專門的手動上傳服務
-      const result = await manualUploadService.uploadAllLocalData();
+      // 初始化統一數據管理器
+      await unifiedDataManager.initialize();
 
-      console.log('🎯 精準修復：上傳結果:', result);
+      // 使用統一數據管理器上傳
+      const result = await unifiedDataManager.uploadAllToCloud();
 
-      if (result.success) {
-        const { transactions, assets, liabilities, accounts, categories } = result.details;
-        const totalCount = transactions + assets + liabilities + accounts + categories;
+      console.log('🎯 全新上傳：上傳結果:', result);
 
-        // 精準修復：強制刷新數據
-        await handleForceRefreshData();
-
+      if (result.errors.length === 0) {
+        // 上傳成功
         Alert.alert(
           '上傳成功！',
-          `已成功上傳到雲端：\n` +
-          `• 交易記錄：${transactions} 筆\n` +
-          `• 資產數據：${assets} 筆\n` +
-          `• 負債數據：${liabilities} 筆\n` +
-          `• 帳戶數據：${accounts} 筆\n` +
-          `• 交易類別：${categories} 筆\n\n` +
-          `總計：${totalCount} 筆數據`,
-          [{ text: '確定', onPress: () => console.log('✅ 精準修復：用戶確認上傳成功') }]
+          `已成功上傳 ${result.uploaded} 筆數據到雲端！\n\n數據已安全保存到雲端存儲。`,
+          [{ text: '確定', onPress: () => console.log('✅ 全新上傳：用戶確認上傳成功') }]
         );
       } else {
+        // 部分失敗
         Alert.alert(
-          '上傳失敗',
-          `${result.message}\n\n錯誤詳情：\n${result.errors.join('\n')}`,
-          [{ text: '確定', onPress: () => console.log('❌ 精準修復：用戶確認上傳失敗') }]
+          '上傳部分成功',
+          `成功上傳：${result.uploaded} 筆\n錯誤：${result.errors.length} 個\n\n錯誤詳情：\n${result.errors.join('\n')}`,
+          [{ text: '確定', onPress: () => console.log('⚠️ 全新上傳：用戶確認部分成功') }]
         );
       }
 
     } catch (error) {
-      console.error('❌ 精準修復：手動上傳失敗:', error);
+      console.error('❌ 全新上傳：上傳失敗:', error);
       Alert.alert(
         '上傳失敗',
         `上傳過程中發生錯誤: ${error instanceof Error ? error.message : '未知錯誤'}`,
-        [{ text: '確定', onPress: () => console.log('❌ 精準修復：用戶確認上傳錯誤') }]
+        [{ text: '確定', onPress: () => console.log('❌ 全新上傳：用戶確認上傳錯誤') }]
       );
     }
   };
@@ -1045,276 +1038,77 @@ export default function DashboardScreen() {
     }
   };
 
-  // 一鍵清除所有資料功能
+  // 🗑️ 全新刪除邏輯：使用統一數據管理器
   const handleClearAllData = async () => {
-    console.log('🗑️ 刪除按鈕被點擊');
+    console.log('🗑️ 全新刪除：刪除按鈕被點擊');
 
     // 使用安全的確認對話框
-    let confirmed = false;
-    try {
-      if (typeof window !== 'undefined' && window.confirm) {
-        confirmed = window.confirm(
-          '確定刪除所有資料？\n\n此操作將永久刪除：\n• 所有交易記錄\n• 所有資產數據\n• 所有負債數據\n• 用戶設定\n• 其他應用數據\n\n此操作無法撤銷！'
-        );
-      } else {
-        // 在不支持 window.confirm 的環境中，使用 Alert
-        Alert.alert(
-          '確定刪除所有資料？',
-          '此操作將永久刪除：\n• 所有交易記錄\n• 所有資產數據\n• 所有負債數據\n• 用戶設定\n• 其他應用數據\n\n此操作無法撤銷！',
-          [
-            { text: '取消', style: 'cancel' },
-            {
-              text: '確定刪除',
-              style: 'destructive',
-              onPress: () => {
-                confirmed = true;
-                performClearData();
-              }
-            }
-          ]
-        );
-        return; // 等待 Alert 回調
-      }
-    } catch (error) {
-      console.error('❌ 確認對話框錯誤:', error);
-      return;
-    }
+    Alert.alert(
+      '確定刪除所有資料？',
+      '此操作將永久刪除：\n• 所有交易記錄\n• 所有資產數據\n• 所有負債數據\n\n此操作無法撤銷！',
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '確定刪除',
+          style: 'destructive',
+          onPress: performClearData
+        }
+      ]
+    );
 
-    // 執行清除操作的函數
+    // 🗑️ 全新刪除邏輯：執行清除操作的函數
     const performClearData = async () => {
       try {
-        console.log('🧹 用戶確認，開始清除所有資料...');
+        console.log('🧹 全新刪除：用戶確認，開始清除所有資料...');
 
-        // 1. 清除本地存儲
-        const success = await clearAllStorage();
+        // 顯示刪除進度
+        Alert.alert('刪除中', '正在清除所有數據，請稍候...', [], { cancelable: false });
 
-        if (success) {
-          console.log('✅ 本地存儲清除成功');
+        // 初始化統一數據管理器
+        await unifiedDataManager.initialize();
 
-          // 2. 重置所有本地狀態
-          console.log('🔄 重置本地狀態...');
-          setTransactions([]);
-          setAssets([]);
-          setLiabilities([]);
-          setForceRefresh(prev => prev + 10);
+        // 使用統一數據管理器一鍵清除
+        const result = await unifiedDataManager.clearAllData();
 
-          // 3. 先同步刪除到雲端，再清除本地數據
-          console.log('🔄 同步刪除到雲端...');
+        console.log('🎯 全新刪除：刪除結果:', result);
 
-          try {
-            // 檢查用戶是否已登錄
-            const { data: { user: currentUser } } = await supabase.auth.getUser();
+        // 重置本地狀態
+        setTransactions([]);
+        setAssets([]);
+        setLiabilities([]);
+        setForceRefresh(prev => prev + 10);
 
-            if (currentUser) {
-              console.log('👤 修復：用戶已登錄，強化雲端數據刪除...');
-
-              // 修復一鍵刪除：使用最強的刪除邏輯，確保完全清除（保留類別）
-              const tables = ['transactions', 'assets', 'liabilities']; // 修復：不包含categories
-
-              for (const tableName of tables) {
-                let deleteSuccess = false;
-                let attempts = 0;
-                const maxAttempts = 30; // 修復一鍵刪除：大幅增加嘗試次數
-
-                console.log(`🗑️ 修復一鍵刪除：開始處理 ${tableName} 表...`);
-
-                while (!deleteSuccess && attempts < maxAttempts) {
-                  attempts++;
-                  console.log(`🔄 修復一鍵刪除：嘗試刪除 ${tableName} (第${attempts}次)...`);
-
-                  try {
-                    // 修復：先查詢確認有數據
-                    const { data: existingData, error: queryError } = await supabase
-                      .from(tableName)
-                      .select('id')
-                      .eq('user_id', currentUser.id);
-
-                    if (queryError) {
-                      console.error(`❌ 修復一鍵刪除：查詢 ${tableName} 失敗:`, queryError);
-                      await new Promise(resolve => setTimeout(resolve, 2000));
-                      continue;
-                    }
-
-                    const recordCount = existingData?.length || 0;
-                    console.log(`📊 修復一鍵刪除：${tableName} 有 ${recordCount} 筆記錄需要刪除`);
-
-                    if (recordCount === 0) {
-                      console.log(`✅ 修復一鍵刪除：${tableName} 已經是空的，跳過刪除`);
-                      deleteSuccess = true;
-                      continue;
-                    }
-
-                    // 修復：分批刪除，避免一次刪除太多數據
-                    if (recordCount > 100) {
-                      console.log(`🔄 修復一鍵刪除：${tableName} 記錄太多，分批刪除...`);
-
-                      // 分批刪除，每次刪除50筆
-                      const batchSize = 50;
-                      const batches = Math.ceil(recordCount / batchSize);
-
-                      for (let batchIndex = 0; batchIndex < batches; batchIndex++) {
-                        const { data: batchData } = await supabase
-                          .from(tableName)
-                          .select('id')
-                          .eq('user_id', currentUser.id)
-                          .limit(batchSize);
-
-                        if (batchData && batchData.length > 0) {
-                          const batchIds = batchData.map(item => item.id);
-                          const { error: batchDeleteError } = await supabase
-                            .from(tableName)
-                            .delete()
-                            .in('id', batchIds);
-
-                          if (batchDeleteError) {
-                            console.error(`❌ 修復一鍵刪除：${tableName} 批次 ${batchIndex + 1} 刪除失敗:`, batchDeleteError);
-                          } else {
-                            console.log(`✅ 修復一鍵刪除：${tableName} 批次 ${batchIndex + 1} 刪除成功`);
-                          }
-
-                          // 批次間延遲
-                          await new Promise(resolve => setTimeout(resolve, 500));
-                        }
-                      }
-                    } else {
-                      // 修復：直接刪除
-                      const { error: deleteError } = await supabase
-                        .from(tableName)
-                        .delete()
-                        .eq('user_id', currentUser.id);
-
-                      if (deleteError) {
-                        console.error(`❌ 修復一鍵刪除：刪除 ${tableName} 失敗 (第${attempts}次):`, deleteError);
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        continue;
-                      }
-                    }
-
-                    // 修復：驗證刪除結果
-                    await new Promise(resolve => setTimeout(resolve, 1000)); // 等待數據庫同步
-
-                    const { data: verifyData, error: verifyError } = await supabase
-                      .from(tableName)
-                      .select('id')
-                      .eq('user_id', currentUser.id);
-
-                    const remainingCount = verifyData?.length || 0;
-
-                    if (verifyError) {
-                      console.error(`❌ 修復一鍵刪除：${tableName} 驗證查詢失敗:`, verifyError);
-                      await new Promise(resolve => setTimeout(resolve, 2000));
-                      continue;
-                    }
-
-                    if (remainingCount > 0) {
-                      console.error(`❌ 修復一鍵刪除：${tableName} 還有 ${remainingCount} 筆記錄未刪除`);
-                      await new Promise(resolve => setTimeout(resolve, 2000));
-                      continue;
-                    }
-
-                    console.log(`✅ 修復一鍵刪除：${tableName} 雲端數據刪除成功並驗證`);
-                    deleteSuccess = true;
-
-                  } catch (error) {
-                    console.error(`❌ 修復一鍵刪除：${tableName} 刪除過程異常 (第${attempts}次):`, error);
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                  }
-                }
-
-                if (!deleteSuccess) {
-                  console.error(`❌ 修復一鍵刪除：${tableName} 刪除最終失敗，已嘗試 ${maxAttempts} 次`);
-                } else {
-                  console.log(`🎉 修復一鍵刪除：${tableName} 刪除完全成功！`);
-                }
-              }
-            } else {
-              console.log('📝 用戶未登錄，跳過雲端數據刪除');
-            }
-          } catch (syncError) {
-            console.error('❌ 雲端數據刪除失敗:', syncError);
-            // 即使雲端刪除失敗，也繼續清除本地數據
-          }
-
-          // 深度修復：強制清除所有服務的內存數據和本地存儲
-          console.log('🔄 深度修復：強制清除所有數據...');
-
-          // 深度修復：強制清除本地存儲
-          try {
-            const storageKeys = [
-              '@FinTranzo:transactions',
-              '@FinTranzo:assets',
-              '@FinTranzo:liabilities',
-              '@FinTranzo:recurringTransactions',
-              'fintranzo_transactions',
-              'fintranzo_assets',
-              'fintranzo_liabilities',
-              'fintranzo_recurring_transactions'
-            ];
-
-            for (const key of storageKeys) {
-              await AsyncStorage.removeItem(key);
-              console.log(`🗑️ 已清除本地存儲: ${key}`);
-            }
-          } catch (storageError) {
-            console.error('❌ 清除本地存儲失敗:', storageError);
-          }
-
-          // 清除交易數據服務
-          await transactionDataService.clearAllData();
-
-          // 清除資產交易同步服務
-          await assetTransactionSyncService.clearAllData();
-
-          // 清除負債服務
-          await liabilityService.clearAllData();
-
-          // 清除循環交易服務
-          await recurringTransactionService.clearAllData();
-
-          // 5. 重新初始化所有服務
-          console.log('🔄 重新初始化所有服務...');
-          await transactionDataService.initialize();
-          await assetTransactionSyncService.initialize();
-          await liabilityService.initialize();
-          await recurringTransactionService.initialize();
-
-          // 6. 修復：發送多個全局刷新事件確保所有頁面都能收到
-          console.log('📡 修復：發送多個全局刷新事件...');
-
-          // 發送多種刷新事件確保所有頁面都能響應
-          eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL, { source: 'clear_all_data', timestamp: Date.now() });
-          eventEmitter.emit(EVENTS.FORCE_REFRESH_DASHBOARD, { source: 'clear_all_data' });
-          eventEmitter.emit(EVENTS.FORCE_REFRESH_TRANSACTIONS, { source: 'clear_all_data' });
-          eventEmitter.emit(EVENTS.FORCE_REFRESH_CASHFLOW, { source: 'clear_all_data' });
-          eventEmitter.emit(EVENTS.FORCE_REFRESH_CHARTS, { source: 'clear_all_data' });
-          eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, {
-            type: 'clear_all_data',
-            source: 'dashboard_clear_button',
-            timestamp: Date.now()
-          });
-
-          // 額外延遲確保事件傳播
-          await new Promise(resolve => setTimeout(resolve, 500));
-
-          // 再次發送刷新事件
-          eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL, { source: 'clear_all_data_final', timestamp: Date.now() });
-
-          console.log('✅ 修復：清除完成！所有資料已清除完成（包含雲端同步刪除）！應用程式已重新初始化。');
+        if (result.errors.length === 0) {
+          // 刪除成功
+          Alert.alert(
+            '刪除成功！',
+            `已成功刪除 ${result.deleted} 筆數據！\n\n所有本地和雲端數據已清除。`,
+            [{ text: '確定', onPress: () => console.log('✅ 全新刪除：用戶確認刪除成功') }]
+          );
         } else {
-          console.error('❌ 清除資料失敗');
+          // 部分失敗
+          Alert.alert(
+            '刪除部分成功',
+            `成功刪除：${result.deleted} 筆\n錯誤：${result.errors.length} 個\n\n錯誤詳情：\n${result.errors.join('\n')}`,
+            [{ text: '確定', onPress: () => console.log('⚠️ 全新刪除：用戶確認部分成功') }]
+          );
         }
+
+        // 發送刷新事件
+        eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL, { source: 'clear_all_data', timestamp: Date.now() });
+        eventEmitter.emit(EVENTS.FORCE_REFRESH_DASHBOARD, { source: 'clear_all_data' });
+
+        console.log('✅ 全新刪除：清除完成！');
+
       } catch (error) {
-        console.error('❌ 清除資料時發生錯誤:', error);
+        console.error('❌ 全新刪除：清除失敗:', error);
+        Alert.alert(
+          '刪除失敗',
+          `刪除過程中發生錯誤: ${error instanceof Error ? error.message : '未知錯誤'}`,
+          [{ text: '確定', onPress: () => console.log('❌ 全新刪除：用戶確認刪除錯誤') }]
+        );
       }
     };
-
-    if (!confirmed) {
-      console.log('用戶取消刪除操作');
-      return;
-    }
-
-    // 執行清除操作
-    await performClearData();
   };
 
   const formatCurrency = (amount: number) => {
