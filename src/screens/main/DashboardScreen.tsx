@@ -389,10 +389,10 @@ export default function DashboardScreen() {
     return netWorth;
   };
 
-  // 生成正確的資產變化數據
+  // 修復年度變化：生成正確的資產變化數據
   const netWorthData = useMemo(() => {
     try {
-      console.log('📊 開始生成圖表數據...');
+      console.log('📊 修復年度變化：開始生成圖表數據...');
       const startTime = Date.now();
 
       const currentDate = new Date();
@@ -404,8 +404,31 @@ export default function DashboardScreen() {
       const safeAssets = Array.isArray(assets) ? assets : [];
       const safeLiabilities = Array.isArray(liabilities) ? liabilities : [];
 
-      // 計算當前正確的淨值（考慮交易影響）
-      const currentNetWorth = calculateCorrectNetWorth(safeTransactions, safeAssets, safeLiabilities);
+      // 修復：使用簡單的總資產計算，不考慮複雜的交易影響
+      const totalAssets = safeAssets.reduce((sum, asset) => sum + (asset?.current_value || asset?.value || 0), 0);
+      const totalLiabilities = safeLiabilities.reduce((sum, liability) => sum + (liability?.balance || 0), 0);
+      const currentNetWorth = totalAssets - totalLiabilities;
+
+      console.log('📊 修復年度變化：當前淨值計算', {
+        totalAssets,
+        totalLiabilities,
+        currentNetWorth
+      });
+
+      // 修復：找到最早的資產創建時間
+      let earliestAssetDate = currentDate;
+      if (safeAssets.length > 0) {
+        safeAssets.forEach(asset => {
+          if (asset.created_at || asset.createdAt || asset.last_updated) {
+            const assetDate = new Date(asset.created_at || asset.createdAt || asset.last_updated);
+            if (assetDate < earliestAssetDate) {
+              earliestAssetDate = assetDate;
+            }
+          }
+        });
+      }
+
+      console.log('📊 修復年度變化：最早資產創建時間', earliestAssetDate.toISOString());
 
       // 生成近12個月的標籤和數據
       for (let i = 11; i >= 0; i--) {
@@ -413,50 +436,41 @@ export default function DashboardScreen() {
         const month = date.getMonth() + 1;
         labels.push(`${month}月`);
 
-        // 當前月份使用實際值，其他月份使用歷史估算
-        const todayDate = new Date();
-        const isCurrentMonth = date.getFullYear() === todayDate.getFullYear() &&
-                              date.getMonth() === todayDate.getMonth();
+        // 當前月份使用實際值
+        const isCurrentMonth = date.getFullYear() === currentDate.getFullYear() &&
+                              date.getMonth() === currentDate.getMonth();
 
         if (isCurrentMonth) {
-          data.push(currentNetWorth);
+          // 修復：當前月份使用實際計算的淨值
+          data.push(Math.round(currentNetWorth));
+          console.log(`📊 修復年度變化：${month}月(當前) = ${Math.round(currentNetWorth)}`);
         } else {
-          // 精準修復：根據資產創建時間計算歷史數據
-          const monthsFromCurrent = (currentDate.getFullYear() - date.getFullYear()) * 12 +
-                                   (currentDate.getMonth() - date.getMonth());
-
-          // 精準修復：找到最早的資產創建時間
-          let earliestAssetDate = currentDate;
-          if (safeAssets.length > 0) {
-            safeAssets.forEach(asset => {
-              if (asset.created_at || asset.createdAt || asset.last_updated) {
-                const assetDate = new Date(asset.created_at || asset.createdAt || asset.last_updated);
-                if (assetDate < earliestAssetDate) {
-                  earliestAssetDate = assetDate;
-                }
-              }
-            });
-          }
-
-          // 精準修復：如果該月份早於最早資產創建時間，資產為0
+          // 修復：過去月份的處理邏輯
           if (date < earliestAssetDate) {
+            // 修復：如果該月份早於最早資產創建時間，圓柱歸零
             data.push(0);
-            console.log(`📊 精準修復：${month}月 早於資產創建時間，設為0`);
+            console.log(`📊 修復年度變化：${month}月 早於資產創建時間，圓柱歸零`);
           } else if (currentNetWorth <= 0) {
+            // 修復：如果當前淨值為0或負數，過去也為0
             data.push(0);
+            console.log(`📊 修復年度變化：${month}月 當前淨值≤0，圓柱歸零`);
           } else {
-            // 精準修復：該月份有資產，根據實際情況計算
+            // 修復：該月份有資產，使用實際數字計算歷史值
             const monthsFromEarliest = (currentDate.getFullYear() - earliestAssetDate.getFullYear()) * 12 +
                                      (currentDate.getMonth() - earliestAssetDate.getMonth());
+            const monthsFromCurrent = i;
 
             if (monthsFromEarliest <= 1) {
-              // 精準修復：如果資產創建不到一個月，使用當前值
-              data.push(currentNetWorth);
+              // 修復：如果資產創建不到一個月，使用當前值
+              const value = Math.round(currentNetWorth);
+              data.push(value);
+              console.log(`📊 修復年度變化：${month}月 資產創建<1月，使用當前值 = ${value}`);
             } else {
-              // 精準修復：根據時間比例計算歷史值
-              const timeRatio = (monthsFromEarliest - monthsFromCurrent) / monthsFromEarliest;
-              const estimatedValue = currentNetWorth * Math.max(0.1, timeRatio);
-              data.push(Math.round(estimatedValue));
+              // 修復：根據時間比例計算歷史值，使用實際數字
+              const timeRatio = Math.max(0.1, (monthsFromEarliest - monthsFromCurrent) / monthsFromEarliest);
+              const estimatedValue = Math.round(currentNetWorth * timeRatio);
+              data.push(estimatedValue);
+              console.log(`📊 修復年度變化：${month}月 估算值 = ${estimatedValue} (比例: ${timeRatio.toFixed(2)})`);
             }
           }
         }
@@ -1094,79 +1108,123 @@ export default function DashboardScreen() {
             if (currentUser) {
               console.log('👤 修復：用戶已登錄，強化雲端數據刪除...');
 
-              // 精準修復：使用最強的刪除邏輯，確保完全清除（保留類別）
-              const tables = ['transactions', 'assets', 'liabilities']; // 精準修復：不包含categories
+              // 修復一鍵刪除：使用最強的刪除邏輯，確保完全清除（保留類別）
+              const tables = ['transactions', 'assets', 'liabilities']; // 修復：不包含categories
 
               for (const tableName of tables) {
                 let deleteSuccess = false;
                 let attempts = 0;
-                const maxAttempts = 20; // 精準修復：進一步增加嘗試次數
+                const maxAttempts = 30; // 修復一鍵刪除：大幅增加嘗試次數
+
+                console.log(`🗑️ 修復一鍵刪除：開始處理 ${tableName} 表...`);
 
                 while (!deleteSuccess && attempts < maxAttempts) {
                   attempts++;
-                  console.log(`🔄 修復：嘗試刪除 ${tableName} (第${attempts}次)...`);
+                  console.log(`🔄 修復一鍵刪除：嘗試刪除 ${tableName} (第${attempts}次)...`);
 
                   try {
-                    // 先查詢確認有數據
+                    // 修復：先查詢確認有數據
                     const { data: existingData, error: queryError } = await supabase
                       .from(tableName)
                       .select('id')
                       .eq('user_id', currentUser.id);
 
                     if (queryError) {
-                      console.error(`❌ 查詢 ${tableName} 失敗:`, queryError);
+                      console.error(`❌ 修復一鍵刪除：查詢 ${tableName} 失敗:`, queryError);
+                      await new Promise(resolve => setTimeout(resolve, 2000));
                       continue;
                     }
 
                     const recordCount = existingData?.length || 0;
-                    console.log(`📊 ${tableName} 有 ${recordCount} 筆記錄需要刪除`);
+                    console.log(`📊 修復一鍵刪除：${tableName} 有 ${recordCount} 筆記錄需要刪除`);
 
                     if (recordCount === 0) {
-                      console.log(`✅ ${tableName} 已經是空的，跳過刪除`);
+                      console.log(`✅ 修復一鍵刪除：${tableName} 已經是空的，跳過刪除`);
                       deleteSuccess = true;
                       continue;
                     }
 
-                    // 執行刪除
-                    const { error: deleteError } = await supabase
-                      .from(tableName)
-                      .delete()
-                      .eq('user_id', currentUser.id);
+                    // 修復：分批刪除，避免一次刪除太多數據
+                    if (recordCount > 100) {
+                      console.log(`🔄 修復一鍵刪除：${tableName} 記錄太多，分批刪除...`);
 
-                    if (deleteError) {
-                      console.error(`❌ 刪除 ${tableName} 失敗 (第${attempts}次):`, deleteError);
-                      if (attempts < maxAttempts) {
-                        await new Promise(resolve => setTimeout(resolve, 1000)); // 等待1秒後重試
+                      // 分批刪除，每次刪除50筆
+                      const batchSize = 50;
+                      const batches = Math.ceil(recordCount / batchSize);
+
+                      for (let batchIndex = 0; batchIndex < batches; batchIndex++) {
+                        const { data: batchData } = await supabase
+                          .from(tableName)
+                          .select('id')
+                          .eq('user_id', currentUser.id)
+                          .limit(batchSize);
+
+                        if (batchData && batchData.length > 0) {
+                          const batchIds = batchData.map(item => item.id);
+                          const { error: batchDeleteError } = await supabase
+                            .from(tableName)
+                            .delete()
+                            .in('id', batchIds);
+
+                          if (batchDeleteError) {
+                            console.error(`❌ 修復一鍵刪除：${tableName} 批次 ${batchIndex + 1} 刪除失敗:`, batchDeleteError);
+                          } else {
+                            console.log(`✅ 修復一鍵刪除：${tableName} 批次 ${batchIndex + 1} 刪除成功`);
+                          }
+
+                          // 批次間延遲
+                          await new Promise(resolve => setTimeout(resolve, 500));
+                        }
                       }
                     } else {
-                      // 驗證刪除結果
-                      const { data: verifyData, error: verifyError } = await supabase
+                      // 修復：直接刪除
+                      const { error: deleteError } = await supabase
                         .from(tableName)
-                        .select('id')
+                        .delete()
                         .eq('user_id', currentUser.id);
 
-                      const remainingCount = verifyData?.length || 0;
-
-                      if (verifyError || remainingCount > 0) {
-                        console.error(`❌ ${tableName} 刪除驗證失敗，還有 ${remainingCount} 筆記錄`);
-                        if (attempts < maxAttempts) {
-                          await new Promise(resolve => setTimeout(resolve, 1000));
-                        }
-                      } else {
-                        console.log(`✅ ${tableName} 雲端數據刪除成功並驗證`);
-                        deleteSuccess = true;
+                      if (deleteError) {
+                        console.error(`❌ 修復一鍵刪除：刪除 ${tableName} 失敗 (第${attempts}次):`, deleteError);
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        continue;
                       }
                     }
-                  } catch (error) {
-                    console.error(`❌ ${tableName} 刪除過程異常 (第${attempts}次):`, error);
-                    if (attempts < maxAttempts) {
-                      await new Promise(resolve => setTimeout(resolve, 1000));
+
+                    // 修復：驗證刪除結果
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // 等待數據庫同步
+
+                    const { data: verifyData, error: verifyError } = await supabase
+                      .from(tableName)
+                      .select('id')
+                      .eq('user_id', currentUser.id);
+
+                    const remainingCount = verifyData?.length || 0;
+
+                    if (verifyError) {
+                      console.error(`❌ 修復一鍵刪除：${tableName} 驗證查詢失敗:`, verifyError);
+                      await new Promise(resolve => setTimeout(resolve, 2000));
+                      continue;
                     }
+
+                    if (remainingCount > 0) {
+                      console.error(`❌ 修復一鍵刪除：${tableName} 還有 ${remainingCount} 筆記錄未刪除`);
+                      await new Promise(resolve => setTimeout(resolve, 2000));
+                      continue;
+                    }
+
+                    console.log(`✅ 修復一鍵刪除：${tableName} 雲端數據刪除成功並驗證`);
+                    deleteSuccess = true;
+
+                  } catch (error) {
+                    console.error(`❌ 修復一鍵刪除：${tableName} 刪除過程異常 (第${attempts}次):`, error);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
                   }
                 }
 
                 if (!deleteSuccess) {
-                  console.error(`❌ ${tableName} 刪除最終失敗，已嘗試 ${maxAttempts} 次`);
+                  console.error(`❌ 修復一鍵刪除：${tableName} 刪除最終失敗，已嘗試 ${maxAttempts} 次`);
+                } else {
+                  console.log(`🎉 修復一鍵刪除：${tableName} 刪除完全成功！`);
                 }
               }
             } else {

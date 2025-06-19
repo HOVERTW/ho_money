@@ -432,19 +432,28 @@ export default function BalanceSheetScreen() {
     return labels[type] || type;
   };
 
-  // 修復：渲染右滑刪除按鈕（增強事件處理）
+  // 修復滑動刪除：渲染右滑刪除按鈕（強化事件處理）
   const renderRightActions = (onDelete: () => void) => {
+    console.log('🗑️ 修復滑動刪除：渲染右側刪除按鈕');
+
     return (
       <Animated.View style={styles.deleteAction}>
         <TouchableOpacity
           style={styles.deleteButton}
           onPress={() => {
-            console.log('🗑️ 修復：滑動刪除按鈕被點擊');
-            onDelete();
+            console.log('🗑️ 修復滑動刪除：刪除按鈕被點擊，執行回調');
+            try {
+              onDelete();
+              console.log('✅ 修復滑動刪除：回調執行成功');
+            } catch (error) {
+              console.error('❌ 修復滑動刪除：回調執行失敗:', error);
+            }
           }}
-          activeOpacity={0.7}
+          activeOpacity={0.6} // 修復滑動刪除：增強按鈕反饋
+          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }} // 修復滑動刪除：增加點擊區域
         >
-          <Ionicons name="trash" size={20} color="#fff" />
+          <Ionicons name="trash" size={24} color="#fff" />
+          <Text style={styles.deleteText}>刪除</Text>
         </TouchableOpacity>
       </Animated.View>
     );
@@ -1027,6 +1036,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 100,
     height: '100%',
+  },
+  deleteText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
   },
   // 拖曳相關樣式
   draggingCard: {
