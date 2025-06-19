@@ -421,21 +421,43 @@ export default function DashboardScreen() {
         if (isCurrentMonth) {
           data.push(currentNetWorth);
         } else {
-          // 深度修復：過去金額為零時圓柱歸零，使用實際數字
+          // 精準修復：根據資產創建時間計算歷史數據
           const monthsFromCurrent = (currentDate.getFullYear() - date.getFullYear()) * 12 +
                                    (currentDate.getMonth() - date.getMonth());
 
-          // 深度修復：如果當前淨值為0或負數，過去數據也應該為0
-          if (currentNetWorth <= 0) {
+          // 精準修復：找到最早的資產創建時間
+          let earliestAssetDate = currentDate;
+          if (safeAssets.length > 0) {
+            safeAssets.forEach(asset => {
+              if (asset.created_at || asset.createdAt || asset.last_updated) {
+                const assetDate = new Date(asset.created_at || asset.createdAt || asset.last_updated);
+                if (assetDate < earliestAssetDate) {
+                  earliestAssetDate = assetDate;
+                }
+              }
+            });
+          }
+
+          // 精準修復：如果該月份早於最早資產創建時間，資產為0
+          if (date < earliestAssetDate) {
+            data.push(0);
+            console.log(`📊 精準修復：${month}月 早於資產創建時間，設為0`);
+          } else if (currentNetWorth <= 0) {
             data.push(0);
           } else {
-            // 深度修復：使用更真實的歷史估算，避免隨機數
-            const growthRate = 0.005; // 每月0.5%的穩定成長
-            const estimatedValue = currentNetWorth / Math.pow(1 + growthRate, monthsFromCurrent);
+            // 精準修復：該月份有資產，根據實際情況計算
+            const monthsFromEarliest = (currentDate.getFullYear() - earliestAssetDate.getFullYear()) * 12 +
+                                     (currentDate.getMonth() - earliestAssetDate.getMonth());
 
-            // 深度修復：確保過去數據不會超過當前值，且為實際數字
-            const finalValue = Math.min(estimatedValue, currentNetWorth * 0.9);
-            data.push(Math.max(0, finalValue));
+            if (monthsFromEarliest <= 1) {
+              // 精準修復：如果資產創建不到一個月，使用當前值
+              data.push(currentNetWorth);
+            } else {
+              // 精準修復：根據時間比例計算歷史值
+              const timeRatio = (monthsFromEarliest - monthsFromCurrent) / monthsFromEarliest;
+              const estimatedValue = currentNetWorth * Math.max(0.1, timeRatio);
+              data.push(Math.round(estimatedValue));
+            }
           }
         }
       }
@@ -791,10 +813,10 @@ export default function DashboardScreen() {
     }
   };
 
-  // 手動觸發數據同步到 Supabase - 使用專門的上傳服務
+  // 精準修復：手動觸發數據同步到 Supabase
   const handleSyncToSupabase = async () => {
     try {
-      console.log('🚀 開始手動上傳本地數據到 Supabase...');
+      console.log('🚀 精準修復：開始手動上傳本地數據到 Supabase...');
 
       // 檢查用戶是否已登錄
       const { data: { user } } = await supabase.auth.getUser();
@@ -803,17 +825,22 @@ export default function DashboardScreen() {
         return;
       }
 
-      // 顯示上傳進度
-      Alert.alert('上傳中', '正在上傳本地數據到雲端，請稍候...');
+      console.log('✅ 精準修復：用戶已登錄，開始上傳流程');
+
+      // 精準修復：顯示上傳進度
+      Alert.alert('上傳中', '正在上傳本地數據到雲端，請稍候...', [], { cancelable: false });
 
       // 使用專門的手動上傳服務
       const result = await manualUploadService.uploadAllLocalData();
 
-      console.log('🎯 上傳結果:', result);
+      console.log('🎯 精準修復：上傳結果:', result);
 
       if (result.success) {
         const { transactions, assets, liabilities, accounts, categories } = result.details;
         const totalCount = transactions + assets + liabilities + accounts + categories;
+
+        // 精準修復：強制刷新數據
+        await handleForceRefreshData();
 
         Alert.alert(
           '上傳成功！',
@@ -823,18 +850,24 @@ export default function DashboardScreen() {
           `• 負債數據：${liabilities} 筆\n` +
           `• 帳戶數據：${accounts} 筆\n` +
           `• 交易類別：${categories} 筆\n\n` +
-          `總計：${totalCount} 筆數據`
+          `總計：${totalCount} 筆數據`,
+          [{ text: '確定', onPress: () => console.log('✅ 精準修復：用戶確認上傳成功') }]
         );
       } else {
         Alert.alert(
           '上傳失敗',
-          `${result.message}\n\n錯誤詳情：\n${result.errors.join('\n')}`
+          `${result.message}\n\n錯誤詳情：\n${result.errors.join('\n')}`,
+          [{ text: '確定', onPress: () => console.log('❌ 精準修復：用戶確認上傳失敗') }]
         );
       }
 
     } catch (error) {
-      console.error('❌ 手動上傳失敗:', error);
-      Alert.alert('上傳失敗', `上傳過程中發生錯誤: ${error instanceof Error ? error.message : '未知錯誤'}`);
+      console.error('❌ 精準修復：手動上傳失敗:', error);
+      Alert.alert(
+        '上傳失敗',
+        `上傳過程中發生錯誤: ${error instanceof Error ? error.message : '未知錯誤'}`,
+        [{ text: '確定', onPress: () => console.log('❌ 精準修復：用戶確認上傳錯誤') }]
+      );
     }
   };
 
@@ -1061,13 +1094,13 @@ export default function DashboardScreen() {
             if (currentUser) {
               console.log('👤 修復：用戶已登錄，強化雲端數據刪除...');
 
-              // 終極修復：使用最強的刪除邏輯，確保完全清除
-              const tables = ['transactions', 'assets', 'liabilities'];
+              // 精準修復：使用最強的刪除邏輯，確保完全清除（保留類別）
+              const tables = ['transactions', 'assets', 'liabilities']; // 精準修復：不包含categories
 
               for (const tableName of tables) {
                 let deleteSuccess = false;
                 let attempts = 0;
-                const maxAttempts = 15; // 終極修復：大幅增加嘗試次數
+                const maxAttempts = 20; // 精準修復：進一步增加嘗試次數
 
                 while (!deleteSuccess && attempts < maxAttempts) {
                   attempts++;
@@ -1370,33 +1403,45 @@ export default function DashboardScreen() {
                 );
               }
 
-              // 修復：年度變化計算邏輯（正確處理成長率）
+              // 精準修復：年度變化計算邏輯（根據資產創建時間）
               const latestValue = netWorthData.datasets[0].data[netWorthData.datasets[0].data.length - 1];
               const firstValue = netWorthData.datasets[0].data[0];
               const change = latestValue - firstValue;
 
-              // 修復：正確計算年度變化
-              const isFirstMonth = netWorthData.datasets[0].data.length === 1;
+              console.log('📊 精準修復：年度變化計算');
+              console.log('- 當前值:', latestValue);
+              console.log('- 一年前值:', firstValue);
+              console.log('- 變化:', change);
+
+              // 精準修復：根據實際數據情況計算年度變化
               let displayLabel, displayValue, changePercent;
 
-              if (isFirstMonth) {
-                // 只有當月數據，顯示當前總資產
+              // 精準修復：檢查是否有足夠的歷史數據
+              const hasHistoricalData = netWorthData.datasets[0].data.some((value, index) =>
+                index < netWorthData.datasets[0].data.length - 1 && value > 0
+              );
+
+              if (!hasHistoricalData || firstValue === 0) {
+                // 精準修復：沒有歷史數據或一年前為0，顯示當前總資產
                 displayLabel = '當前總資產';
                 displayValue = latestValue;
                 changePercent = 0;
+                console.log('📊 精準修復：無歷史數據，顯示當前總資產');
               } else {
-                // 有歷史數據，計算年度變化
+                // 精準修復：有歷史數據，計算年度變化
                 displayLabel = '年度變化';
                 displayValue = change;
 
                 if (firstValue === 0) {
-                  // 修復：從0開始，成長率為無限大（0→100萬顯示+100萬(∞%)）
+                  // 精準修復：從0開始，成長率為無限大（0→100萬顯示+100萬(∞%)）
                   changePercent = '∞';
+                  console.log('📊 精準修復：從0成長，顯示∞%');
                 } else {
-                  // 修復：正確計算成長率
-                  // 示範：一年前是100萬，現在是500萬，那成長400萬，成長400%
-                  // 公式：(現在值 - 一年前值) / 一年前值 * 100
-                  changePercent = Math.round((change / Math.abs(firstValue)) * 100);
+                  // 精準修復：正確計算成長率
+                  // 當月資產/一年前的資產 - 1 = 成長率
+                  // 例如：500萬/100萬 - 1 = 4 = 400%
+                  changePercent = Math.round(((latestValue / firstValue) - 1) * 100);
+                  console.log('📊 精準修復：計算成長率:', `${latestValue}/${firstValue} - 1 = ${changePercent}%`);
                 }
               }
 
