@@ -414,9 +414,10 @@ class UnifiedDataManager {
           id: liability.id,
           user_id: user.id,
           name: liability.name || '未命名負債',
-          amount: Number(liability.amount || 0),
+          balance: Number(liability.balance || 0), // 🔧 修復：使用 balance 而不是 amount
           type: liability.type || 'other',
-          description: liability.description || '',
+          interest_rate: Number(liability.interest_rate || 0),
+          monthly_payment: Number(liability.monthly_payment || 0),
           created_at: liability.created_at || new Date().toISOString(),
           updated_at: new Date().toISOString()
         }));
