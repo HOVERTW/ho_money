@@ -133,13 +133,17 @@ export default function SwipeableTransactionItem({
             {item.type === 'transfer' ? '' : (item.type === 'income' ? '+' : '-')}
             {formatCurrency(Math.abs(item.amount))}
           </Text>
-          {/* 🔧 WEB 環境臨時刪除按鈕 */}
+          {/* 🔧 WEB 環境臨時刪除按鈕 - 防止事件冒泡 */}
           <TouchableOpacity
-            onPress={handleDelete}
+            onPress={(e) => {
+              e.stopPropagation();
+              console.log('🗑️ 刪除按鈕被點擊 - 交易ID:', item.id);
+              handleDelete();
+            }}
             style={styles.webDeleteButton}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
           >
-            <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+            <Ionicons name="trash-outline" size={18} color="#FF3B30" />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -255,10 +259,15 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   webDeleteButton: {
-    padding: 6,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255, 59, 48, 0.1)',
-    marginLeft: 8,
+    padding: 10,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    marginLeft: 10,
+    minWidth: 40,
+    minHeight: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
   },
 
 });

@@ -113,7 +113,7 @@ class LiabilityService {
       }
 
       if (liabilitiesData && liabilitiesData.length > 0) {
-        // 🔧 修復負債讀取：使用正確的欄位映射
+        // 🔧 修復負債讀取：使用正確的欄位映射，包含所有字段
         this.liabilities = liabilitiesData.map(liability => ({
           id: liability.id,
           name: liability.name,
@@ -124,6 +124,12 @@ class LiabilityService {
           monthly_payment: liability.monthly_payment || 0,
           payment_account: liability.payment_account || '',
           payment_day: liability.payment_day || 1,
+          // 🔧 新增：正確映射期數相關字段
+          payment_periods: liability.payment_periods || null,
+          remaining_periods: liability.remaining_periods || liability.payment_periods || null,
+          last_payment_date: liability.last_payment_date || null,
+          next_payment_date: liability.next_payment_date || null,
+          sort_order: liability.sort_order || 0,
           createdAt: liability.created_at,
           updatedAt: liability.updated_at
         }));

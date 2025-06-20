@@ -524,13 +524,19 @@ export default function BalanceSheetScreen() {
                         activeOpacity={0.7}
                       >
                         <View style={styles.itemHeader}>
-                          <Text style={styles.itemName}>{asset.name}</Text>
-                          <Text style={styles.itemType}>{getAssetTypeLabel(asset.type)}</Text>
-                          {/* 🔧 WEB 環境臨時刪除按鈕 */}
+                          <View style={styles.itemTitleContainer}>
+                            <Text style={styles.itemName}>{asset.name}</Text>
+                            <Text style={styles.itemType}>{getAssetTypeLabel(asset.type)}</Text>
+                          </View>
+                          {/* 🔧 WEB 環境臨時刪除按鈕 - 防止事件冒泡 */}
                           <TouchableOpacity
-                            onPress={() => handleDeleteAsset(asset.id)}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              console.log('🗑️ 刪除按鈕被點擊 - 資產ID:', asset.id);
+                              handleDeleteAsset(asset.id);
+                            }}
                             style={styles.webDeleteButton}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                           >
                             <Ionicons name="trash-outline" size={20} color="#FF3B30" />
                           </TouchableOpacity>
@@ -760,13 +766,19 @@ export default function BalanceSheetScreen() {
                         activeOpacity={0.7}
                       >
                         <View style={styles.itemHeader}>
-                          <Text style={styles.itemName}>{liability.name}</Text>
-                          <Text style={styles.itemType}>{getLiabilityTypeLabel(liability.type)}</Text>
-                          {/* 🔧 WEB 環境臨時刪除按鈕 */}
+                          <View style={styles.itemTitleContainer}>
+                            <Text style={styles.itemName}>{liability.name}</Text>
+                            <Text style={styles.itemType}>{getLiabilityTypeLabel(liability.type)}</Text>
+                          </View>
+                          {/* 🔧 WEB 環境臨時刪除按鈕 - 防止事件冒泡 */}
                           <TouchableOpacity
-                            onPress={() => handleDeleteLiability(liability.id)}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              console.log('🗑️ 刪除按鈕被點擊 - 負債ID:', liability.id);
+                              handleDeleteLiability(liability.id);
+                            }}
                             style={styles.webDeleteButton}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                           >
                             <Ionicons name="trash-outline" size={20} color="#FF3B30" />
                           </TouchableOpacity>
@@ -1132,9 +1144,17 @@ const styles = StyleSheet.create({
     borderColor: '#FFE0B2',
   },
   webDeleteButton: {
-    padding: 8,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 59, 48, 0.1)',
-    marginLeft: 8,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    marginLeft: 12,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  itemTitleContainer: {
+    flex: 1,
   },
 });

@@ -426,6 +426,14 @@ class UnifiedDataManager {
           type: liability.type || 'other',
           interest_rate: Number(liability.interest_rate || 0),
           monthly_payment: Number(liability.monthly_payment || 0),
+          // 🔧 新增：上傳所有期數相關字段
+          payment_account: liability.payment_account || null,
+          payment_day: liability.payment_day || null,
+          payment_periods: liability.payment_periods || null,
+          remaining_periods: liability.remaining_periods || null,
+          last_payment_date: liability.last_payment_date || null,
+          next_payment_date: liability.next_payment_date || null,
+          sort_order: liability.sort_order || 0,
           created_at: liability.created_at || new Date().toISOString(),
           updated_at: new Date().toISOString()
         }));
