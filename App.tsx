@@ -10,9 +10,10 @@ import { errorHandler } from './src/utils/errorHandler';
 import { SupabaseConnectionTest } from './src/utils/supabaseTest';
 import { NotificationManager } from './src/components/NotificationManager';
 
-// 在開發環境中導入通知測試工具
+// 在開發環境中導入測試工具
 if (__DEV__) {
   import('./src/utils/testNotifications');
+  import('./src/utils/testRegistration');
 }
 // import { DiagnosticsService } from './src/utils/diagnostics';
 

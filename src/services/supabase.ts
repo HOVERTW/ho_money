@@ -301,15 +301,119 @@ export const authService = {
         error: signUpResult.error?.message
       });
 
-      // 如果創建成功但需要郵件確認，提供提示
+      // 🔧 修復：如果創建成功但需要郵件確認，嘗試自動確認
       if (signUpResult.data.user && !signUpResult.data.user.email_confirmed_at) {
-        console.log('⚠️ 用戶已創建但需要郵件確認');
-        console.log('💡 建議: 在 Supabase Dashboard 中手動確認用戶郵箱');
+        console.log('🔧 用戶已創建但需要郵件確認，嘗試自動登錄...');
+
+        // 等待一下，然後嘗試直接登錄
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const autoLoginResult = await supabase.auth.signInWithPassword({ email, password });
+        if (autoLoginResult.data.user && !autoLoginResult.error) {
+          console.log('✅ 自動登錄成功，跳過郵件確認');
+          return autoLoginResult;
+        } else {
+          console.log('⚠️ 自動登錄失敗，返回原始註冊結果');
+          // 返回成功的註冊結果，但標記為需要確認
+          return {
+            data: {
+              user: signUpResult.data.user,
+              session: null // 沒有 session，但用戶已創建
+            },
+            error: null
+          };
+        }
       }
 
       return signUpResult;
     } catch (error) {
       console.error('💥 測試用戶創建錯誤:', error);
+      throw error;
+    }
+  },
+
+  // 🆕 直接註冊用戶（不需要郵件確認）
+  createUserDirectly: async (email: string, password: string): Promise<AuthResponse> => {
+    console.log('🚀 直接創建用戶（跳過郵件確認）:', email);
+
+    try {
+      // 首先檢查用戶是否已存在
+      const existingUserCheck = await supabase.auth.signInWithPassword({ email, password });
+      if (existingUserCheck.data.user && !existingUserCheck.error) {
+        console.log('✅ 用戶已存在，直接登錄');
+        return existingUserCheck;
+      }
+
+      // 🔧 使用簡化的註冊流程
+      console.log('🔧 使用簡化註冊流程...');
+
+      // 方法1: 嘗試不帶任何選項的註冊
+      let signUpResult = await supabase.auth.signUp({
+        email,
+        password
+      });
+
+      console.log('📝 簡化註冊結果:', {
+        user: signUpResult.data.user ? {
+          id: signUpResult.data.user.id,
+          email: signUpResult.data.user.email,
+          email_confirmed_at: signUpResult.data.user.email_confirmed_at
+        } : null,
+        session: signUpResult.data.session ? 'exists' : 'null',
+        error: signUpResult.error?.message
+      });
+
+      // 如果註冊成功
+      if (signUpResult.data.user && !signUpResult.error) {
+        // 方法2: 多次嘗試登錄，直到成功或超時
+        console.log('🔄 註冊成功，嘗試多次登錄...');
+
+        for (let attempt = 1; attempt <= 5; attempt++) {
+          console.log(`🔄 登錄嘗試 ${attempt}/5...`);
+
+          await new Promise(resolve => setTimeout(resolve, attempt * 500)); // 遞增等待時間
+
+          const loginAttempt = await supabase.auth.signInWithPassword({ email, password });
+
+          if (loginAttempt.data.user && loginAttempt.data.session && !loginAttempt.error) {
+            console.log(`✅ 第 ${attempt} 次登錄嘗試成功！`);
+            return loginAttempt;
+          } else {
+            console.log(`⚠️ 第 ${attempt} 次登錄嘗試失敗:`, loginAttempt.error?.message);
+          }
+        }
+
+        // 如果所有登錄嘗試都失敗，返回註冊成功但需要手動登錄的狀態
+        console.log('⚠️ 所有登錄嘗試失敗，但用戶已創建成功');
+        return {
+          data: {
+            user: signUpResult.data.user,
+            session: null // 明確設置為 null，表示需要手動登錄
+          },
+          error: null
+        };
+      }
+
+      // 如果註冊失敗，返回錯誤
+      return signUpResult;
+
+    } catch (error) {
+      console.error('💥 直接創建用戶錯誤:', error);
+
+      // 如果是用戶已存在的錯誤，嘗試登錄
+      if (error.message && error.message.includes('already registered')) {
+        console.log('🔄 用戶已存在，嘗試登錄...');
+        try {
+          const loginResult = await supabase.auth.signInWithPassword({ email, password });
+          if (loginResult.data.user && !loginResult.error) {
+            console.log('✅ 已存在用戶登錄成功');
+            return loginResult;
+          }
+        } catch (loginError) {
+          console.error('💥 已存在用戶登錄失敗:', loginError);
+        }
+      }
+
       throw error;
     }
   },

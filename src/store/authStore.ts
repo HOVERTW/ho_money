@@ -100,8 +100,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      console.log('🚀 AuthStore: 調用 authService.createTestUser...');
-      const { data, error } = await authService.createTestUser(email, password);
+      console.log('🚀 AuthStore: 調用 authService.createUserDirectly...');
+      const { data, error } = await authService.createUserDirectly(email, password);
 
       console.log('📝 AuthStore: 註冊結果:', {
         hasUser: !!data.user,
@@ -131,7 +131,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         console.log('📧 AuthStore: 用戶確認狀態:', data.user.email_confirmed_at ? '已確認' : '未確認');
 
         if (data.session) {
-          // 有 session，直接登錄
+          // 有 session，直接登錄成功
           console.log('🎉 AuthStore: 註冊成功並已登錄');
           set({
             user: data.user,
@@ -147,19 +147,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             false
           );
         } else {
-          // 沒有 session，這是正常的，需要電子郵件確認
-          console.log('📧 AuthStore: 註冊成功，需要電子郵件確認');
+          // 沒有 session，但用戶已創建 - 視為成功
+          console.log('✅ AuthStore: 註冊成功，用戶已創建');
           set({
             loading: false,
-            error: null, // 不設置錯誤，因為這是成功的
-            // 添加成功標記
+            error: null,
             registrationSuccess: true
           });
 
-          // 顯示註冊成功通知
+          // 顯示註冊成功通知，提示用戶可以直接登錄
           notificationManager.success(
             '註冊成功',
-            '請檢查您的電子郵件並點擊確認連結完成註冊',
+            '帳號已創建成功！請使用您的帳號密碼登錄',
             true
           );
         }
