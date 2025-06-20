@@ -4,8 +4,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../config/supabase';
-import { STORAGE_KEYS } from '../constants/storage';
+import { supabase } from './supabase';
+import { STORAGE_KEYS } from '../utils/storageManager';
 
 export interface DeleteResult {
   success: boolean;
