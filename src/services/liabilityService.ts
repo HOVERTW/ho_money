@@ -113,12 +113,12 @@ class LiabilityService {
       }
 
       if (liabilitiesData && liabilitiesData.length > 0) {
-        // 轉換 Supabase 數據格式
+        // 🔧 修復負債讀取：使用正確的欄位映射
         this.liabilities = liabilitiesData.map(liability => ({
           id: liability.id,
           name: liability.name,
           type: liability.type,
-          balance: liability.current_amount || liability.amount || 0,
+          balance: liability.balance || 0, // 🔧 修復：直接使用 balance 欄位
           interest_rate: liability.interest_rate || 0,
           dueDate: liability.due_date || null,
           monthly_payment: liability.monthly_payment || 0,

@@ -35,115 +35,49 @@ export default function SwipeableTransactionItem({
 }: SwipeableTransactionItemProps) {
 
   const handleDelete = () => {
-    console.log('🗑️ 終極修復：滑動刪除被觸發，交易ID:', item.id);
-    console.log('🗑️ 終極修復：交易詳情:', JSON.stringify(item, null, 2));
+    console.log('🗑️ 新刪除：交易刪除被觸發，交易ID:', item.id);
 
     if (!onDelete) {
-      console.error('❌ 終極修復：onDelete回調函數未定義');
+      console.error('❌ 新刪除：onDelete回調函數未定義');
       Alert.alert('錯誤', '刪除功能暫時不可用');
       return;
     }
 
-    if (item.is_recurring) {
-      // 循環交易顯示三個選項
-      Alert.alert(
-        '刪除循環交易',
-        `確定要刪除循環交易 "${item.description}" 嗎？`,
-        [
-          {
-            text: '單次刪除',
-            onPress: () => {
-              console.log('🗑️ 終極修復：用戶選擇單次刪除');
-              try {
-                onDelete(item, 'single');
-                console.log('✅ 終極修復：單次刪除調用成功');
-              } catch (error) {
-                console.error('❌ 終極修復：單次刪除調用失敗:', error);
-              }
-            },
-            style: 'default',
+    // 簡化的刪除確認
+    Alert.alert(
+      '刪除交易',
+      `確定要刪除交易 "${item.description}" 嗎？`,
+      [
+        {
+          text: '取消',
+          style: 'cancel',
+        },
+        {
+          text: '刪除',
+          style: 'destructive',
+          onPress: () => {
+            console.log('🗑️ 新刪除：用戶確認刪除，調用onDelete');
+            try {
+              onDelete(item);
+              console.log('✅ 新刪除：刪除調用成功');
+            } catch (error) {
+              console.error('❌ 新刪除：刪除調用失敗:', error);
+              Alert.alert('刪除失敗', '交易刪除時發生錯誤，請重試');
+            }
           },
-          {
-            text: '向後刪除',
-            onPress: () => {
-              console.log('🗑️ 終極修復：用戶選擇向後刪除');
-              try {
-                onDelete(item, 'future');
-                console.log('✅ 終極修復：向後刪除調用成功');
-              } catch (error) {
-                console.error('❌ 終極修復：向後刪除調用失敗:', error);
-              }
-            },
-            style: 'destructive',
-          },
-          {
-            text: '全部刪除',
-            onPress: () => {
-              console.log('🗑️ 終極修復：用戶選擇全部刪除');
-              try {
-                onDelete(item, 'all');
-                console.log('✅ 終極修復：全部刪除調用成功');
-              } catch (error) {
-                console.error('❌ 終極修復：全部刪除調用失敗:', error);
-              }
-            },
-            style: 'destructive',
-          },
-          {
-            text: '取消',
-            onPress: () => {
-              console.log('🗑️ 終極修復：用戶取消刪除');
-            },
-            style: 'cancel',
-          },
-        ]
-      );
-    } else {
-      // 普通交易直接刪除
-      Alert.alert(
-        '刪除交易',
-        `確定要刪除交易 "${item.description}" 嗎？此操作無法撤銷。`,
-        [
-          {
-            text: '取消',
-            onPress: () => {
-              console.log('🗑️ 終極修復：用戶取消刪除');
-            },
-            style: 'cancel',
-          },
-          {
-            text: '刪除',
-            onPress: () => {
-              console.log('🗑️ 終極修復：用戶確認刪除，調用onDelete');
-              try {
-                onDelete(item);
-                console.log('✅ 終極修復：普通交易刪除調用成功');
-              } catch (error) {
-                console.error('❌ 終極修復：普通交易刪除調用失敗:', error);
-                Alert.alert('刪除失敗', '交易刪除時發生錯誤，請重試');
-              }
-            },
-            style: 'destructive',
-          },
-        ]
-      );
-    }
+        },
+      ]
+    );
   };
 
-  // 終極修復：渲染右滑刪除按鈕（增強事件處理）
+  // 🗑️ 新刪除：渲染右滑刪除按鈕
   const renderRightActions = () => {
-    console.log('🗑️ 終極修復：渲染右側刪除按鈕');
-
     return (
       <Animated.View style={styles.deleteAction}>
         <TouchableOpacity
           style={styles.deleteButton}
-          onPress={() => {
-            console.log('🗑️ 終極修復：刪除按鈕被點擊');
-            handleDelete();
-          }}
-          activeOpacity={0.6} // 終極修復：增強按鈕反饋
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // 終極修復：增加點擊區域
+          onPress={handleDelete}
+          activeOpacity={0.6}
         >
           <Ionicons name="trash" size={24} color="#fff" />
           <Text style={styles.deleteText}>刪除</Text>

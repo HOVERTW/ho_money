@@ -289,13 +289,19 @@ export default function BalanceSheetScreen() {
     );
   };
 
-  const handleDeleteLiability = (liabilityId: string) => {
+  const handleDeleteLiability = async (liabilityId: string) => {
+    console.log('🗑️ 新刪除：負債刪除被觸發', liabilityId);
+
     const liability = liabilities.find(l => l.id === liabilityId);
-    if (!liability) return;
+    if (!liability) {
+      console.error('❌ 新刪除：找不到要刪除的負債');
+      Alert.alert('錯誤', '找不到要刪除的負債');
+      return;
+    }
 
     Alert.alert(
       '確認刪除',
-      `確定要刪除負債 "${liability.name}" 嗎？這將同時刪除所有相關的還款記錄和循環交易。`,
+      `確定要刪除負債 "${liability.name}" 嗎？`,
       [
         { text: '取消', style: 'cancel' },
         {
@@ -303,27 +309,31 @@ export default function BalanceSheetScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('🔥 修復4 - 開始刪除負債:', liabilityId, liability.name);
+              console.log('🗑️ 新刪除：用戶確認刪除負債');
 
-              // 🔥 修復4：先刪除相關的循環交易和所有交易記錄
-              await liabilityTransactionSyncService.deleteLiabilityRecurringTransaction(liabilityId);
+              // 使用簡單刪除服務
+              const { SimpleDeleteService } = await import('../services/simpleDeleteService');
+              const result = await SimpleDeleteService.deleteLiability(liabilityId);
 
-              // 再刪除負債本身
-              await liabilityService.deleteLiability(liabilityId);
+              if (result.success) {
+                console.log('✅ 新刪除：負債刪除成功');
 
-              console.log('✅ 修復4 - 負債刪除完成');
+                // 從本地狀態中移除
+                setLiabilities(prev => prev.filter(l => l.id !== liabilityId));
 
-              // 🔥 修復4：額外發射刷新事件確保所有頁面同步
-              eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL, {
-                type: 'liability_deleted',
-                liabilityId: liabilityId,
-                liabilityName: liability.name,
-                timestamp: Date.now()
-              });
+                Alert.alert('刪除成功', `負債 "${liability.name}" 已刪除`);
+              } else {
+                console.error('❌ 新刪除：負債刪除失敗:', result.errors);
+                Alert.alert(
+                  '刪除失敗',
+                  `刪除過程中發生錯誤：\n${result.errors.join('\n')}`,
+                  [{ text: '確定' }]
+                );
+              }
 
             } catch (error) {
-              console.error('❌ 修復4 - 刪除負債失敗:', error);
-              Alert.alert('錯誤', '刪除負債時發生錯誤，請重試');
+              console.error('❌ 新刪除：負債刪除異常:', error);
+              Alert.alert('刪除失敗', `刪除過程中發生錯誤：${error.message}`);
             }
           },
         },
@@ -432,25 +442,14 @@ export default function BalanceSheetScreen() {
     return labels[type] || type;
   };
 
-  // 修復滑動刪除：渲染右滑刪除按鈕（強化事件處理）
+  // 🗑️ 新刪除：渲染右滑刪除按鈕
   const renderRightActions = (onDelete: () => void) => {
-    console.log('🗑️ 修復滑動刪除：渲染右側刪除按鈕');
-
     return (
       <Animated.View style={styles.deleteAction}>
         <TouchableOpacity
           style={styles.deleteButton}
-          onPress={() => {
-            console.log('🗑️ 修復滑動刪除：刪除按鈕被點擊，執行回調');
-            try {
-              onDelete();
-              console.log('✅ 修復滑動刪除：回調執行成功');
-            } catch (error) {
-              console.error('❌ 修復滑動刪除：回調執行失敗:', error);
-            }
-          }}
-          activeOpacity={0.6} // 修復滑動刪除：增強按鈕反饋
-          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }} // 修復滑動刪除：增加點擊區域
+          onPress={onDelete}
+          activeOpacity={0.6}
         >
           <Ionicons name="trash" size={24} color="#fff" />
           <Text style={styles.deleteText}>刪除</Text>
@@ -748,6 +747,7 @@ export default function BalanceSheetScreen() {
               {liabilities.map((liability, index) => (
                 <View key={liability.id} style={styles.itemContainer}>
                   {!isLiabilityEditMode ? (
+                    // 🗑️ 新刪除：重新加回滑動刪除功能
                     <Swipeable
                       renderRightActions={() => renderRightActions(() => handleDeleteLiability(liability.id))}
                       rightThreshold={100}
@@ -758,7 +758,7 @@ export default function BalanceSheetScreen() {
                         onPress={() => {
                           Alert.alert(
                             '負債管理',
-                            '負債僅可刪除',
+                            '負債功能正在重新設計中',
                             [{ text: '確定', style: 'default' }]
                           );
                         }}
@@ -837,6 +837,7 @@ export default function BalanceSheetScreen() {
                           <Ionicons name="chevron-down" size={20} color={index === liabilities.length - 1 ? "#CCC" : "#007AFF"} />
                         </TouchableOpacity>
 
+                        {/* 🗑️ 新刪除：重新加回刪除按鈕 */}
                         <TouchableOpacity
                           style={[styles.controlButton, styles.deleteControlButton]}
                           onPress={() => handleDeleteLiability(liability.id)}

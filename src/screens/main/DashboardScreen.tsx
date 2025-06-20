@@ -1038,77 +1038,64 @@ export default function DashboardScreen() {
     }
   };
 
-  // 🗑️ 全新刪除邏輯：使用統一數據管理器
+  // 🗑️ 新刪除：使用簡單刪除服務
   const handleClearAllData = async () => {
-    console.log('🗑️ 全新刪除：刪除按鈕被點擊');
+    console.log('🗑️ 新刪除：刪除按鈕被點擊');
 
-    // 使用安全的確認對話框
     Alert.alert(
       '確定刪除所有資料？',
-      '此操作將永久刪除：\n• 所有交易記錄\n• 所有資產數據\n• 所有負債數據\n\n此操作無法撤銷！',
+      '此操作將永久刪除：\n• 所有交易記錄\n• 所有資產\n• 所有負債\n\n此操作無法撤銷！',
       [
-        { text: '取消', style: 'cancel' },
+        {
+          text: '取消',
+          style: 'cancel',
+        },
         {
           text: '確定刪除',
           style: 'destructive',
-          onPress: performClearData
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+
+              // 使用簡單刪除服務
+              const { SimpleDeleteService } = await import('../services/simpleDeleteService');
+              const result = await SimpleDeleteService.clearAllData();
+
+              if (result.success) {
+                console.log('✅ 新刪除：清空成功');
+
+                // 重新加載數據
+                await loadDashboardData();
+
+                Alert.alert(
+                  '刪除成功',
+                  `已成功刪除 ${result.deletedCount} 筆數據`,
+                  [{ text: '確定' }]
+                );
+              } else {
+                console.error('❌ 新刪除：清空失敗:', result.errors);
+                Alert.alert(
+                  '刪除失敗',
+                  `刪除過程中發生錯誤：\n${result.errors.join('\n')}`,
+                  [{ text: '確定' }]
+                );
+              }
+            } catch (error) {
+              console.error('❌ 新刪除：操作異常:', error);
+              Alert.alert(
+                '刪除失敗',
+                `操作過程中發生錯誤：${error.message}`,
+                [{ text: '確定' }]
+              );
+            } finally {
+              setIsLoading(false);
+            }
+          }
         }
       ]
     );
+  };
 
-    // 🗑️ 全新刪除邏輯：執行清除操作的函數
-    const performClearData = async () => {
-      try {
-        console.log('🧹 全新刪除：用戶確認，開始清除所有資料...');
-
-        // 顯示刪除進度
-        Alert.alert('刪除中', '正在清除所有數據，請稍候...', [], { cancelable: false });
-
-        // 初始化統一數據管理器
-        await unifiedDataManager.initialize();
-
-        // 使用統一數據管理器一鍵清除
-        const result = await unifiedDataManager.clearAllData();
-
-        console.log('🎯 全新刪除：刪除結果:', result);
-
-        // 重置本地狀態
-        setTransactions([]);
-        setAssets([]);
-        setLiabilities([]);
-        setForceRefresh(prev => prev + 10);
-
-        if (result.errors.length === 0) {
-          // 刪除成功
-          Alert.alert(
-            '刪除成功！',
-            `已成功刪除 ${result.deleted} 筆數據！\n\n所有本地和雲端數據已清除。`,
-            [{ text: '確定', onPress: () => console.log('✅ 全新刪除：用戶確認刪除成功') }]
-          );
-        } else {
-          // 部分失敗
-          Alert.alert(
-            '刪除部分成功',
-            `成功刪除：${result.deleted} 筆\n錯誤：${result.errors.length} 個\n\n錯誤詳情：\n${result.errors.join('\n')}`,
-            [{ text: '確定', onPress: () => console.log('⚠️ 全新刪除：用戶確認部分成功') }]
-          );
-        }
-
-        // 發送刷新事件
-        eventEmitter.emit(EVENTS.FORCE_REFRESH_ALL, { source: 'clear_all_data', timestamp: Date.now() });
-        eventEmitter.emit(EVENTS.FORCE_REFRESH_DASHBOARD, { source: 'clear_all_data' });
-
-        console.log('✅ 全新刪除：清除完成！');
-
-      } catch (error) {
-        console.error('❌ 全新刪除：清除失敗:', error);
-        Alert.alert(
-          '刪除失敗',
-          `刪除過程中發生錯誤: ${error instanceof Error ? error.message : '未知錯誤'}`,
-          [{ text: '確定', onPress: () => console.log('❌ 全新刪除：用戶確認刪除錯誤') }]
-        );
-      }
-    };
   };
 
   const formatCurrency = (amount: number) => {
