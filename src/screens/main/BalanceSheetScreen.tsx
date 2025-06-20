@@ -220,9 +220,63 @@ export default function BalanceSheetScreen() {
     setEditingLiability(null);
   };
 
-  const handleDeleteAsset = (assetId: string) => {
-    console.log('🚫 所有刪除功能已移除');
-    Alert.alert('功能暫停', '刪除功能正在重新設計中，請稍後再試');
+  const handleDeleteAsset = async (assetId: string) => {
+    console.log('🗑️ 可靠刪除：資產刪除被觸發', assetId);
+
+    const asset = assets.find(a => a.id === assetId);
+    if (!asset) {
+      console.error('❌ 可靠刪除：找不到要刪除的資產');
+      Alert.alert('錯誤', '找不到要刪除的資產');
+      return;
+    }
+
+    Alert.alert(
+      '確認刪除',
+      `確定要刪除資產 "${asset.name}" 嗎？\n\n此操作將同時刪除本地和雲端數據。`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '刪除',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🗑️ 可靠刪除：用戶確認刪除資產');
+
+              // 使用可靠刪除服務
+              const { ReliableDeleteService } = await import('../../services/reliableDeleteService');
+              const result = await ReliableDeleteService.deleteAsset(assetId, {
+                verifyDeletion: true,
+                retryCount: 3,
+                timeout: 10000
+              });
+
+              if (result.success) {
+                console.log('✅ 可靠刪除：資產刪除成功');
+
+                // 從本地狀態中移除
+                setAssets(prev => prev.filter(a => a.id !== assetId));
+
+                // 發送刷新事件
+                eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'asset_deleted' });
+
+                Alert.alert('刪除成功', `資產 "${asset.name}" 已成功刪除`);
+              } else {
+                console.error('❌ 可靠刪除：資產刪除失敗:', result.errors);
+                Alert.alert(
+                  '刪除失敗',
+                  `刪除過程中發生錯誤：\n${result.errors.join('\n')}`,
+                  [{ text: '確定' }]
+                );
+              }
+
+            } catch (error) {
+              console.error('❌ 可靠刪除：資產刪除異常:', error);
+              Alert.alert('刪除失敗', `刪除過程中發生錯誤：${error.message}`);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleDeleteLiability = async (liabilityId: string) => {
@@ -470,8 +524,12 @@ export default function BalanceSheetScreen() {
               {assets.map((asset, index) => (
                 <View key={asset.id} style={styles.itemContainer}>
                   {!isAssetEditMode ? (
-                    // 🚫 暫時移除滑動刪除功能
-                    <View>
+                    // 🗑️ 可靠刪除：重新啟用資產滑動刪除功能
+                    <Swipeable
+                      renderRightActions={() => renderRightActions(() => handleDeleteAsset(asset.id))}
+                      rightThreshold={100}
+                      friction={1}
+                    >
                       <TouchableOpacity
                         style={styles.itemCard}
                         onPress={() => handleEditAsset(asset)}
@@ -637,7 +695,13 @@ export default function BalanceSheetScreen() {
                           <Ionicons name="chevron-down" size={20} color={index === assets.length - 1 ? "#CCC" : "#007AFF"} />
                         </TouchableOpacity>
 
-                        {/* 🚫 資產刪除按鈕已移除 */}
+                        {/* 🗑️ 可靠刪除：重新啟用資產刪除按鈕 */}
+                        <TouchableOpacity
+                          style={[styles.controlButton, styles.deleteControlButton]}
+                          onPress={() => handleDeleteAsset(asset.id)}
+                        >
+                          <Ionicons name="trash" size={20} color="#FF3B30" />
+                        </TouchableOpacity>
                       </View>
                     </View>
                   )}

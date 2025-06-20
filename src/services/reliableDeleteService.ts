@@ -93,6 +93,66 @@ export class ReliableDeleteService {
   }
 
   /**
+   * 刪除單個資產 - 可靠版本
+   */
+  static async deleteAsset(assetId: string, options?: DeleteOptions): Promise<DeleteResult> {
+    const opts = { ...this.DEFAULT_OPTIONS, ...options };
+    const result: DeleteResult = {
+      success: false,
+      deletedCount: 0,
+      errors: [],
+      details: {
+        localStorage: false,
+        cloudStorage: false,
+        verification: false
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('🗑️ 可靠刪除：開始刪除資產', { assetId, options: opts });
+
+    try {
+      // 步驟 1: 本地存儲刪除
+      const localResult = await this.deleteFromLocalStorage('assets', assetId, opts);
+      result.details.localStorage = localResult.success;
+      result.deletedCount += localResult.deletedCount;
+      if (!localResult.success) {
+        result.errors.push(...localResult.errors);
+      }
+
+      // 步驟 2: 雲端存儲刪除
+      const cloudResult = await this.deleteFromCloudStorage('assets', assetId, opts);
+      result.details.cloudStorage = cloudResult.success;
+      result.deletedCount += cloudResult.deletedCount;
+      if (!cloudResult.success) {
+        result.errors.push(...cloudResult.errors);
+      }
+
+      // 步驟 3: 驗證刪除結果
+      if (opts.verifyDeletion) {
+        const verifyResult = await this.verifyDeletion('assets', assetId);
+        result.details.verification = verifyResult.success;
+        if (!verifyResult.success) {
+          result.errors.push(...verifyResult.errors);
+        }
+      } else {
+        result.details.verification = true;
+      }
+
+      // 判斷整體成功
+      result.success = result.details.localStorage && result.details.cloudStorage && result.details.verification;
+
+      console.log('🎯 可靠刪除：資產刪除結果', result);
+      return result;
+
+    } catch (error) {
+      console.error('❌ 可靠刪除：資產刪除異常', error);
+      result.errors.push(`刪除異常: ${error.message}`);
+      return result;
+    }
+  }
+
+  /**
    * 刪除單個交易 - 可靠版本
    */
   static async deleteTransaction(transactionId: string, options?: DeleteOptions): Promise<DeleteResult> {
@@ -226,7 +286,9 @@ export class ReliableDeleteService {
       try {
         console.log(`🔄 可靠刪除：本地存儲刪除嘗試 ${attempt}/${options.retryCount}`);
 
-        const storageKey = dataType === 'liabilities' ? STORAGE_KEYS.LIABILITIES : STORAGE_KEYS.TRANSACTIONS;
+        const storageKey = dataType === 'liabilities' ? STORAGE_KEYS.LIABILITIES :
+                          dataType === 'assets' ? STORAGE_KEYS.ASSETS :
+                          STORAGE_KEYS.TRANSACTIONS;
         
         // 獲取現有數據
         const existingData = await AsyncStorage.getItem(storageKey);
@@ -295,7 +357,9 @@ export class ReliableDeleteService {
       try {
         console.log(`🔄 可靠刪除：雲端存儲刪除嘗試 ${attempt}/${options.retryCount}`);
 
-        const tableName = dataType === 'liabilities' ? 'liabilities' : 'transactions';
+        const tableName = dataType === 'liabilities' ? 'liabilities' :
+                         dataType === 'assets' ? 'assets' :
+                         'transactions';
         
         // 先檢查記錄是否存在
         const { data: existingData, error: checkError } = await supabase
@@ -376,7 +440,9 @@ export class ReliableDeleteService {
       // 驗證雲端存儲
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const tableName = dataType === 'liabilities' ? 'liabilities' : 'transactions';
+        const tableName = dataType === 'liabilities' ? 'liabilities' :
+                         dataType === 'assets' ? 'assets' :
+                         'transactions';
         const { data: cloudData, error: cloudError } = await supabase
           .from(tableName)
           .select('id')
