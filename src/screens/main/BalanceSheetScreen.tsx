@@ -21,6 +21,7 @@ import { liabilityTransactionSyncService } from '../../services/liabilityTransac
 import { transactionDataService } from '../../services/transactionDataService';
 import { eventEmitter, EVENTS } from '../../services/eventEmitter';
 import { retrySyncWithBackoff, getCurrentDataState } from '../../utils/forceRefreshManager';
+import { ReliableDeleteService } from '../../services/reliableDeleteService';
 
 export default function BalanceSheetScreen() {
   const insets = useSafeAreaInsets();
@@ -243,7 +244,6 @@ export default function BalanceSheetScreen() {
               console.log('🗑️ 可靠刪除：用戶確認刪除資產');
 
               // 使用可靠刪除服務
-              const { ReliableDeleteService } = await import('../../services/reliableDeleteService');
               const result = await ReliableDeleteService.deleteAsset(assetId, {
                 verifyDeletion: true,
                 retryCount: 3,
@@ -302,7 +302,6 @@ export default function BalanceSheetScreen() {
               console.log('🗑️ 可靠刪除：用戶確認刪除負債');
 
               // 使用可靠刪除服務
-              const { ReliableDeleteService } = await import('../../services/reliableDeleteService');
               const result = await ReliableDeleteService.deleteLiability(liabilityId, {
                 verifyDeletion: true,
                 retryCount: 3,

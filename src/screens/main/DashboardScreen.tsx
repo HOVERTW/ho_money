@@ -23,6 +23,7 @@ import { liabilityService, LiabilityData } from '../../services/liabilityService
 import { eventEmitter, EVENTS } from '../../services/eventEmitter';
 import { recurringTransactionService } from '../../services/recurringTransactionService';
 import { FinancialCalculator } from '../../utils/financialCalculator';
+import { ReliableDeleteService } from '../../services/reliableDeleteService';
 import { runSyncValidationTests } from '../../utils/testSyncValidation';
 import { userProfileService, UserProfile } from '../../services/userProfileService';
 import ErrorBoundary from '../../components/ErrorBoundary';
@@ -1058,7 +1059,6 @@ export default function DashboardScreen() {
               setIsLoading(true);
 
               // 使用可靠刪除服務
-              const { ReliableDeleteService } = await import('../../services/reliableDeleteService');
               const result = await ReliableDeleteService.clearAllData({
                 verifyDeletion: true,
                 retryCount: 3,

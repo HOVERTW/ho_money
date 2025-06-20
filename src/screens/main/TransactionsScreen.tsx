@@ -39,6 +39,7 @@ import { liabilityService } from '../../services/liabilityService';
 import { liabilityTransactionSyncService } from '../../services/liabilityTransactionSyncService';
 import { eventEmitter, EVENTS } from '../../services/eventEmitter';
 import { generateUUID, ensureValidUUID } from '../../utils/uuid';
+import { ReliableDeleteService } from '../../services/reliableDeleteService';
 
 export default function TransactionsScreen() {
   const insets = useSafeAreaInsets();
@@ -528,7 +529,6 @@ export default function TransactionsScreen() {
 
     try {
       // 使用可靠刪除服務
-      const { ReliableDeleteService } = await import('../../services/reliableDeleteService');
       const result = await ReliableDeleteService.deleteTransaction(item.id, {
         verifyDeletion: true,
         retryCount: 3,
