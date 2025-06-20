@@ -27,24 +27,44 @@ export default function LoginScreen({ navigation }: any) {
   } = useAuthStore();
 
   const handleLogin = async () => {
+    console.log('🔐 LoginScreen: handleLogin 被觸發');
+    console.log('📧 輸入的電子郵件:', email);
+    console.log('🔑 密碼長度:', password.length);
+
     if (!email.trim() || !password.trim()) {
+      console.log('❌ 輸入驗證失敗：電子郵件或密碼為空');
       Alert.alert('錯誤', '請輸入電子郵件和密碼');
       return;
     }
 
     console.log('🔐 LoginScreen: 開始登錄流程');
+    console.log('🔗 Supabase URL:', process.env.EXPO_PUBLIC_SUPABASE_URL);
+    console.log('🔑 Supabase Key 存在:', !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+
     clearError();
 
     try {
+      console.log('🚀 調用 signIn 方法...');
       await signIn(email.trim().toLowerCase(), password);
+      console.log('✅ signIn 方法調用完成');
 
       // 檢查登錄結果
       const currentState = useAuthStore.getState();
+      console.log('📝 登錄後狀態:', {
+        hasUser: !!currentState.user,
+        userEmail: currentState.user?.email,
+        hasError: !!currentState.error,
+        errorMessage: currentState.error,
+        loading: currentState.loading
+      });
+
       if (currentState.error) {
         console.error('❌ LoginScreen: 登錄失敗:', currentState.error);
         Alert.alert('登錄失敗', currentState.error);
       } else if (currentState.user) {
         console.log('✅ LoginScreen: 登錄成功:', currentState.user.email);
+      } else {
+        console.log('⚠️ LoginScreen: 登錄狀態不明確');
       }
     } catch (error) {
       console.error('💥 LoginScreen: 登錄異常:', error);

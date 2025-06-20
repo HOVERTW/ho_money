@@ -79,8 +79,9 @@ class CategoryRepairService {
       // 檢查用戶是否已登錄
       const userId = await this.checkUserAuth();
       if (!userId) {
-        result.errors.push('用戶未登錄，無法修復類別');
-        result.message = '修復失敗：用戶未登錄';
+        console.log('👤 用戶未登錄，跳過類別修復');
+        result.success = true; // 🔧 未登錄時返回成功，避免錯誤
+        result.message = '用戶未登錄，跳過類別修復';
         return result;
       }
 
