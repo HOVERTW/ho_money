@@ -69,27 +69,15 @@ export default function RegisterScreen({ navigation }: any) {
 
         if (currentError) {
           console.error('❌ 註冊失敗:', currentError);
-          Alert.alert('註冊失敗', currentError);
+          // 通知已在 authStore 中處理，這裡不需要額外顯示
         } else if (!currentLoading && currentSuccess) {
           console.log('✅ 註冊成功');
-          Alert.alert(
-            '註冊成功！',
-            '我們已經發送確認郵件到您的信箱。請點擊郵件中的確認連結來啟用您的帳號，然後返回此處登錄。',
-            [{
-              text: '確定',
-              onPress: () => {
-                clearRegistrationSuccess();
-                navigation.navigate('Login');
-              }
-            }]
-          );
+          // 清除成功標記
+          clearRegistrationSuccess();
+          navigation.navigate('Login');
         } else if (!currentLoading) {
           console.log('✅ 註冊完成（無明確成功狀態）');
-          Alert.alert(
-            '註冊完成',
-            '請檢查您的電子郵件以驗證帳號，然後返回登錄',
-            [{ text: '確定', onPress: () => navigation.navigate('Login') }]
-          );
+          navigation.navigate('Login');
         } else {
           console.log('⏳ 仍在處理中...');
         }
@@ -97,7 +85,7 @@ export default function RegisterScreen({ navigation }: any) {
 
     } catch (error) {
       console.error('💥 註冊異常:', error);
-      Alert.alert('註冊失敗', error instanceof Error ? error.message : '未知錯誤');
+      // 通知已在 authStore 中處理，這裡不需要額外顯示
     }
   };
 

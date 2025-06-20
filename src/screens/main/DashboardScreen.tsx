@@ -746,13 +746,13 @@ export default function DashboardScreen() {
           }, 1000);
         } else if (currentError) {
           console.log('❌ Google 登錄失敗:', currentError);
-          Alert.alert('Google 登錄失敗', currentError);
+          // 通知已在 authStore 中處理，這裡不需要額外顯示
         }
       }, 500);
 
     } catch (error) {
       console.error('💥 Google 登錄異常:', error);
-      Alert.alert('錯誤', 'Google 登錄過程中發生錯誤，請稍後再試');
+      // 通知已在 authStore 中處理，這裡不需要額外顯示
     }
   };
 

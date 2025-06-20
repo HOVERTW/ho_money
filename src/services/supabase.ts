@@ -448,7 +448,7 @@ export const authService = {
               console.log('⚠️ 用戶取消登錄');
               return {
                 data: { user: null, session: null },
-                error: new AuthError('用戶取消登錄')
+                error: new AuthError('用戶取消 Google 登錄')
               };
             } else {
               console.log('⚠️ OAuth 流程異常結束:', result.type);

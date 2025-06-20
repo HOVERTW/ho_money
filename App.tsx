@@ -8,6 +8,12 @@ import { appInitializationService } from './src/services/appInitializationServic
 import AppNavigator from './src/navigation/AppNavigator';
 import { errorHandler } from './src/utils/errorHandler';
 import { SupabaseConnectionTest } from './src/utils/supabaseTest';
+import { NotificationManager } from './src/components/NotificationManager';
+
+// 在開發環境中導入通知測試工具
+if (__DEV__) {
+  import('./src/utils/testNotifications');
+}
 // import { DiagnosticsService } from './src/utils/diagnostics';
 
 // 錯誤邊界組件
@@ -120,7 +126,11 @@ function AppContent() {
     );
   }
 
-  return <AppNavigator />;
+  return (
+    <NotificationManager>
+      <AppNavigator />
+    </NotificationManager>
+  );
 }
 
 const styles = StyleSheet.create({

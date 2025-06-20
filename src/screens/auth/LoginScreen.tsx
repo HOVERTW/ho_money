@@ -61,7 +61,7 @@ export default function LoginScreen({ navigation }: any) {
 
       if (currentState.error) {
         console.error('❌ LoginScreen: 登錄失敗:', currentState.error);
-        Alert.alert('登錄失敗', currentState.error);
+        // 通知已在 authStore 中處理，這裡不需要額外顯示
       } else if (currentState.user) {
         console.log('✅ LoginScreen: 登錄成功:', currentState.user.email);
       } else {
@@ -69,7 +69,7 @@ export default function LoginScreen({ navigation }: any) {
       }
     } catch (error) {
       console.error('💥 LoginScreen: 登錄異常:', error);
-      Alert.alert('登錄失敗', '登錄過程中發生錯誤，請稍後再試');
+      // 通知已在 authStore 中處理，這裡不需要額外顯示
     }
   };
 
@@ -99,13 +99,13 @@ export default function LoginScreen({ navigation }: any) {
 
       if (currentState.error) {
         console.error('❌ Google 登錄失敗:', currentState.error);
-        Alert.alert('Google 登錄失敗', currentState.error);
+        // 通知已在 authStore 中處理，這裡不需要額外顯示
       } else if (currentState.user) {
         console.log('✅ Google 登錄成功:', currentState.user.email);
       }
     } catch (err) {
       console.error('💥 Google 登錄異常:', err);
-      Alert.alert('Google 登錄失敗', '請稍後再試');
+      // 通知已在 authStore 中處理，這裡不需要額外顯示
     }
   };
 

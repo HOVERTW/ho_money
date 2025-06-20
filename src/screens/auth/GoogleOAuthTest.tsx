@@ -16,14 +16,14 @@ export default function GoogleOAuthTest() {
       const currentState = useAuthStore.getState();
       if (currentState.error) {
         console.error('❌ Google OAuth 失敗:', currentState.error);
-        Alert.alert('Google 登錄失敗', currentState.error);
+        // 通知已在 authStore 中處理，這裡不需要額外顯示
       } else if (currentState.user) {
         console.log('✅ Google OAuth 成功:', currentState.user.email);
-        Alert.alert('成功', `Google 登錄成功！\n歡迎 ${currentState.user.email}`);
+        // 通知已在 authStore 中處理，這裡不需要額外顯示
       }
     } catch (err) {
       console.error('💥 Google OAuth 異常:', err);
-      Alert.alert('錯誤', err instanceof Error ? err.message : '未知錯誤');
+      // 通知已在 authStore 中處理，這裡不需要額外顯示
     }
   };
 

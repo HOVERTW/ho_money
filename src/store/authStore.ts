@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User, Session } from '@supabase/supabase-js';
 import { authService, supabase } from '../services/supabase';
+import { notificationManager } from '../components/NotificationManager';
 
 interface AuthState {
   user: User | null;
@@ -41,7 +42,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (error) {
         console.error('❌ 登錄錯誤:', error.message);
-        set({ error: error.message, loading: false });
+        const errorMessage = error.message;
+        set({ error: errorMessage, loading: false });
+
+        // 顯示登錄失敗通知
+        notificationManager.error(
+          '登錄失敗',
+          errorMessage.includes('Invalid login credentials')
+            ? '帳號或密碼錯誤，請檢查後重試'
+            : errorMessage,
+          true
+        );
         return;
       }
 
@@ -53,19 +64,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           loading: false,
           error: null
         });
+
+        // 顯示登錄成功通知
+        notificationManager.success(
+          '登錄成功',
+          `歡迎回來，${data.user.email}！`,
+          false
+        );
       } else {
         console.log('⚠️ 登錄返回空數據');
+        const errorMessage = '登錄失敗，請檢查您的電子郵件和密碼';
         set({
           loading: false,
-          error: '登錄失敗，請檢查您的電子郵件和密碼'
+          error: errorMessage
         });
+
+        // 顯示登錄失敗通知
+        notificationManager.error('登錄失敗', errorMessage, true);
       }
     } catch (error) {
       console.error('💥 登錄異常:', error);
+      const errorMessage = error instanceof Error ? error.message : '登錄過程中發生錯誤';
       set({
-        error: error instanceof Error ? error.message : 'An error occurred',
+        error: errorMessage,
         loading: false
       });
+
+      // 顯示登錄異常通知
+      notificationManager.error('登錄失敗', errorMessage, true);
     }
   },
 
@@ -85,7 +111,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (error) {
         console.error('❌ AuthStore: 註冊錯誤:', error.message);
-        set({ error: error.message, loading: false });
+        const errorMessage = error.message;
+        set({ error: errorMessage, loading: false });
+
+        // 顯示註冊失敗通知
+        notificationManager.error(
+          '註冊失敗',
+          errorMessage.includes('already registered')
+            ? '此電子郵件已被註冊，請使用其他郵箱或直接登錄'
+            : errorMessage,
+          true
+        );
         return;
       }
 
@@ -103,6 +139,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             loading: false,
             error: null
           });
+
+          // 顯示註冊成功並登錄通知
+          notificationManager.success(
+            '註冊成功',
+            `歡迎加入 FinTranzo，${data.user.email}！`,
+            false
+          );
         } else {
           // 沒有 session，這是正常的，需要電子郵件確認
           console.log('📧 AuthStore: 註冊成功，需要電子郵件確認');
@@ -112,20 +155,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             // 添加成功標記
             registrationSuccess: true
           });
+
+          // 顯示註冊成功通知
+          notificationManager.success(
+            '註冊成功',
+            '請檢查您的電子郵件並點擊確認連結完成註冊',
+            true
+          );
         }
       } else {
         console.log('⚠️ AuthStore: 註冊返回空用戶');
+        const errorMessage = '註冊失敗，請稍後再試';
         set({
           loading: false,
-          error: '註冊失敗，請稍後再試'
+          error: errorMessage
         });
+
+        // 顯示註冊失敗通知
+        notificationManager.error('註冊失敗', errorMessage, true);
       }
     } catch (error) {
       console.error('💥 AuthStore: 註冊異常:', error);
+      const errorMessage = error instanceof Error ? error.message : '註冊時發生未知錯誤';
       set({
-        error: error instanceof Error ? error.message : '註冊時發生未知錯誤',
+        error: errorMessage,
         loading: false
       });
+
+      // 顯示註冊異常通知
+      notificationManager.error('註冊失敗', errorMessage, true);
     }
   },
 
@@ -144,7 +202,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (error) {
         console.error('❌ AuthStore: Google 登錄錯誤:', error.message);
-        set({ error: error.message, loading: false });
+        const errorMessage = error.message;
+        set({ error: errorMessage, loading: false });
+
+        // 顯示Google登錄失敗通知
+        notificationManager.error(
+          'Google 登錄失敗',
+          errorMessage.includes('用戶取消')
+            ? '您已取消 Google 登錄'
+            : errorMessage.includes('網路')
+            ? '網路連接異常，請檢查網路後重試'
+            : errorMessage,
+          true
+        );
         return;
       }
 
@@ -156,19 +226,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           loading: false,
           error: null
         });
+
+        // 顯示Google登錄成功通知
+        notificationManager.success(
+          'Google 登錄成功',
+          `歡迎回來，${data.user.email}！`,
+          false
+        );
       } else {
         console.log('⚠️ AuthStore: Google 登錄返回空數據');
+        const errorMessage = 'Google 登錄失敗，請稍後再試';
         set({
           loading: false,
-          error: 'Google 登錄失敗，請稍後再試'
+          error: errorMessage
         });
+
+        // 顯示Google登錄失敗通知
+        notificationManager.error('Google 登錄失敗', errorMessage, true);
       }
     } catch (error) {
       console.error('💥 AuthStore: Google 登錄異常:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Google 登錄失敗';
       set({
-        error: error instanceof Error ? error.message : 'Google 登錄失敗',
+        error: errorMessage,
         loading: false
       });
+
+      // 顯示Google登錄異常通知
+      notificationManager.error('Google 登錄失敗', errorMessage, true);
     }
   },
 

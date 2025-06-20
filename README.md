@@ -1,78 +1,106 @@
-# 💰 FinTranzo - 個人財務管理應用
+# 💰 FinTranzo - 智能個人財務管理應用
 
-一個功能完整的個人財務管理應用，支援資產負債管理、記帳功能、雲端同步等核心功能。
+一個功能完整的跨平台個人財務管理應用，提供資產負債管理、智能記帳、雲端同步等核心功能。專為移動端優化，支援 Web 和 iOS 平台。
 
 🌐 **線上體驗**: [https://19930913.xyz](https://19930913.xyz)
-📱 **移動端優先**: 專為移動設備優化，同時支援Web端
-☁️ **雲端同步**: 基於Supabase的可靠數據同步
+📱 **移動端優先**: 專為移動設備優化，支援 iOS 和 Web 平台
+☁️ **雲端同步**: 基於 Supabase 的實時數據同步
+🔐 **安全認證**: Google OAuth + 電子郵件雙重認證
+🧪 **全面測試**: 內建診斷工具，確保功能穩定性
 
-## 🌟 主要功能
+## 🌟 核心功能
 
-### 📊 資產負債管理
-- **多元資產類型**：現金、股票、不動產、保險、加密貨幣等
-- **即時價值計算**：自動計算資產當前價值和損益
-- **拖拽排序**：支援資產項目的自由排序
-- **詳細分類**：按資產類型分組顯示
-- **滑動刪除**：支援滑動手勢快速刪除資產
+### 📊 智能資產管理
+- **多元資產類型**：現金、股票、不動產、保險、加密貨幣等完整資產類別
+- **即時價值計算**：自動計算資產當前價值和損益變化
+- **拖拽排序**：支援資產項目的自由排序和分組管理
+- **滑動操作**：支援滑動手勢快速刪除資產，操作直觀便捷
+- **自動同步**：資產變更自動同步到雲端，確保數據一致性
 
 ### 💳 智能記帳系統
-- **快速記帳**：支援收入、支出、轉帳記錄
-- **帳戶整合**：記帳時可選擇資產帳戶進行扣款
-- **分類管理**：豐富的收支分類選項
-- **搖一搖功能**：手機搖動快速開啟記帳頁面
-- **自動資產更新**：交易自動更新對應資產餘額
+- **快速記帳**：支援收入、支出、轉帳三種交易類型
+- **帳戶整合**：記帳時可選擇資產帳戶，自動更新餘額
+- **豐富分類**：內建完整的收支分類體系，支援自定義
+- **搖一搖功能**：手機搖動（加速度 8+）快速開啟記帳頁面
+- **智能關聯**：交易自動更新對應資產餘額，保持數據同步
 
-### ☁️ 雲端同步
-- **Google OAuth 登入**：安全便捷的身份驗證
-- **Supabase 後端**：可靠的雲端數據存儲
-- **實時同步**：資產和交易數據實時同步到雲端
-- **離線支援**：本地存儲確保離線可用
-- **衝突解決**：智能處理數據同步衝突
+### 🔐 安全認證系統
+- **雙重認證**：支援 Google OAuth 和電子郵件註冊/登錄
+- **安全存儲**：本地數據加密存儲，雲端數據安全傳輸
+- **權限控制**：基於 Supabase RLS 的用戶數據隔離
+- **會話管理**：智能會話管理，支援自動登錄和安全登出
+- **測試帳號**：提供 user01@gmail.com / user01 測試帳號
 
-### 📈 數據分析
-- **圖表展示**：收支趨勢和資產分布圖表
-- **現金流分析**：詳細的現金流入流出分析
-- **淨值追蹤**：總資產和淨值變化追蹤
-- **年度成長**：年度資產成長率計算（支援∞%顯示）
+### ☁️ 智能雲端同步
+- **實時同步**：基於 Supabase 的實時數據同步機制
+- **離線支援**：本地優先存儲，離線可用，上線後自動同步
+- **衝突解決**：智能處理數據同步衝突，基於時間戳優先策略
+- **增量同步**：只同步變更數據，提高同步效率
+- **手動控制**：支援手動觸發同步，用戶可控制同步時機
+
+### 📈 數據分析與洞察
+- **圖表展示**：收支趨勢和資產分布的視覺化圖表
+- **現金流分析**：詳細的現金流入流出分析和預測
+- **淨值追蹤**：總資產和淨值變化的長期追蹤
+- **年度成長**：智能年度成長率計算（支援從 0 開始的 ∞% 顯示）
+- **儀表板**：一目了然的財務狀況總覽（顯示前 5 大收支項目）
 
 ## 🛠️ 技術架構
 
-### 前端技術
-- **React Native + Expo**：跨平台移動應用開發
-- **TypeScript**：類型安全的 JavaScript
-- **React Navigation**：頁面導航管理
-- **React Native Web**：支援 Web 端運行
-- **Zustand**：輕量級狀態管理
+### 前端技術棧
+- **React Native + Expo 51**：跨平台移動應用開發框架
+- **TypeScript**：類型安全的 JavaScript，提供更好的開發體驗
+- **React Navigation 6**：現代化的頁面導航和路由管理
+- **React Native Web**：支援 Web 端運行，一套代碼多平台部署
+- **Zustand**：輕量級狀態管理，替代 Redux 的現代化方案
+- **React Native Gesture Handler**：原生手勢支援，提供流暢的用戶體驗
 
-### 後端服務
-- **Supabase**：
-  - PostgreSQL 數據庫
-  - 即時數據同步
-  - 身份驗證服務
-  - Row Level Security (RLS)
-  - Google OAuth 整合
+### 後端服務架構
+- **Supabase**：現代化的 Firebase 替代方案
+  - **PostgreSQL 數據庫**：可靠的關係型數據庫
+  - **實時訂閱**：WebSocket 實時數據同步
+  - **身份驗證服務**：內建 OAuth 和電子郵件認證
+  - **Row Level Security (RLS)**：數據庫級別的安全控制
+  - **Google OAuth 整合**：安全便捷的第三方登錄
+  - **Edge Functions**：無服務器函數支援
 
-### 數據存儲
-- **本地存儲**：AsyncStorage / localStorage
-- **雲端數據庫**：Supabase PostgreSQL
-- **實時同步**：本地與雲端數據雙向同步
-- **衝突解決**：智能數據合併策略
+### 數據存儲策略
+- **本地存儲**：AsyncStorage (移動端) / localStorage (Web 端)
+- **雲端數據庫**：Supabase PostgreSQL 與實時同步
+- **雙向同步**：本地優先，雲端備份的混合存儲策略
+- **衝突解決**：基於時間戳的智能數據合併
+- **離線支援**：完整的離線功能，上線後自動同步
 
-### 容器化部署
-- **Docker**：完整環境容器化
-- **Kubernetes**：生產級容器編排
-- **多環境支援**：開發、測試、生產環境隔離
-- **監控系統**：Prometheus + Grafana 監控
+### 部署與運維
+- **GitHub Pages**：Web 端自動部署到 https://19930913.xyz
+- **GitHub Actions**：CI/CD 自動化構建和部署
+- **EAS Build**：Expo 官方構建服務，支援 iOS 和 Android
+- **Docker 容器化**：完整的開發和生產環境容器化
+- **環境變數管理**：安全的配置管理，支援多環境部署
 
 ## 🚀 快速開始
 
 ### 環境要求
-- Node.js 18+
-- Docker & Docker Compose (推薦)
-- npm 或 yarn
-- Expo CLI
+- **Node.js 18+**：建議使用 LTS 版本
+- **npm 或 yarn**：包管理工具
+- **Expo CLI**：`npm install -g @expo/cli`
+- **Git**：版本控制工具
+- **現代瀏覽器**：Chrome、Safari、Firefox 等
 
-### 🐳 Docker 快速啟動 (推薦)
+### 🌐 線上體驗（推薦）
+
+**最簡單的方式是直接訪問線上版本：**
+
+1. **訪問應用**：[https://19930913.xyz](https://19930913.xyz)
+2. **測試帳號**：
+   - 電子郵件：`user01@gmail.com`
+   - 密碼：`user01`
+3. **功能測試**：
+   - 未登錄：體驗本地功能（乾淨的數據環境）
+   - 登錄後：體驗雲端同步功能
+   - Google OAuth：測試第三方登錄
+
+### 📱 本地開發環境
 
 1. **克隆項目**
 ```bash
@@ -80,88 +108,98 @@ git clone https://github.com/HOVERTW/ho_money.git
 cd ho_money
 ```
 
-2. **使用 Docker 啟動**
-```bash
-# Web 開發環境
-docker-compose up fintranzo-web
-
-# iOS 模擬器環境
-docker-compose up fintranzo-ios-simulator
-
-# 完整生產環境
-docker-compose -f docker-compose.production.yml up
-```
-
-3. **訪問應用**
-- Web: http://localhost
-- iOS 模擬器: http://localhost:19000
-- 監控面板: http://localhost:3000 (Grafana)
-
-### 📱 本地開發
-
-1. **安裝依賴**
+2. **安裝依賴**
 ```bash
 npm install
 ```
 
-2. **環境配置**
+3. **環境配置**
 創建 `.env` 文件：
 ```env
 EXPO_PUBLIC_SUPABASE_URL=https://yrryyapzkgrsahranzvo.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-EXPO_PUBLIC_REDIRECT_URL=your_redirect_url
+EXPO_PUBLIC_REDIRECT_URL=http://localhost:8081
 ```
 
-3. **啟動開發服務器**
+4. **啟動開發服務器**
 ```bash
-# Web 版本
+# Web 版本（推薦）
 npx expo start --web
 
 # 移動端版本
 npx expo start
 ```
 
-4. **訪問應用**
-- Web: http://localhost:8081
-- 手機: 掃描 QR 碼或使用 Expo Go
+5. **訪問應用**
+- **Web**：http://localhost:8081
+- **手機**：掃描 QR 碼或使用 Expo Go 應用
 
-## 🐳 Docker 環境模擬
+### 🧪 內建診斷工具
 
-### Web 環境模擬
-```bash
-# 構建 Web 生產環境
-docker build -f docker/Dockerfile.web --target production -t fintranzo-web .
+**FinTranzo 內建了完整的診斷工具，幫助快速識別和解決問題：**
 
-# 運行 Web 環境
-docker run -p 80:80 -p 443:443 fintranzo-web
+#### **自動診斷（開發環境）**
+- 應用啟動時自動運行 Supabase 連接測試
+- 環境變數驗證和配置檢查
+- 認證狀態和數據庫連接驗證
+- 詳細的日誌記錄和錯誤報告
 
-# 訪問: http://localhost (完全模擬 19930913.xyz 環境)
+#### **手動診斷工具**
+- **登錄頁面**：「Supabase 連接測試」按鈕
+- **測試功能**：「創建測試用戶」功能
+- **實時監控**：Console 中的詳細日誌
+- **錯誤追蹤**：自動錯誤捕獲和報告
+
+#### **診斷使用方法**
+1. **打開瀏覽器開發者工具**（F12）
+2. **查看 Console 標籤**
+3. **尋找診斷日誌**：
+   ```
+   🧪 === SUPABASE 連接測試開始 ===
+   🔍 1. 檢查環境變數...
+   📍 Supabase URL: https://yrryyapzkgrsahranzvo.supabase.co
+   🔑 Supabase Key 存在: true
+   ✅ 基本連接成功
+   ```
+4. **使用手動測試按鈕**進行即時診斷
+
+## � 認證系統配置
+
+### Supabase 認證設置
+
+**為了讓認證功能正常工作，需要在 Supabase 中進行以下配置：**
+
+#### **1. Google OAuth 設置**
+在 Supabase Dashboard → Authentication → Providers → Google：
+- ✅ 啟用 Google 提供者
+- ✅ 設置 Google Client ID 和 Client Secret
+- ✅ 配置重定向 URL：
+  - **Web**: `https://19930913.xyz`
+  - **本地開發**: `http://localhost:8081`
+  - **移動端**: `fintranzo://auth`
+
+#### **2. 電子郵件認證設置**
+在 Supabase Dashboard → Authentication → Settings：
+- ✅ 啟用電子郵件確認
+- ✅ 設置電子郵件模板
+- ✅ 配置 SMTP 設置（可選，使用預設或自定義）
+
+#### **3. URL 配置**
+在 Supabase Dashboard → Authentication → URL Configuration：
+```
+Site URL: https://19930913.xyz
+Redirect URLs:
+- https://19930913.xyz
+- http://localhost:8081
+- fintranzo://auth
+- fintranzo://auth/confirm
 ```
 
-### iOS 環境模擬
-```bash
-# 構建 iOS 模擬器環境
-docker build -f docker/Dockerfile.ios-simulator -t fintranzo-ios .
-
-# 運行 iOS 模擬器
-docker run -p 19000:19000 -p 8081:8081 fintranzo-ios
-
-# 訪問: http://localhost:19000 (Expo DevTools)
-```
-
-### 🎯 Kubernetes 部署
-
-```bash
-# 部署到 Kubernetes
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/deployment.yaml
-
-# 檢查部署狀態
-kubectl get pods -n fintranzo
-
-# 訪問服務
-kubectl port-forward svc/fintranzo-service 8080:80 -n fintranzo
-```
+#### **4. 測試帳號**
+系統提供測試帳號供開發和測試使用：
+- **電子郵件**: `user01@gmail.com`
+- **密碼**: `user01`
+- **狀態**: 已確認，可直接登錄
 
 ## 📱 部署
 
