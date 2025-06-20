@@ -164,16 +164,24 @@ export const authService = {
     console.log('🔐 Supabase signIn 開始:', email);
 
     try {
-      const result = await supabase.auth.signInWithPassword({ email, password });
+      const result = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password
+      });
 
       console.log('📝 Supabase signIn 詳細結果:', {
         user: result.data.user ? {
           id: result.data.user.id,
           email: result.data.user.email,
           email_confirmed_at: result.data.user.email_confirmed_at,
-          created_at: result.data.user.created_at
+          created_at: result.data.user.created_at,
+          confirmed_at: result.data.user.confirmed_at
         } : null,
-        session: result.data.session ? 'exists' : 'null',
+        session: result.data.session ? {
+          access_token: result.data.session.access_token ? 'exists' : 'missing',
+          refresh_token: result.data.session.refresh_token ? 'exists' : 'missing',
+          expires_at: result.data.session.expires_at
+        } : 'null',
         error: result.error ? {
           message: result.error.message,
           status: result.error.status
@@ -182,11 +190,21 @@ export const authService = {
 
       // 如果有錯誤，提供更詳細的錯誤信息
       if (result.error) {
+        console.error('❌ 登錄錯誤詳情:', result.error);
+
         if (result.error.message.includes('Invalid login credentials')) {
           console.log('❌ 登錄憑證無效 - 可能原因:');
           console.log('1. 郵箱或密碼錯誤');
           console.log('2. 帳號需要郵件確認');
           console.log('3. 帳號不存在');
+
+          // 提供更友好的錯誤信息
+          const friendlyError = new Error('電子郵件或密碼不正確，或帳號尚未確認');
+          return { data: { user: null, session: null }, error: friendlyError };
+        } else if (result.error.message.includes('Email not confirmed')) {
+          console.log('❌ 電子郵件尚未確認');
+          const friendlyError = new Error('請先確認您的電子郵件地址');
+          return { data: { user: null, session: null }, error: friendlyError };
         }
       }
 
@@ -206,11 +224,28 @@ export const authService = {
       console.log('🔗 Supabase URL:', supabaseUrl);
       console.log('🔑 Supabase Key 存在:', !!supabaseAnonKey);
 
+      // 根據平台決定重定向 URL
+      let emailRedirectTo: string;
+      if (Platform.OS === 'web') {
+        emailRedirectTo = process.env.EXPO_PUBLIC_REDIRECT_URL || window.location.origin;
+      } else {
+        emailRedirectTo = makeRedirectUri({
+          scheme: 'fintranzo',
+          path: 'auth/confirm',
+        });
+      }
+
+      console.log('📧 電子郵件重定向 URL:', emailRedirectTo);
+
       const result = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: process.env.EXPO_PUBLIC_REDIRECT_URL || 'https://yrryyapzkgrsahranzvo.supabase.co/auth/v1/callback'
+          emailRedirectTo: emailRedirectTo,
+          data: {
+            app_name: 'FinTranzo',
+            platform: Platform.OS
+          }
         }
       });
 
@@ -319,12 +354,15 @@ export const authService = {
   // Google 登錄
   signInWithGoogle: async (): Promise<AuthResponse> => {
     try {
+      console.log('🔐 開始 Google OAuth 流程...');
+      console.log('📱 當前平台:', Platform.OS);
+
       // 根據平台決定重定向 URL
       let redirectUrl: string;
 
       if (Platform.OS === 'web') {
-        // Web 平台使用當前域名
-        redirectUrl = window.location.origin;
+        // Web 平台使用環境變數或當前域名
+        redirectUrl = process.env.EXPO_PUBLIC_REDIRECT_URL || window.location.origin;
         console.log('🌐 Web 重定向 URL:', redirectUrl);
       } else {
         // 移動平台使用 Expo 的重定向 URI
@@ -336,6 +374,7 @@ export const authService = {
       }
 
       console.log('🌐 開啟 Google OAuth 頁面...');
+      console.log('🔗 使用重定向 URL:', redirectUrl);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -346,6 +385,12 @@ export const authService = {
             prompt: 'consent',
           },
         },
+      });
+
+      console.log('📝 Google OAuth 初始響應:', {
+        hasData: !!data,
+        hasError: !!error,
+        errorMessage: error?.message
       });
 
       if (error) {
@@ -616,4 +661,38 @@ export const dbService = {
       return { data: null, error };
     }
   },
+};
+
+// 認證狀態監聽器
+export const setupAuthListener = (callback: (user: User | null, session: Session | null) => void) => {
+  console.log('🔄 設置認證狀態監聽器...');
+
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    console.log('🔄 Auth state changed:', event, session?.user?.email);
+
+    // 處理不同的認證事件
+    switch (event) {
+      case 'SIGNED_IN':
+        console.log('✅ 用戶已登錄:', session?.user?.email);
+        break;
+      case 'SIGNED_OUT':
+        console.log('👋 用戶已登出');
+        break;
+      case 'TOKEN_REFRESHED':
+        console.log('🔄 Token 已刷新');
+        break;
+      case 'USER_UPDATED':
+        console.log('👤 用戶信息已更新');
+        break;
+      case 'PASSWORD_RECOVERY':
+        console.log('🔑 密碼重置請求');
+        break;
+      default:
+        console.log('🔄 認證狀態變化:', event);
+    }
+
+    callback(session?.user || null, session);
+  });
+
+  return subscription;
 };

@@ -32,11 +32,23 @@ export default function LoginScreen({ navigation }: any) {
       return;
     }
 
+    console.log('🔐 LoginScreen: 開始登錄流程');
     clearError();
-    await signIn(email.trim(), password);
-    
-    if (error) {
-      Alert.alert('登錄失敗', error);
+
+    try {
+      await signIn(email.trim().toLowerCase(), password);
+
+      // 檢查登錄結果
+      const currentState = useAuthStore.getState();
+      if (currentState.error) {
+        console.error('❌ LoginScreen: 登錄失敗:', currentState.error);
+        Alert.alert('登錄失敗', currentState.error);
+      } else if (currentState.user) {
+        console.log('✅ LoginScreen: 登錄成功:', currentState.user.email);
+      }
+    } catch (error) {
+      console.error('💥 LoginScreen: 登錄異常:', error);
+      Alert.alert('登錄失敗', '登錄過程中發生錯誤，請稍後再試');
     }
   };
 

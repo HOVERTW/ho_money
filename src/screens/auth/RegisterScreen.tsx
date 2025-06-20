@@ -54,7 +54,7 @@ export default function RegisterScreen({ navigation }: any) {
 
     try {
       console.log('🚀 調用 signUp...');
-      await signUp(email.trim(), password);
+      await signUp(email.trim().toLowerCase(), password);
 
       console.log('📝 註冊完成，檢查錯誤狀態...');
 

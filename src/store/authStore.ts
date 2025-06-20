@@ -130,25 +130,41 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signInWithGoogle: async () => {
+    console.log('🔐 AuthStore: 開始 Google 登錄流程');
     set({ loading: true, error: null });
 
     try {
       const { data, error } = await authService.signInWithGoogle();
 
+      console.log('📝 AuthStore: Google 登錄結果:', {
+        hasUser: !!data.user,
+        hasSession: !!data.session,
+        error: error?.message
+      });
+
       if (error) {
+        console.error('❌ AuthStore: Google 登錄錯誤:', error.message);
         set({ error: error.message, loading: false });
         return;
       }
 
       if (data.user && data.session) {
+        console.log('✅ AuthStore: Google 登錄成功:', data.user.email);
         set({
           user: data.user,
           session: data.session,
           loading: false,
           error: null
         });
+      } else {
+        console.log('⚠️ AuthStore: Google 登錄返回空數據');
+        set({
+          loading: false,
+          error: 'Google 登錄失敗，請稍後再試'
+        });
       }
     } catch (error) {
+      console.error('💥 AuthStore: Google 登錄異常:', error);
       set({
         error: error instanceof Error ? error.message : 'Google 登錄失敗',
         loading: false
