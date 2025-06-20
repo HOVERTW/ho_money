@@ -35,18 +35,18 @@ export default function SwipeableTransactionItem({
 }: SwipeableTransactionItemProps) {
 
   const handleDelete = () => {
-    console.log('🗑️ 新刪除：交易刪除被觸發，交易ID:', item.id);
+    console.log('🗑️ 可靠刪除：交易刪除被觸發，交易ID:', item.id);
 
     if (!onDelete) {
-      console.error('❌ 新刪除：onDelete回調函數未定義');
+      console.error('❌ 可靠刪除：onDelete回調函數未定義');
       Alert.alert('錯誤', '刪除功能暫時不可用');
       return;
     }
 
-    // 簡化的刪除確認
+    // 使用可靠刪除確認
     Alert.alert(
       '刪除交易',
-      `確定要刪除交易 "${item.description}" 嗎？`,
+      `確定要刪除交易 "${item.description}" 嗎？\n\n此操作將同時刪除本地和雲端數據。`,
       [
         {
           text: '取消',
@@ -56,12 +56,12 @@ export default function SwipeableTransactionItem({
           text: '刪除',
           style: 'destructive',
           onPress: () => {
-            console.log('🗑️ 新刪除：用戶確認刪除，調用onDelete');
+            console.log('🗑️ 可靠刪除：用戶確認刪除，調用onDelete');
             try {
               onDelete(item);
-              console.log('✅ 新刪除：刪除調用成功');
+              console.log('✅ 可靠刪除：刪除調用成功');
             } catch (error) {
-              console.error('❌ 新刪除：刪除調用失敗:', error);
+              console.error('❌ 可靠刪除：刪除調用失敗:', error);
               Alert.alert('刪除失敗', '交易刪除時發生錯誤，請重試');
             }
           },
@@ -70,7 +70,7 @@ export default function SwipeableTransactionItem({
     );
   };
 
-  // 🗑️ 新刪除：渲染右滑刪除按鈕
+  // 🗑️ 可靠刪除：渲染右滑刪除按鈕
   const renderRightActions = () => {
     return (
       <Animated.View style={styles.deleteAction}>

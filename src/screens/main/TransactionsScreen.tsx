@@ -518,170 +518,48 @@ export default function TransactionsScreen() {
   };
 
   const handleDeleteTransaction = async (item: any, deleteType?: 'single' | 'future' | 'all') => {
-    console.log('🗑️ 開始刪除交易:', {
+    console.log('🗑️ 可靠刪除：開始刪除交易:', {
       id: item.id,
       description: item.description,
       amount: item.amount,
       category: item.category,
-      is_recurring: item.is_recurring,
       deleteType
     });
 
-    if (item.is_recurring && deleteType) {
-      // 檢查是否為負債相關的循環交易
-      const isLiabilityTransaction = item.category === '還款';
+    try {
+      // 使用可靠刪除服務
+      const { ReliableDeleteService } = await import('../../services/reliableDeleteService');
+      const result = await ReliableDeleteService.deleteTransaction(item.id, {
+        verifyDeletion: true,
+        retryCount: 3,
+        timeout: 10000
+      });
 
-      switch (deleteType) {
-        case 'single':
-          // 單次刪除：只刪除這一筆交易記錄
-          console.log('🗑️ 單次刪除循環交易');
+      if (result.success) {
+        console.log('✅ 可靠刪除：交易刪除成功');
 
-          // 確保資產服務已初始化，然後撤銷交易影響
-          try {
-            await assetTransactionSyncService.initialize();
-            assetTransactionSyncService.reverseTransaction(item);
-            console.log('✅ 單次循環交易資產影響撤銷完成');
-          } catch (error) {
-            console.error('❌ 撤銷單次循環交易資產影響失敗:', error);
-          }
+        // 更新 UI 狀態
+        console.log('🔄 更新 TransactionsScreen 的交易狀態（刪除後）...');
+        const updatedTransactions = transactionDataService.getTransactions();
+        setTransactions(updatedTransactions);
+        console.log(`✅ UI 狀態已更新，當前交易數量: ${updatedTransactions.length}`);
 
-          await transactionDataService.deleteTransaction(item.id);
-          setFutureRecurringTransactions(prev => prev.filter(t => t.id !== item.id));
-          break;
+        // 發送刷新事件
+        eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'transaction_deleted' });
 
-        case 'future':
-          // 向後刪除：刪除包含這個月之後的所有相關交易
-          console.log('🗑️ 向後刪除循環交易');
-
-          if (!item || !item.date) {
-            console.log('❌ 交易沒有有效日期，跳過刪除');
-            break;
-          }
-
-          const itemDate = new Date(item.date);
-          if (isNaN(itemDate.getTime())) {
-            console.log('❌ 交易日期無效，跳過刪除');
-            break;
-          }
-
-          const itemMonth = itemDate.getFullYear() * 12 + itemDate.getMonth();
-
-          // 如果是負債交易，需要特殊處理
-          if (isLiabilityTransaction) {
-            console.log('🗑️ 處理負債循環交易的向後刪除');
-            const liabilities = liabilityService.getLiabilities();
-            const relatedLiability = liabilities.find(l => l.name === item.description);
-            if (relatedLiability) {
-              console.log('🗑️ 找到相關負債，停用循環交易:', relatedLiability.name);
-              const recurringTransactionId = liabilityTransactionSyncService.getRecurringTransactionId(relatedLiability.id);
-              if (recurringTransactionId) {
-                recurringTransactionService.deactivateRecurringTransaction(recurringTransactionId);
-              }
-            }
-          }
-
-          // 找到對應的循環交易模板
-          const recurringTemplate = recurringTransactionService.getRecurringTransactions()
-            .find(rt => rt.description === item.description && rt.amount === item.amount);
-
-          if (recurringTemplate) {
-            console.log('🗑️ 找到循環交易模板，停用:', recurringTemplate.id);
-            recurringTransactionService.deactivateRecurringTransaction(recurringTemplate.id);
-
-            // 刪除當前月份及之後的所有相關交易
-            const currentTransactions = transactionDataService.getTransactions();
-            for (const t of currentTransactions) {
-              if (t.description === item.description && t.amount === item.amount) {
-                if (!t || !t.date) continue;
-
-                const tDate = new Date(t.date);
-                if (isNaN(tDate.getTime())) continue;
-
-                const tMonth = tDate.getFullYear() * 12 + tDate.getMonth();
-                if (tMonth >= itemMonth) {
-                  console.log('🗑️ 刪除相關交易:', t.id);
-                  await transactionDataService.deleteTransaction(t.id);
-                }
-              }
-            }
-
-            // 刪除未來的相關交易
-            setFutureRecurringTransactions(prev => prev.filter(t => {
-              if (t.description !== item.description || t.amount !== item.amount) return true;
-
-              if (!t || !t.date) return false;
-
-              const tDate = new Date(t.date);
-              if (isNaN(tDate.getTime())) return false;
-
-              const tMonth = tDate.getFullYear() * 12 + tDate.getMonth();
-              return tMonth < itemMonth;
-            }));
-          }
-          break;
-
-        case 'all':
-          // 全部刪除：刪除所有相關的交易記錄和循環交易模板
-          console.log('🗑️ 全部刪除循環交易');
-
-          if (isLiabilityTransaction) {
-            console.log('🗑️ 處理負債循環交易的全部刪除');
-            const liabilities = liabilityService.getLiabilities();
-            const relatedLiability = liabilities.find(l => l.name === item.description);
-            if (relatedLiability) {
-              console.log('🗑️ 找到相關負債，刪除所有相關交易:', relatedLiability.name);
-              await liabilityTransactionSyncService.deleteLiabilityRecurringTransaction(relatedLiability.id);
-              console.log('✅ 負債循環交易刪除完成');
-              return;
-            }
-          }
-
-          const allRecurringTemplate = recurringTransactionService.getRecurringTransactions()
-            .find(rt => rt.description === item.description && rt.amount === item.amount);
-
-          if (allRecurringTemplate) {
-            console.log('🗑️ 找到循環交易模板，完全刪除:', allRecurringTemplate.id);
-            recurringTransactionService.deleteRecurringTransaction(allRecurringTemplate.id);
-
-            // 刪除所有相關的交易記錄
-            const allTransactions = transactionDataService.getTransactions();
-            for (const t of allTransactions) {
-              if (t.description === item.description && t.amount === item.amount && t.is_recurring) {
-                console.log('🗑️ 刪除相關交易:', t.id);
-                await transactionDataService.deleteTransaction(t.id);
-              }
-            }
-
-            // 刪除所有相關的未來交易
-            setFutureRecurringTransactions(prev => prev.filter(t =>
-              !(t.description === item.description && t.amount === item.amount)
-            ));
-          }
-          break;
-      }
-    } else {
-      // 普通交易直接刪除
-      console.log('🗑️ 刪除普通交易');
-
-      // 確保資產服務已初始化，然後撤銷交易影響
-      try {
-        await assetTransactionSyncService.initialize();
-        assetTransactionSyncService.reverseTransaction(item);
-        console.log('✅ 普通交易資產影響撤銷完成');
-      } catch (error) {
-        console.error('❌ 撤銷普通交易資產影響失敗:', error);
+      } else {
+        console.error('❌ 可靠刪除：交易刪除失敗:', result.errors);
+        Alert.alert(
+          '刪除失敗',
+          `刪除過程中發生錯誤：\n${result.errors.join('\n')}`,
+          [{ text: '確定' }]
+        );
       }
 
-      await transactionDataService.deleteTransaction(item.id);
+    } catch (error) {
+      console.error('❌ 可靠刪除：交易刪除異常:', error);
+      Alert.alert('刪除失敗', `刪除過程中發生錯誤：${error.message}`);
     }
-
-    // 更新 UI 狀態 - 刪除後也需要更新！
-    console.log('🔄 更新 TransactionsScreen 的交易狀態（刪除後）...');
-    const updatedTransactions = transactionDataService.getTransactions();
-    setTransactions(updatedTransactions);
-    console.log(`✅ UI 狀態已更新，當前交易數量: ${updatedTransactions.length}`);
-
-    console.log('✅ 交易刪除完成');
   };
 
   const getTransactionsForDate = (date: string) => {

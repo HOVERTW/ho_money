@@ -38,7 +38,11 @@
     "k8s:logs": "kubectl logs -f deployment/fintranzo-app -n fintranzo",
     "test:five-core": "node scripts/comprehensive-five-functions-test.js",
     "test:real-env": "node scripts/real-environment-10-rounds-test.js",
-    "test:sync": "node scripts/comprehensive-sync-test.js"
+    "test:sync": "node scripts/comprehensive-sync-test.js",
+    "test:delete": "node scripts/test-new-delete-system.js",
+    "test:delete:web": "PLATFORM=web node scripts/test-new-delete-system.js",
+    "test:delete:ios": "PLATFORM=ios node scripts/test-new-delete-system.js",
+    "docker:test:delete": "docker-compose -f docker/docker-compose.test.yml up --build"
   },
   "dependencies": {
     "@babel/plugin-transform-runtime": "^7.27.3",

@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # WEB 環境測試
+  web-test:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.test
+    container_name: fintranzo-web-test
+    environment:
+      - PLATFORM=web
+      - NODE_ENV=test
+      - EXPO_PUBLIC_SUPABASE_URL=${EXPO_PUBLIC_SUPABASE_URL}
+      - EXPO_PUBLIC_SUPABASE_ANON_KEY=${EXPO_PUBLIC_SUPABASE_ANON_KEY}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../src:/app/src:ro
+      - ../scripts:/app/scripts:ro
+      - ./test-results:/app/test-results
+    command: >
+      bash -c "
+        echo '🌐 WEB 環境測試開始'
+        npm run build:web || echo '❌ WEB 構建失敗'
+        npm run test:delete:web || echo '❌ WEB 刪除測試失敗'
+        echo '✅ WEB 環境測試完成'
+      "
+    networks:
+      - test-network
+
+  # iOS 環境測試
+  ios-test:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.test
+    container_name: fintranzo-ios-test
+    environment:
+      - PLATFORM=ios
+      - NODE_ENV=test
+      - EXPO_PUBLIC_SUPABASE_URL=${EXPO_PUBLIC_SUPABASE_URL}
+      - EXPO_PUBLIC_SUPABASE_ANON_KEY=${EXPO_PUBLIC_SUPABASE_ANON_KEY}
+    volumes:
+      - ../src:/app/src:ro
+      - ../scripts:/app/scripts:ro
+      - ./test-results:/app/test-results
+    command: >
+      bash -c "
+        echo '📱 iOS 環境測試開始'
+        npm run test:delete:ios || echo '❌ iOS 刪除測試失敗'
+        echo '✅ iOS 環境測試完成'
+      "
+    networks:
+      - test-network
+
+  # 刪除功能專項測試
+  delete-test:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.test
+    container_name: fintranzo-delete-test
+    environment:
+      - NODE_ENV=test
+      - EXPO_PUBLIC_SUPABASE_URL=${EXPO_PUBLIC_SUPABASE_URL}
+      - EXPO_PUBLIC_SUPABASE_ANON_KEY=${EXPO_PUBLIC_SUPABASE_ANON_KEY}
+    volumes:
+      - ../src:/app/src:ro
+      - ../scripts:/app/scripts:ro
+      - ./test-results:/app/test-results
+    command: >
+      bash -c "
+        echo '🗑️ 刪除功能專項測試開始'
+        node scripts/test-new-delete-system.js || echo '❌ 新刪除系統測試失敗'
+        echo '✅ 刪除功能專項測試完成'
+      "
+    depends_on:
+      - web-test
+      - ios-test
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge
+
+volumes:
+  test-results:

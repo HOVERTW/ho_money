@@ -1038,13 +1038,13 @@ export default function DashboardScreen() {
     }
   };
 
-  // 🗑️ 新刪除：使用簡單刪除服務
+  // 🗑️ 可靠刪除：使用可靠刪除服務
   const handleClearAllData = async () => {
-    console.log('🗑️ 新刪除：刪除按鈕被點擊');
+    console.log('🗑️ 可靠刪除：清空按鈕被點擊');
 
     Alert.alert(
       '確定刪除所有資料？',
-      '此操作將永久刪除：\n• 所有交易記錄\n• 所有資產\n• 所有負債\n\n此操作無法撤銷！',
+      '此操作將永久刪除：\n• 所有交易記錄\n• 所有資產\n• 所有負債\n\n此操作會同時清空本地和雲端數據，無法撤銷！',
       [
         {
           text: '取消',
@@ -1057,23 +1057,27 @@ export default function DashboardScreen() {
             try {
               setIsLoading(true);
 
-              // 使用簡單刪除服務
-              const { SimpleDeleteService } = await import('../services/simpleDeleteService');
-              const result = await SimpleDeleteService.clearAllData();
+              // 使用可靠刪除服務
+              const { ReliableDeleteService } = await import('../../services/reliableDeleteService');
+              const result = await ReliableDeleteService.clearAllData({
+                verifyDeletion: true,
+                retryCount: 3,
+                timeout: 15000
+              });
 
               if (result.success) {
-                console.log('✅ 新刪除：清空成功');
+                console.log('✅ 可靠刪除：清空成功');
 
                 // 重新加載數據
                 await loadDashboardData();
 
                 Alert.alert(
                   '刪除成功',
-                  `已成功刪除 ${result.deletedCount} 筆數據`,
+                  `已成功刪除 ${result.deletedCount} 筆數據\n\n本地存儲: ${result.details.localStorage ? '✅' : '❌'}\n雲端存儲: ${result.details.cloudStorage ? '✅' : '❌'}\n驗證結果: ${result.details.verification ? '✅' : '❌'}`,
                   [{ text: '確定' }]
                 );
               } else {
-                console.error('❌ 新刪除：清空失敗:', result.errors);
+                console.error('❌ 可靠刪除：清空失敗:', result.errors);
                 Alert.alert(
                   '刪除失敗',
                   `刪除過程中發生錯誤：\n${result.errors.join('\n')}`,
@@ -1081,7 +1085,7 @@ export default function DashboardScreen() {
                 );
               }
             } catch (error) {
-              console.error('❌ 新刪除：操作異常:', error);
+              console.error('❌ 可靠刪除：操作異常:', error);
               Alert.alert(
                 '刪除失敗',
                 `操作過程中發生錯誤：${error.message}`,

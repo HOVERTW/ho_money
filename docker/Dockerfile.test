@@ -1,0 +1,49 @@
+# Docker 測試環境 - 模擬 WEB 和 iOS 環境
+FROM node:18-alpine
+
+# 安裝必要的系統依賴
+RUN apk add --no-cache \
+    git \
+    python3 \
+    make \
+    g++ \
+    bash \
+    curl \
+    chromium \
+    chromium-chromedriver
+
+# 設置工作目錄
+WORKDIR /app
+
+# 複製 package.json 和 package-lock.json
+COPY package*.json ./
+
+# 安裝依賴
+RUN npm ci --only=production
+
+# 複製應用代碼
+COPY . .
+
+# 設置環境變數
+ENV NODE_ENV=test
+ENV CHROME_BIN=/usr/bin/chromium-browser
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
+# 創建測試腳本
+RUN echo '#!/bin/bash\n\
+echo "🐳 Docker 測試環境啟動"\n\
+echo "📱 模擬 WEB 環境測試..."\n\
+npm run test:web || echo "❌ WEB 測試失敗"\n\
+echo "📱 模擬 iOS 環境測試..."\n\
+npm run test:ios || echo "❌ iOS 測試失敗"\n\
+echo "🧪 執行刪除功能測試..."\n\
+npm run test:delete || echo "❌ 刪除測試失敗"\n\
+echo "✅ Docker 測試完成"' > /app/test.sh
+
+RUN chmod +x /app/test.sh
+
+# 暴露端口
+EXPOSE 3000 19006
+
+# 啟動命令
+CMD ["/app/test.sh"]
