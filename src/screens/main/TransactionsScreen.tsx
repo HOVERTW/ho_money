@@ -546,11 +546,18 @@ export default function TransactionsScreen() {
       if (result.success) {
         console.log('✅ 可靠刪除：交易刪除成功');
 
+        // 立即從本地狀態中移除交易
+        console.log('🔄 立即從本地狀態中移除交易...');
+        setTransactions(prev => prev.filter(t => t.id !== item.id));
+
         // 更新 UI 狀態
         console.log('🔄 更新 TransactionsScreen 的交易狀態（刪除後）...');
         const updatedTransactions = transactionDataService.getTransactions();
-        setTransactions(updatedTransactions);
         console.log(`✅ UI 狀態已更新，當前交易數量: ${updatedTransactions.length}`);
+
+        // 強制刷新交易數據
+        console.log('🔄 可靠刪除：強制刷新交易數據');
+        await transactionDataService.loadTransactions();
 
         // 發送刷新事件
         console.log('🔄 可靠刪除：發送財務數據更新事件');

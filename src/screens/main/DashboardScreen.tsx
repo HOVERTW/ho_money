@@ -1168,7 +1168,15 @@ export default function DashboardScreen() {
           )}
 
           {/* 一鍵清除按鈕 */}
-          <TouchableOpacity onPress={handleClearAllData} style={styles.clearDataButton}>
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation();
+              console.log('🗑️ 一鍵清空按鈕被點擊');
+              handleClearAllData();
+            }}
+            style={styles.clearDataButton}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+          >
             <Ionicons name="trash-outline" size={20} color="#FF3B30" />
           </TouchableOpacity>
         </View>

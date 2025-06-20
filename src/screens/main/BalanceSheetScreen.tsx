@@ -291,7 +291,27 @@ export default function BalanceSheetScreen() {
       console.log('🗑️ 可靠刪除：ReliableDeleteService 是否存在:', typeof ReliableDeleteService);
       console.log('🗑️ 可靠刪除：deleteLiability 方法是否存在:', typeof ReliableDeleteService.deleteLiability);
 
-      // 使用可靠刪除服務
+      // 🔧 新增：刪除負債前先刪除相關的還款交易
+      console.log('🗑️ 可靠刪除：開始刪除負債相關的還款交易');
+      const transactions = transactionDataService.getTransactions();
+      const relatedTransactions = transactions.filter(t =>
+        t.category === '還款' &&
+        (t.description?.includes(liability.name) || t.account === liability.name)
+      );
+
+      console.log(`🗑️ 可靠刪除：找到 ${relatedTransactions.length} 筆相關還款交易`);
+
+      // 刪除相關交易
+      for (const transaction of relatedTransactions) {
+        console.log(`🗑️ 可靠刪除：刪除還款交易 ${transaction.id}`);
+        await ReliableDeleteService.deleteTransaction(transaction.id, {
+          verifyDeletion: false,
+          retryCount: 1,
+          timeout: 5000
+        });
+      }
+
+      // 使用可靠刪除服務刪除負債
       console.log('🗑️ 可靠刪除：準備調用 deleteLiability');
       const result = await ReliableDeleteService.deleteLiability(liabilityId, {
         verifyDeletion: true,
@@ -311,6 +331,10 @@ export default function BalanceSheetScreen() {
         // 強制刷新所有相關服務的數據
         console.log('🔄 可靠刪除：強制刷新負債服務數據');
         await liabilityService.loadLiabilities();
+
+        // 強制刷新交易數據
+        console.log('🔄 可靠刪除：強制刷新交易數據');
+        await transactionDataService.loadTransactions();
 
         // 發送刷新事件
         console.log('🔄 可靠刪除：發送財務數據更新事件');
