@@ -519,6 +519,8 @@ export default function TransactionsScreen() {
   };
 
   const handleDeleteTransaction = async (item: any, deleteType?: 'single' | 'future' | 'all') => {
+    console.log('🗑️ 可靠刪除：交易刪除被觸發，交易ID:', item.id);
+    console.log('🗑️ 可靠刪除：WEB 環境直接執行交易刪除測試');
     console.log('🗑️ 可靠刪除：開始刪除交易:', {
       id: item.id,
       description: item.description,
@@ -528,12 +530,18 @@ export default function TransactionsScreen() {
     });
 
     try {
+      console.log('🗑️ 可靠刪除：進入 try 區塊');
+      console.log('🗑️ 可靠刪除：ReliableDeleteService 是否存在:', typeof ReliableDeleteService);
+      console.log('🗑️ 可靠刪除：deleteTransaction 方法是否存在:', typeof ReliableDeleteService.deleteTransaction);
+
       // 使用可靠刪除服務
+      console.log('🗑️ 可靠刪除：準備調用 deleteTransaction');
       const result = await ReliableDeleteService.deleteTransaction(item.id, {
         verifyDeletion: true,
         retryCount: 3,
         timeout: 10000
       });
+      console.log('🗑️ 可靠刪除：deleteTransaction 調用完成，結果:', result);
 
       if (result.success) {
         console.log('✅ 可靠刪除：交易刪除成功');
@@ -545,15 +553,12 @@ export default function TransactionsScreen() {
         console.log(`✅ UI 狀態已更新，當前交易數量: ${updatedTransactions.length}`);
 
         // 發送刷新事件
-        eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'transaction_deleted' });
+        console.log('🔄 可靠刪除：發送財務數據更新事件');
+        eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'transaction_deleted', timestamp: Date.now() });
 
+        console.log('✅ 可靠刪除：交易刪除完成，UI 已更新');
       } else {
         console.error('❌ 可靠刪除：交易刪除失敗:', result.errors);
-        Alert.alert(
-          '刪除失敗',
-          `刪除過程中發生錯誤：\n${result.errors.join('\n')}`,
-          [{ text: '確定' }]
-        );
       }
 
     } catch (error) {

@@ -248,14 +248,21 @@ export default function BalanceSheetScreen() {
       });
       console.log('🗑️ 可靠刪除：deleteAsset 調用完成');
 
+      console.log('🗑️ 可靠刪除：deleteAsset 調用完成，結果:', result);
+
       if (result.success) {
         console.log('✅ 可靠刪除：資產刪除成功');
 
         // 從本地狀態中移除
         setAssets(prev => prev.filter(a => a.id !== assetId));
 
+        // 強制刷新所有相關服務的數據
+        console.log('🔄 可靠刪除：強制刷新資產服務數據');
+        await assetTransactionSyncService.loadAssets();
+
         // 發送刷新事件
-        eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'asset_deleted' });
+        console.log('🔄 可靠刪除：發送財務數據更新事件');
+        eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'asset_deleted', timestamp: Date.now() });
 
         console.log('✅ 可靠刪除：資產刪除完成，UI 已更新');
       } else {
@@ -293,14 +300,21 @@ export default function BalanceSheetScreen() {
       });
       console.log('🗑️ 可靠刪除：deleteLiability 調用完成');
 
+      console.log('🗑️ 可靠刪除：deleteLiability 調用完成，結果:', result);
+
       if (result.success) {
         console.log('✅ 可靠刪除：負債刪除成功');
 
         // 從本地狀態中移除
         setLiabilities(prev => prev.filter(l => l.id !== liabilityId));
 
+        // 強制刷新所有相關服務的數據
+        console.log('🔄 可靠刪除：強制刷新負債服務數據');
+        await liabilityService.loadLiabilities();
+
         // 發送刷新事件
-        eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'liability_deleted' });
+        console.log('🔄 可靠刪除：發送財務數據更新事件');
+        eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'liability_deleted', timestamp: Date.now() });
 
         console.log('✅ 可靠刪除：負債刪除完成，UI 已更新');
       } else {

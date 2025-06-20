@@ -79,10 +79,7 @@ class UnifiedDataManager {
       const { assetTransactionSyncService } = await import('./assetTransactionSyncService');
       const { liabilityService } = await import('./liabilityService');
 
-      // 確保服務已初始化
-      await transactionDataService.ensureInitialized();
-
-      // 從服務獲取最新數據
+      // 從服務獲取最新數據（不調用 ensureInitialized，因為該方法不存在）
       this.transactions = transactionDataService.getTransactions();
       this.assets = assetTransactionSyncService.getAssets();
       this.liabilities = liabilityService.getLiabilities();

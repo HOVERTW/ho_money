@@ -121,7 +121,9 @@ export class ReliableDeleteService {
       }
 
       // 步驟 2: 雲端存儲刪除
+      console.log('🔄 可靠刪除：準備執行雲端存儲刪除');
       const cloudResult = await this.deleteFromCloudStorage('assets', assetId, opts);
+      console.log('🔄 可靠刪除：雲端存儲刪除完成', cloudResult);
       result.details.cloudStorage = cloudResult.success;
       result.deletedCount += cloudResult.deletedCount;
       if (!cloudResult.success) {
@@ -129,14 +131,17 @@ export class ReliableDeleteService {
       }
 
       // 步驟 3: 驗證刪除結果
+      console.log('🔄 可靠刪除：準備執行驗證刪除結果');
       if (opts.verifyDeletion) {
         const verifyResult = await this.verifyDeletion('assets', assetId);
+        console.log('🔄 可靠刪除：驗證刪除結果完成', verifyResult);
         result.details.verification = verifyResult.success;
         if (!verifyResult.success) {
           result.errors.push(...verifyResult.errors);
         }
       } else {
         result.details.verification = true;
+        console.log('🔄 可靠刪除：跳過驗證刪除結果');
       }
 
       // 判斷整體成功
