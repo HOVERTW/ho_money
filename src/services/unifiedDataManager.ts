@@ -74,17 +74,28 @@ class UnifiedDataManager {
    */
   private async loadFromLocalStorage(): Promise<void> {
     try {
-      const [transactionsData, assetsData, liabilitiesData] = await Promise.all([
-        AsyncStorage.getItem('@FinTranzo:transactions'),
-        AsyncStorage.getItem('@FinTranzo:assets'),
-        AsyncStorage.getItem('@FinTranzo:liabilities')
-      ]);
+      // 🔧 修復：從各個服務加載最新數據，而不是直接從 AsyncStorage
+      const { transactionDataService } = await import('./transactionDataService');
+      const { assetTransactionSyncService } = await import('./assetTransactionSyncService');
+      const { liabilityService } = await import('./liabilityService');
 
-      this.transactions = transactionsData ? JSON.parse(transactionsData) : [];
-      this.assets = assetsData ? JSON.parse(assetsData) : [];
-      this.liabilities = liabilitiesData ? JSON.parse(liabilitiesData) : [];
+      // 確保服務已初始化
+      await transactionDataService.ensureInitialized();
+
+      // 從服務獲取最新數據
+      this.transactions = transactionDataService.getTransactions();
+      this.assets = assetTransactionSyncService.getAssets();
+      this.liabilities = liabilityService.getLiabilities();
 
       console.log(`📱 本地數據載入完成: 交易${this.transactions.length}筆, 資產${this.assets.length}筆, 負債${this.liabilities.length}筆`);
+
+      // 🔧 修復：顯示負債循環交易的詳細信息
+      const debtPaymentTransactions = this.transactions.filter(t => t.category === '還款');
+      console.log(`💳 負債循環交易: ${debtPaymentTransactions.length}筆`);
+      debtPaymentTransactions.forEach(t => {
+        console.log(`  - ${t.description}: ${t.amount} (${t.account})`);
+      });
+
     } catch (error) {
       console.error('❌ 本地數據載入失敗:', error);
       // 初始化為空數組

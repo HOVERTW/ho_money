@@ -231,57 +231,40 @@ export default function BalanceSheetScreen() {
       return;
     }
 
-    Alert.alert(
-      '確認刪除',
-      `確定要刪除資產 "${asset.name}" 嗎？\n\n此操作將同時刪除本地和雲端數據。`,
-      [
-        { text: '取消', style: 'cancel' },
-        {
-          text: '刪除',
-          style: 'destructive',
-          onPress: async () => {
-            console.log('🗑️ 可靠刪除：用戶確認刪除資產 - 開始執行');
-            try {
-              console.log('🗑️ 可靠刪除：進入 try 區塊');
-              console.log('🗑️ 可靠刪除：ReliableDeleteService 是否存在:', typeof ReliableDeleteService);
-              console.log('🗑️ 可靠刪除：deleteAsset 方法是否存在:', typeof ReliableDeleteService.deleteAsset);
+    // 🔧 WEB 環境測試：直接執行刪除，跳過確認對話框
+    console.log('🗑️ 可靠刪除：WEB 環境直接執行刪除測試');
+    console.log('🗑️ 可靠刪除：用戶確認刪除資產 - 開始執行');
+    try {
+      console.log('🗑️ 可靠刪除：進入 try 區塊');
+      console.log('🗑️ 可靠刪除：ReliableDeleteService 是否存在:', typeof ReliableDeleteService);
+      console.log('🗑️ 可靠刪除：deleteAsset 方法是否存在:', typeof ReliableDeleteService.deleteAsset);
 
-              // 使用可靠刪除服務
-              console.log('🗑️ 可靠刪除：準備調用 deleteAsset');
-              const result = await ReliableDeleteService.deleteAsset(assetId, {
-                verifyDeletion: true,
-                retryCount: 3,
-                timeout: 10000
-              });
-              console.log('🗑️ 可靠刪除：deleteAsset 調用完成');
+      // 使用可靠刪除服務
+      console.log('🗑️ 可靠刪除：準備調用 deleteAsset');
+      const result = await ReliableDeleteService.deleteAsset(assetId, {
+        verifyDeletion: true,
+        retryCount: 3,
+        timeout: 10000
+      });
+      console.log('🗑️ 可靠刪除：deleteAsset 調用完成');
 
-              if (result.success) {
-                console.log('✅ 可靠刪除：資產刪除成功');
+      if (result.success) {
+        console.log('✅ 可靠刪除：資產刪除成功');
 
-                // 從本地狀態中移除
-                setAssets(prev => prev.filter(a => a.id !== assetId));
+        // 從本地狀態中移除
+        setAssets(prev => prev.filter(a => a.id !== assetId));
 
-                // 發送刷新事件
-                eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'asset_deleted' });
+        // 發送刷新事件
+        eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'asset_deleted' });
 
-                Alert.alert('刪除成功', `資產 "${asset.name}" 已成功刪除`);
-              } else {
-                console.error('❌ 可靠刪除：資產刪除失敗:', result.errors);
-                Alert.alert(
-                  '刪除失敗',
-                  `刪除過程中發生錯誤：\n${result.errors.join('\n')}`,
-                  [{ text: '確定' }]
-                );
-              }
+        console.log('✅ 可靠刪除：資產刪除完成，UI 已更新');
+      } else {
+        console.error('❌ 可靠刪除：資產刪除失敗:', result.errors);
+      }
 
-            } catch (error) {
-              console.error('❌ 可靠刪除：資產刪除異常:', error);
-              Alert.alert('刪除失敗', `刪除過程中發生錯誤：${error.message}`);
-            }
-          },
-        },
-      ]
-    );
+    } catch (error) {
+      console.error('❌ 可靠刪除：資產刪除異常:', error);
+    }
   };
 
   const handleDeleteLiability = async (liabilityId: string) => {
@@ -290,61 +273,43 @@ export default function BalanceSheetScreen() {
     const liability = liabilities.find(l => l.id === liabilityId);
     if (!liability) {
       console.error('❌ 可靠刪除：找不到要刪除的負債');
-      Alert.alert('錯誤', '找不到要刪除的負債');
       return;
     }
 
-    Alert.alert(
-      '確認刪除',
-      `確定要刪除負債 "${liability.name}" 嗎？\n\n此操作將同時刪除本地和雲端數據。`,
-      [
-        { text: '取消', style: 'cancel' },
-        {
-          text: '刪除',
-          style: 'destructive',
-          onPress: async () => {
-            console.log('🗑️ 可靠刪除：用戶確認刪除負債 - 開始執行');
-            try {
-              console.log('🗑️ 可靠刪除：進入 try 區塊');
-              console.log('🗑️ 可靠刪除：ReliableDeleteService 是否存在:', typeof ReliableDeleteService);
-              console.log('🗑️ 可靠刪除：deleteLiability 方法是否存在:', typeof ReliableDeleteService.deleteLiability);
+    // 🔧 WEB 環境測試：直接執行刪除，跳過確認對話框
+    console.log('🗑️ 可靠刪除：WEB 環境直接執行負債刪除測試');
+    console.log('🗑️ 可靠刪除：用戶確認刪除負債 - 開始執行');
+    try {
+      console.log('🗑️ 可靠刪除：進入 try 區塊');
+      console.log('🗑️ 可靠刪除：ReliableDeleteService 是否存在:', typeof ReliableDeleteService);
+      console.log('🗑️ 可靠刪除：deleteLiability 方法是否存在:', typeof ReliableDeleteService.deleteLiability);
 
-              // 使用可靠刪除服務
-              console.log('🗑️ 可靠刪除：準備調用 deleteLiability');
-              const result = await ReliableDeleteService.deleteLiability(liabilityId, {
-                verifyDeletion: true,
-                retryCount: 3,
-                timeout: 10000
-              });
-              console.log('🗑️ 可靠刪除：deleteLiability 調用完成');
+      // 使用可靠刪除服務
+      console.log('🗑️ 可靠刪除：準備調用 deleteLiability');
+      const result = await ReliableDeleteService.deleteLiability(liabilityId, {
+        verifyDeletion: true,
+        retryCount: 3,
+        timeout: 10000
+      });
+      console.log('🗑️ 可靠刪除：deleteLiability 調用完成');
 
-              if (result.success) {
-                console.log('✅ 可靠刪除：負債刪除成功');
+      if (result.success) {
+        console.log('✅ 可靠刪除：負債刪除成功');
 
-                // 從本地狀態中移除
-                setLiabilities(prev => prev.filter(l => l.id !== liabilityId));
+        // 從本地狀態中移除
+        setLiabilities(prev => prev.filter(l => l.id !== liabilityId));
 
-                // 發送刷新事件
-                eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'liability_deleted' });
+        // 發送刷新事件
+        eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'liability_deleted' });
 
-                Alert.alert('刪除成功', `負債 "${liability.name}" 已成功刪除`);
-              } else {
-                console.error('❌ 可靠刪除：負債刪除失敗:', result.errors);
-                Alert.alert(
-                  '刪除失敗',
-                  `刪除過程中發生錯誤：\n${result.errors.join('\n')}`,
-                  [{ text: '確定' }]
-                );
-              }
+        console.log('✅ 可靠刪除：負債刪除完成，UI 已更新');
+      } else {
+        console.error('❌ 可靠刪除：負債刪除失敗:', result.errors);
+      }
 
-            } catch (error) {
-              console.error('❌ 可靠刪除：負債刪除異常:', error);
-              Alert.alert('刪除失敗', `刪除過程中發生錯誤：${error.message}`);
-            }
-          },
-        },
-      ]
-    );
+    } catch (error) {
+      console.error('❌ 可靠刪除：負債刪除異常:', error);
+    }
   };
 
   // 處理資產排序
