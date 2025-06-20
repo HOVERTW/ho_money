@@ -77,20 +77,10 @@ class TransactionDataService {
         await this.loadFromSupabase(user.id);
         console.log('✅ 從 Supabase 加載數據完成');
       } else {
-        console.log('👤 用戶未登錄，使用本地數據...');
-        // 用戶未登錄，從本地存儲加載數據
-        const hasInitialized = await AsyncStorage.getItem(STORAGE_KEYS.INITIALIZED);
-
-        if (hasInitialized) {
-          await this.loadFromStorage();
-          console.log('✅ 從本地存儲加載數據完成');
-        } else {
-          // 首次使用，初始化空數據
-          this.initializeDefaultData();
-          await this.saveToStorage();
-          await AsyncStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
-          console.log('✅ 首次初始化空數據完成');
-        }
+        console.log('👤 用戶未登錄，使用空數據...');
+        // 🔧 用戶未登錄時，始終使用空數據，不顯示任何交易記錄
+        this.initializeDefaultData();
+        console.log('✅ 未登錄狀態：使用空數據完成');
       }
 
       // 強制更新類別到最新版本（包含轉移類別）

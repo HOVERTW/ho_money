@@ -9,15 +9,7 @@ export default ({ config }) => {
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       redirectUrl: process.env.EXPO_PUBLIC_REDIRECT_URL,
     },
-    // Google OAuth 配置
-    plugins: [
-      ...(config.plugins || []),
-      [
-        'expo-auth-session',
-        {
-          scheme: 'fintranzo'
-        }
-      ]
-    ]
+    // 🔧 暫時移除 expo-auth-session 插件以修復構建問題
+    // Google OAuth 將使用 Supabase 的內建 OAuth 流程
   };
 };

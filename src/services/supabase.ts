@@ -2,7 +2,7 @@ import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from '@env';
 import { createClient, AuthError, AuthResponse, User, Session } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import { makeRedirectUri } from 'expo-auth-session';
+// 🔧 移除 expo-auth-session 依賴以修復構建問題
 import { Platform } from 'react-native';
 
 // Supabase configuration
@@ -229,10 +229,8 @@ export const authService = {
       if (Platform.OS === 'web') {
         emailRedirectTo = process.env.EXPO_PUBLIC_REDIRECT_URL || window.location.origin;
       } else {
-        emailRedirectTo = makeRedirectUri({
-          scheme: 'fintranzo',
-          path: 'auth/confirm',
-        });
+        // 🔧 使用固定的移動端重定向 URL
+        emailRedirectTo = 'fintranzo://auth/confirm';
       }
 
       console.log('📧 電子郵件重定向 URL:', emailRedirectTo);
@@ -365,11 +363,8 @@ export const authService = {
         redirectUrl = process.env.EXPO_PUBLIC_REDIRECT_URL || window.location.origin;
         console.log('🌐 Web 重定向 URL:', redirectUrl);
       } else {
-        // 移動平台使用 Expo 的重定向 URI
-        redirectUrl = makeRedirectUri({
-          scheme: 'fintranzo',
-          path: 'auth',
-        });
+        // 🔧 使用固定的移動端重定向 URL
+        redirectUrl = 'fintranzo://auth';
         console.log('📱 Mobile 重定向 URL:', redirectUrl);
       }
 
