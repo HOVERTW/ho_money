@@ -1096,8 +1096,6 @@ export default function DashboardScreen() {
     );
   };
 
-  };
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('zh-TW', {
       style: 'currency',
