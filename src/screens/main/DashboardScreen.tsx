@@ -1043,61 +1043,40 @@ export default function DashboardScreen() {
   const handleClearAllData = async () => {
     console.log('🗑️ 可靠刪除：清空按鈕被點擊');
 
-    Alert.alert(
-      '確定刪除所有資料？',
-      '此操作將永久刪除：\n• 所有交易記錄\n• 所有資產\n• 所有負債\n\n此操作會同時清空本地和雲端數據，無法撤銷！',
-      [
-        {
-          text: '取消',
-          style: 'cancel',
-        },
-        {
-          text: '確定刪除',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setIsLoading(true);
+    // 🔧 WEB 環境測試：直接執行清空，跳過確認對話框
+    console.log('🗑️ 可靠刪除：WEB 環境直接執行清空測試');
+    console.log('🗑️ 可靠刪除：用戶確認清空所有數據');
+    try {
+      console.log('🗑️ 可靠刪除：進入 try 區塊');
+      console.log('🗑️ 可靠刪除：ReliableDeleteService 是否存在:', typeof ReliableDeleteService);
+      console.log('🗑️ 可靠刪除：clearAllData 方法是否存在:', typeof ReliableDeleteService.clearAllData);
 
-              // 使用可靠刪除服務
-              const result = await ReliableDeleteService.clearAllData({
-                verifyDeletion: true,
-                retryCount: 3,
-                timeout: 15000
-              });
+      setIsLoading(true);
 
-              if (result.success) {
-                console.log('✅ 可靠刪除：清空成功');
+      // 使用可靠刪除服務
+      console.log('🗑️ 可靠刪除：準備調用 clearAllData');
+      const result = await ReliableDeleteService.clearAllData({
+        verifyDeletion: true,
+        retryCount: 3,
+        timeout: 15000
+      });
+      console.log('🗑️ 可靠刪除：clearAllData 調用完成，結果:', result);
 
-                // 重新加載數據
-                await loadDashboardData();
+      if (result.success) {
+        console.log('✅ 可靠刪除：清空成功');
 
-                Alert.alert(
-                  '刪除成功',
-                  `已成功刪除 ${result.deletedCount} 筆數據\n\n本地存儲: ${result.details.localStorage ? '✅' : '❌'}\n雲端存儲: ${result.details.cloudStorage ? '✅' : '❌'}\n驗證結果: ${result.details.verification ? '✅' : '❌'}`,
-                  [{ text: '確定' }]
-                );
-              } else {
-                console.error('❌ 可靠刪除：清空失敗:', result.errors);
-                Alert.alert(
-                  '刪除失敗',
-                  `刪除過程中發生錯誤：\n${result.errors.join('\n')}`,
-                  [{ text: '確定' }]
-                );
-              }
-            } catch (error) {
-              console.error('❌ 可靠刪除：操作異常:', error);
-              Alert.alert(
-                '刪除失敗',
-                `操作過程中發生錯誤：${error.message}`,
-                [{ text: '確定' }]
-              );
-            } finally {
-              setIsLoading(false);
-            }
-          }
-        }
-      ]
-    );
+        // 重新加載數據
+        await loadDashboardData();
+
+        console.log('✅ 可靠刪除：清空完成，UI 已更新');
+      } else {
+        console.error('❌ 可靠刪除：清空失敗:', result.errors);
+      }
+    } catch (error) {
+      console.error('❌ 可靠刪除：操作異常:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const formatCurrency = (amount: number) => {

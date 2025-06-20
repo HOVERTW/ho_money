@@ -526,6 +526,14 @@ export default function BalanceSheetScreen() {
                         <View style={styles.itemHeader}>
                           <Text style={styles.itemName}>{asset.name}</Text>
                           <Text style={styles.itemType}>{getAssetTypeLabel(asset.type)}</Text>
+                          {/* 🔧 WEB 環境臨時刪除按鈕 */}
+                          <TouchableOpacity
+                            onPress={() => handleDeleteAsset(asset.id)}
+                            style={styles.webDeleteButton}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          >
+                            <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                          </TouchableOpacity>
                         </View>
 
                         <View style={styles.itemDetails}>
@@ -754,6 +762,14 @@ export default function BalanceSheetScreen() {
                         <View style={styles.itemHeader}>
                           <Text style={styles.itemName}>{liability.name}</Text>
                           <Text style={styles.itemType}>{getLiabilityTypeLabel(liability.type)}</Text>
+                          {/* 🔧 WEB 環境臨時刪除按鈕 */}
+                          <TouchableOpacity
+                            onPress={() => handleDeleteLiability(liability.id)}
+                            style={styles.webDeleteButton}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          >
+                            <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                          </TouchableOpacity>
                         </View>
 
                         <View style={styles.itemDetails}>
@@ -1114,5 +1130,11 @@ const styles = StyleSheet.create({
   pinToTopButton: {
     backgroundColor: '#FFF8E1',
     borderColor: '#FFE0B2',
+  },
+  webDeleteButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    marginLeft: 8,
   },
 });

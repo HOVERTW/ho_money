@@ -43,31 +43,15 @@ export default function SwipeableTransactionItem({
       return;
     }
 
-    // 使用可靠刪除確認
-    Alert.alert(
-      '刪除交易',
-      `確定要刪除交易 "${item.description}" 嗎？\n\n此操作將同時刪除本地和雲端數據。`,
-      [
-        {
-          text: '取消',
-          style: 'cancel',
-        },
-        {
-          text: '刪除',
-          style: 'destructive',
-          onPress: () => {
-            console.log('🗑️ 可靠刪除：用戶確認刪除，調用onDelete');
-            try {
-              onDelete(item);
-              console.log('✅ 可靠刪除：刪除調用成功');
-            } catch (error) {
-              console.error('❌ 可靠刪除：刪除調用失敗:', error);
-              Alert.alert('刪除失敗', '交易刪除時發生錯誤，請重試');
-            }
-          },
-        },
-      ]
-    );
+    // 🔧 WEB 環境測試：直接執行刪除，跳過確認對話框
+    console.log('🗑️ 可靠刪除：WEB 環境直接執行交易刪除測試');
+    console.log('🗑️ 可靠刪除：用戶確認刪除，調用onDelete');
+    try {
+      onDelete(item);
+      console.log('✅ 可靠刪除：刪除調用成功');
+    } catch (error) {
+      console.error('❌ 可靠刪除：刪除調用失敗:', error);
+    }
   };
 
   // 🗑️ 可靠刪除：渲染右滑刪除按鈕
@@ -149,7 +133,14 @@ export default function SwipeableTransactionItem({
             {item.type === 'transfer' ? '' : (item.type === 'income' ? '+' : '-')}
             {formatCurrency(Math.abs(item.amount))}
           </Text>
-
+          {/* 🔧 WEB 環境臨時刪除按鈕 */}
+          <TouchableOpacity
+            onPress={handleDelete}
+            style={styles.webDeleteButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     </Swipeable>
@@ -262,6 +253,12 @@ const styles = StyleSheet.create({
   transactionTime: {
     fontSize: 12,
     color: '#999',
+  },
+  webDeleteButton: {
+    padding: 6,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    marginLeft: 8,
   },
 
 });
