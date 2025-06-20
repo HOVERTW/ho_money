@@ -13,6 +13,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
+import { SupabaseConnectionTest } from '../../utils/supabaseTest';
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
@@ -133,6 +134,13 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
+  // Supabase 連接測試
+  const handleSupabaseTest = async () => {
+    console.log('🧪 手動運行 Supabase 測試...');
+    await SupabaseConnectionTest.runFullTest();
+    Alert.alert('測試完成', '請檢查控制台日誌查看詳細結果');
+  };
+
 
 
   return (
@@ -215,14 +223,25 @@ export default function LoginScreen({ navigation }: any) {
 
           {/* 開發環境測試按鈕 */}
           {__DEV__ && (
-            <TouchableOpacity
-              style={[styles.socialButton, styles.testButton]}
-              onPress={handleCreateTestUser}
-              disabled={loading}
-            >
-              <Ionicons name="flask" size={20} color="#fff" />
-              <Text style={styles.socialButtonText}>創建測試用戶</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={[styles.socialButton, styles.testButton]}
+                onPress={handleCreateTestUser}
+                disabled={loading}
+              >
+                <Ionicons name="flask" size={20} color="#fff" />
+                <Text style={styles.socialButtonText}>創建測試用戶</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.socialButton, styles.diagnosticButton]}
+                onPress={handleSupabaseTest}
+                disabled={loading}
+              >
+                <Ionicons name="bug" size={20} color="#fff" />
+                <Text style={styles.socialButtonText}>Supabase 連接測試</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
 
@@ -351,6 +370,9 @@ const styles = StyleSheet.create({
   },
   testButton: {
     backgroundColor: '#FF9500',
+  },
+  diagnosticButton: {
+    backgroundColor: '#5856D6',
   },
   socialButtonText: {
     color: '#fff',

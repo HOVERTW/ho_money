@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { appInitializationService } from './src/services/appInitializationService';
 import AppNavigator from './src/navigation/AppNavigator';
 import { errorHandler } from './src/utils/errorHandler';
+import { SupabaseConnectionTest } from './src/utils/supabaseTest';
 // import { DiagnosticsService } from './src/utils/diagnostics';
 
 // 錯誤邊界組件
@@ -85,6 +86,15 @@ function AppContent() {
         await Promise.race([initPromise, timeoutPromise]);
 
         console.log('✅ 應用初始化完成');
+
+        // 🧪 在開發環境中運行 Supabase 連接測試
+        if (__DEV__) {
+          console.log('🧪 開發環境：運行 Supabase 連接測試...');
+          setTimeout(() => {
+            SupabaseConnectionTest.runFullTest();
+          }, 2000);
+        }
+
         setIsInitialized(true);
       } catch (error) {
         console.error('❌ 應用初始化失敗:', error);
