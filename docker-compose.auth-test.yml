@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  # 認證功能測試環境
+  fintranzo-auth-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=test
+      - EXPO_PUBLIC_SUPABASE_URL=https://yrryyapzkgrsahranzvo.supabase.co
+      - EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxNzM2MzUsImV4cCI6MjA2Mzc0OTYzNX0.TccJJ9KGG6R4KiaDb-548kRkhTaPMODYa6vlQsj8dmM
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+        echo '🐳 Docker 認證測試環境' &&
+        echo '======================' &&
+        echo '' &&
+        echo '📦 安裝依賴...' &&
+        yarn install --frozen-lockfile &&
+        echo '' &&
+        echo '🧪 開始認證測試...' &&
+        node scripts/docker-auth-test.js &&
+        echo '' &&
+        echo '✅ 認證測試完成'
+      "
+
+  # Web 環境認證測試（帶 UI）
+  fintranzo-auth-web-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+      - "8081:8081"
+    environment:
+      - NODE_ENV=development
+      - EXPO_PUBLIC_SUPABASE_URL=https://yrryyapzkgrsahranzvo.supabase.co
+      - EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxNzM2MzUsImV4cCI6MjA2Mzc0OTYzNX0.TccJJ9KGG6R4KiaDb-548kRkhTaPMODYa6vlQsj8dmM
+      - EXPO_PUBLIC_REDIRECT_URL=http://localhost:8081
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+        echo '🌐 Web 認證測試環境' &&
+        echo '==================' &&
+        echo '' &&
+        echo '📦 安裝依賴...' &&
+        yarn install --frozen-lockfile &&
+        echo '' &&
+        echo '🧪 先運行認證測試...' &&
+        node scripts/docker-auth-test.js &&
+        echo '' &&
+        echo '🌐 啟動 Web 服務...' &&
+        echo '訪問 http://localhost:3000 進行手動測試' &&
+        npx expo start --web --port 8081 --host 0.0.0.0
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 用戶確認工具
+  fintranzo-user-confirm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=development
+      - EXPO_PUBLIC_SUPABASE_URL=https://yrryyapzkgrsahranzvo.supabase.co
+      - EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxNzM2MzUsImV4cCI6MjA2Mzc0OTYzNX0.TccJJ9KGG6R4KiaDb-548kRkhTaPMODYa6vlQsj8dmM
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+        echo '🔧 用戶確認工具' &&
+        echo '==============' &&
+        echo '' &&
+        echo '📦 安裝依賴...' &&
+        yarn install --frozen-lockfile &&
+        echo '' &&
+        echo '📋 列出未確認用戶...' &&
+        node scripts/confirm-user.js list &&
+        echo '' &&
+        echo '💡 使用方法:' &&
+        echo '  確認用戶: docker-compose -f docker-compose.auth-test.yml exec fintranzo-user-confirm node scripts/confirm-user.js confirm email@example.com' &&
+        echo '  測試登錄: docker-compose -f docker-compose.auth-test.yml exec fintranzo-user-confirm node scripts/confirm-user.js test email@example.com password' &&
+        echo '' &&
+        echo '⏳ 保持容器運行以供交互使用...' &&
+        tail -f /dev/null
+      "
+
+  # 多輪認證測試
+  fintranzo-auth-stress-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=test
+      - EXPO_PUBLIC_SUPABASE_URL=https://yrryyapzkgrsahranzvo.supabase.co
+      - EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxNzM2MzUsImV4cCI6MjA2Mzc0OTYzNX0.TccJJ9KGG6R4KiaDb-548kRkhTaPMODYa6vlQsj8dmM
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+        echo '🔄 多輪認證壓力測試' &&
+        echo '==================' &&
+        echo '' &&
+        echo '📦 安裝依賴...' &&
+        yarn install --frozen-lockfile &&
+        echo '' &&
+        for i in \$$(seq 1 5); do
+          echo \"🧪 第 \$$i 輪認證測試...\" &&
+          node scripts/docker-auth-test.js &&
+          echo \"✅ 第 \$$i 輪測試完成\" &&
+          echo '' &&
+          sleep 3
+        done &&
+        echo '🎉 所有認證測試完成'
+      "
+
+networks:
+  default:
+    driver: bridge
+
+volumes:
+  node_modules:
+    driver: local

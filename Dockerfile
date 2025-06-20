@@ -1,5 +1,5 @@
 # FinTranzo Docker 配置
-# 用於完整環境模擬和測試
+# 用於認證功能測試和環境模擬
 
 FROM node:18-alpine
 
@@ -12,7 +12,8 @@ RUN apk add --no-cache \
     python3 \
     make \
     g++ \
-    bash
+    bash \
+    curl
 
 # 複製 package 文件
 COPY package*.json ./
@@ -25,7 +26,7 @@ RUN yarn install --frozen-lockfile
 COPY . .
 
 # 設置環境變量
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 ENV EXPO_PUBLIC_SUPABASE_URL=https://yrryyapzkgrsahranzvo.supabase.co
 ENV EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxNzM2MzUsImV4cCI6MjA2Mzc0OTYzNX0.TccJJ9KGG6R4KiaDb-548kRkhTaPMODYa6vlQsj8dmM
 
