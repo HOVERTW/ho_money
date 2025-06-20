@@ -14,6 +14,7 @@ import { NotificationManager } from './src/components/NotificationManager';
 if (__DEV__) {
   import('./src/utils/testNotifications');
   import('./src/utils/testRegistration');
+  import('./src/utils/devUserConfirm');
 }
 // import { DiagnosticsService } from './src/utils/diagnostics';
 

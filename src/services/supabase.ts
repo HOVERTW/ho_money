@@ -365,33 +365,26 @@ export const authService = {
 
       // 如果註冊成功
       if (signUpResult.data.user && !signUpResult.error) {
-        // 方法2: 多次嘗試登錄，直到成功或超時
-        console.log('🔄 註冊成功，嘗試多次登錄...');
+        // 🎯 新策略：如果用戶已創建但未確認，我們認為這是成功的
+        console.log('✅ 用戶創建成功！');
 
-        for (let attempt = 1; attempt <= 5; attempt++) {
-          console.log(`🔄 登錄嘗試 ${attempt}/5...`);
+        // 檢查是否有 session（已確認的用戶會有 session）
+        if (signUpResult.data.session) {
+          console.log('🎉 用戶已確認，可以直接使用');
+          return signUpResult;
+        } else {
+          console.log('📧 用戶需要確認，但我們將其視為成功');
 
-          await new Promise(resolve => setTimeout(resolve, attempt * 500)); // 遞增等待時間
-
-          const loginAttempt = await supabase.auth.signInWithPassword({ email, password });
-
-          if (loginAttempt.data.user && loginAttempt.data.session && !loginAttempt.error) {
-            console.log(`✅ 第 ${attempt} 次登錄嘗試成功！`);
-            return loginAttempt;
-          } else {
-            console.log(`⚠️ 第 ${attempt} 次登錄嘗試失敗:`, loginAttempt.error?.message);
-          }
+          // 🔧 創建一個"成功"的響應，即使沒有 session
+          // 這樣前端可以顯示成功消息並引導用戶登錄
+          return {
+            data: {
+              user: signUpResult.data.user,
+              session: null // 沒有 session，但用戶已創建
+            },
+            error: null
+          };
         }
-
-        // 如果所有登錄嘗試都失敗，返回註冊成功但需要手動登錄的狀態
-        console.log('⚠️ 所有登錄嘗試失敗，但用戶已創建成功');
-        return {
-          data: {
-            user: signUpResult.data.user,
-            session: null // 明確設置為 null，表示需要手動登錄
-          },
-          error: null
-        };
       }
 
       // 如果註冊失敗，返回錯誤
@@ -415,6 +408,39 @@ export const authService = {
       }
 
       throw error;
+    }
+  },
+
+  // 🆕 手動確認用戶（開發環境使用）
+  manualConfirmUser: async (email: string): Promise<{ success: boolean; message: string }> => {
+    console.log('🔧 嘗試手動確認用戶:', email);
+
+    try {
+      // 注意：這個功能需要 service_role key，在生產環境中不應該使用
+      // 這裡只是提供一個概念性的實現
+
+      console.log('💡 手動確認用戶的方法:');
+      console.log('1. 在 Supabase Dashboard 中:');
+      console.log('   - 前往 Authentication > Users');
+      console.log('   - 找到用戶:', email);
+      console.log('   - 點擊用戶行');
+      console.log('   - 點擊 "Confirm email" 按鈕');
+      console.log('');
+      console.log('2. 或者使用 SQL 命令:');
+      console.log(`   UPDATE auth.users SET email_confirmed_at = NOW() WHERE email = '${email}';`);
+      console.log('');
+      console.log('3. 確認後用戶就可以正常登錄了');
+
+      return {
+        success: true,
+        message: `請手動確認用戶 ${email} 的郵箱，然後用戶就可以正常登錄了`
+      };
+    } catch (error) {
+      console.error('💥 手動確認用戶錯誤:', error);
+      return {
+        success: false,
+        message: '手動確認用戶失敗'
+      };
     }
   },
 

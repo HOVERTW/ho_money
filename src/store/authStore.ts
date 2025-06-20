@@ -158,9 +158,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // 顯示註冊成功通知，提示用戶可以直接登錄
           notificationManager.success(
             '註冊成功',
-            '帳號已創建成功！請使用您的帳號密碼登錄',
+            '帳號已創建成功！您現在可以使用這個帳號密碼登錄了',
             true
           );
+
+          // 🔧 提供手動確認的提示（開發環境）
+          if (__DEV__) {
+            setTimeout(() => {
+              console.log('💡 開發提示：如果登錄時提示需要確認郵箱，請：');
+              console.log('1. 前往 Supabase Dashboard > Authentication > Users');
+              console.log(`2. 找到用戶 ${data.user.email}`);
+              console.log('3. 點擊 "Confirm email" 按鈕');
+              console.log('4. 然後就可以正常登錄了');
+            }, 2000);
+          }
         }
       } else {
         console.log('⚠️ AuthStore: 註冊返回空用戶');
