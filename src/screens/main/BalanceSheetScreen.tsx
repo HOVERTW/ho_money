@@ -240,15 +240,20 @@ export default function BalanceSheetScreen() {
           text: '刪除',
           style: 'destructive',
           onPress: async () => {
+            console.log('🗑️ 可靠刪除：用戶確認刪除資產 - 開始執行');
             try {
-              console.log('🗑️ 可靠刪除：用戶確認刪除資產');
+              console.log('🗑️ 可靠刪除：進入 try 區塊');
+              console.log('🗑️ 可靠刪除：ReliableDeleteService 是否存在:', typeof ReliableDeleteService);
+              console.log('🗑️ 可靠刪除：deleteAsset 方法是否存在:', typeof ReliableDeleteService.deleteAsset);
 
               // 使用可靠刪除服務
+              console.log('🗑️ 可靠刪除：準備調用 deleteAsset');
               const result = await ReliableDeleteService.deleteAsset(assetId, {
                 verifyDeletion: true,
                 retryCount: 3,
                 timeout: 10000
               });
+              console.log('🗑️ 可靠刪除：deleteAsset 調用完成');
 
               if (result.success) {
                 console.log('✅ 可靠刪除：資產刪除成功');
@@ -298,15 +303,20 @@ export default function BalanceSheetScreen() {
           text: '刪除',
           style: 'destructive',
           onPress: async () => {
+            console.log('🗑️ 可靠刪除：用戶確認刪除負債 - 開始執行');
             try {
-              console.log('🗑️ 可靠刪除：用戶確認刪除負債');
+              console.log('🗑️ 可靠刪除：進入 try 區塊');
+              console.log('🗑️ 可靠刪除：ReliableDeleteService 是否存在:', typeof ReliableDeleteService);
+              console.log('🗑️ 可靠刪除：deleteLiability 方法是否存在:', typeof ReliableDeleteService.deleteLiability);
 
               // 使用可靠刪除服務
+              console.log('🗑️ 可靠刪除：準備調用 deleteLiability');
               const result = await ReliableDeleteService.deleteLiability(liabilityId, {
                 verifyDeletion: true,
                 retryCount: 3,
                 timeout: 10000
               });
+              console.log('🗑️ 可靠刪除：deleteLiability 調用完成');
 
               if (result.success) {
                 console.log('✅ 可靠刪除：負債刪除成功');

@@ -424,7 +424,9 @@ export class ReliableDeleteService {
       console.log('🔍 可靠刪除：驗證刪除結果');
 
       // 驗證本地存儲
-      const storageKey = dataType === 'liabilities' ? STORAGE_KEYS.LIABILITIES : STORAGE_KEYS.TRANSACTIONS;
+      const storageKey = dataType === 'liabilities' ? STORAGE_KEYS.LIABILITIES :
+                        dataType === 'assets' ? STORAGE_KEYS.ASSETS :
+                        STORAGE_KEYS.TRANSACTIONS;
       const localData = await AsyncStorage.getItem(storageKey);
       
       if (localData) {
