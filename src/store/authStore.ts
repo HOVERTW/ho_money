@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User, Session } from '@supabase/supabase-js';
 import { authService, supabase } from '../services/supabase';
+import { hybridAuthService } from '../services/hybridAuthService';
 import { notificationManager } from '../components/NotificationManager';
 
 interface AuthState {
@@ -35,117 +36,92 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      console.log('🔐 開始登錄:', email);
-      const { data, error } = await authService.signIn(email, password);
+      console.log('🔐 開始混合認證登錄:', email);
+      const result = await hybridAuthService.signIn(email, password);
 
-      console.log('📝 登錄結果:', { data, error });
+      console.log('📝 混合認證登錄結果:', {
+        hasUser: !!result.data.user,
+        hasSession: !!result.data.session,
+        source: result.source,
+        error: result.error?.message
+      });
 
-      if (error) {
-        console.error('❌ 登錄錯誤:', error.message);
-        const errorMessage = error.message;
+      if (result.error) {
+        console.error('❌ 混合認證登錄錯誤:', result.error.message);
+        const errorMessage = result.error.message;
         set({ error: errorMessage, loading: false });
-
-        // 顯示登錄失敗通知
-        notificationManager.error(
-          '登錄失敗',
-          errorMessage.includes('Invalid login credentials')
-            ? '帳號或密碼錯誤，請檢查後重試'
-            : errorMessage,
-          true
-        );
+        // 通知已在 hybridAuthService 中處理
         return;
       }
 
-      if (data.user && data.session) {
-        console.log('✅ 登錄成功:', data.user.email);
+      if (result.data.user && result.data.session) {
+        console.log('✅ 混合認證登錄成功:', result.data.user.email, `(${result.source})`);
         set({
-          user: data.user,
-          session: data.session,
+          user: result.data.user,
+          session: result.data.session,
           loading: false,
           error: null
         });
-
-        // 顯示登錄成功通知
-        notificationManager.success(
-          '登錄成功',
-          `歡迎回來，${data.user.email}！`,
-          false
-        );
+        // 通知已在 hybridAuthService 中處理
       } else {
-        console.log('⚠️ 登錄返回空數據');
+        console.log('⚠️ 混合認證登錄返回空數據');
         const errorMessage = '登錄失敗，請檢查您的電子郵件和密碼';
         set({
           loading: false,
           error: errorMessage
         });
 
-        // 顯示登錄失敗通知
         notificationManager.error('登錄失敗', errorMessage, true);
       }
     } catch (error) {
-      console.error('💥 登錄異常:', error);
+      console.error('💥 混合認證登錄異常:', error);
       const errorMessage = error instanceof Error ? error.message : '登錄過程中發生錯誤';
       set({
         error: errorMessage,
         loading: false
       });
 
-      // 顯示登錄異常通知
       notificationManager.error('登錄失敗', errorMessage, true);
     }
   },
 
   signUp: async (email: string, password: string) => {
-    console.log('🔐 AuthStore: 開始註冊流程:', email);
+    console.log('🔐 AuthStore: 開始混合認證註冊流程:', email);
     set({ loading: true, error: null });
 
     try {
-      console.log('🚀 AuthStore: 調用 authService.createUserDirectly...');
-      const { data, error } = await authService.createUserDirectly(email, password);
+      console.log('🚀 AuthStore: 調用 hybridAuthService.signUp...');
+      const result = await hybridAuthService.signUp(email, password);
 
-      console.log('📝 AuthStore: 註冊結果:', {
-        hasUser: !!data.user,
-        hasSession: !!data.session,
-        error: error?.message
+      console.log('📝 AuthStore: 混合認證註冊結果:', {
+        hasUser: !!result.data.user,
+        hasSession: !!result.data.session,
+        source: result.source,
+        error: result.error?.message
       });
 
-      if (error) {
-        console.error('❌ AuthStore: 註冊錯誤:', error.message);
-        const errorMessage = error.message;
+      if (result.error) {
+        console.error('❌ AuthStore: 混合認證註冊錯誤:', result.error.message);
+        const errorMessage = result.error.message;
         set({ error: errorMessage, loading: false });
-
-        // 顯示註冊失敗通知
-        notificationManager.error(
-          '註冊失敗',
-          errorMessage.includes('already registered')
-            ? '此電子郵件已被註冊，請使用其他郵箱或直接登錄'
-            : errorMessage,
-          true
-        );
+        // 通知已在 hybridAuthService 中處理
         return;
       }
 
       // 檢查是否有用戶數據
-      if (data.user) {
-        console.log('✅ AuthStore: 用戶已創建:', data.user.email);
-        console.log('📧 AuthStore: 用戶確認狀態:', data.user.email_confirmed_at ? '已確認' : '未確認');
+      if (result.data.user) {
+        console.log('✅ AuthStore: 用戶已創建:', result.data.user.email, `(${result.source})`);
 
-        if (data.session) {
+        if (result.data.session) {
           // 有 session，直接登錄成功
           console.log('🎉 AuthStore: 註冊成功並已登錄');
           set({
-            user: data.user,
-            session: data.session,
+            user: result.data.user,
+            session: result.data.session,
             loading: false,
             error: null
           });
-
-          // 顯示註冊成功並登錄通知
-          notificationManager.success(
-            '註冊成功',
-            `歡迎加入 FinTranzo，${data.user.email}！`,
-            false
-          );
+          // 通知已在 hybridAuthService 中處理
         } else {
           // 沒有 session，但用戶已創建 - 視為成功
           console.log('✅ AuthStore: 註冊成功，用戶已創建');
@@ -155,23 +131,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             registrationSuccess: true
           });
 
-          // 顯示註冊成功通知，提示用戶可以直接登錄
           notificationManager.success(
             '註冊成功',
             '帳號已創建成功！您現在可以使用這個帳號密碼登錄了',
             true
           );
-
-          // 🔧 提供手動確認的提示（開發環境）
-          if (__DEV__) {
-            setTimeout(() => {
-              console.log('💡 開發提示：如果登錄時提示需要確認郵箱，請：');
-              console.log('1. 前往 Supabase Dashboard > Authentication > Users');
-              console.log(`2. 找到用戶 ${data.user.email}`);
-              console.log('3. 點擊 "Confirm email" 按鈕');
-              console.log('4. 然後就可以正常登錄了');
-            }, 2000);
-          }
         }
       } else {
         console.log('⚠️ AuthStore: 註冊返回空用戶');
@@ -181,18 +145,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           error: errorMessage
         });
 
-        // 顯示註冊失敗通知
         notificationManager.error('註冊失敗', errorMessage, true);
       }
     } catch (error) {
-      console.error('💥 AuthStore: 註冊異常:', error);
+      console.error('💥 AuthStore: 混合認證註冊異常:', error);
       const errorMessage = error instanceof Error ? error.message : '註冊時發生未知錯誤';
       set({
         error: errorMessage,
         loading: false
       });
 
-      // 顯示註冊異常通知
       notificationManager.error('註冊失敗', errorMessage, true);
     }
   },
@@ -202,47 +164,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      const { data, error } = await authService.signInWithGoogle();
+      const result = await hybridAuthService.signInWithGoogle();
 
       console.log('📝 AuthStore: Google 登錄結果:', {
-        hasUser: !!data.user,
-        hasSession: !!data.session,
-        error: error?.message
+        hasUser: !!result.data.user,
+        hasSession: !!result.data.session,
+        source: result.source,
+        error: result.error?.message
       });
 
-      if (error) {
-        console.error('❌ AuthStore: Google 登錄錯誤:', error.message);
-        const errorMessage = error.message;
+      if (result.error) {
+        console.error('❌ AuthStore: Google 登錄錯誤:', result.error.message);
+        const errorMessage = result.error.message;
         set({ error: errorMessage, loading: false });
-
-        // 顯示Google登錄失敗通知
-        notificationManager.error(
-          'Google 登錄失敗',
-          errorMessage.includes('用戶取消')
-            ? '您已取消 Google 登錄'
-            : errorMessage.includes('網路')
-            ? '網路連接異常，請檢查網路後重試'
-            : errorMessage,
-          true
-        );
+        // 通知已在 hybridAuthService 中處理
         return;
       }
 
-      if (data.user && data.session) {
-        console.log('✅ AuthStore: Google 登錄成功:', data.user.email);
+      if (result.data.user && result.data.session) {
+        console.log('✅ AuthStore: Google 登錄成功:', result.data.user.email);
         set({
-          user: data.user,
-          session: data.session,
+          user: result.data.user,
+          session: result.data.session,
           loading: false,
           error: null
         });
-
-        // 顯示Google登錄成功通知
-        notificationManager.success(
-          'Google 登錄成功',
-          `歡迎回來，${data.user.email}！`,
-          false
-        );
+        // 通知已在 hybridAuthService 中處理
       } else {
         console.log('⚠️ AuthStore: Google 登錄返回空數據');
         const errorMessage = 'Google 登錄失敗，請稍後再試';
@@ -251,7 +198,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           error: errorMessage
         });
 
-        // 顯示Google登錄失敗通知
         notificationManager.error('Google 登錄失敗', errorMessage, true);
       }
     } catch (error) {
@@ -262,7 +208,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         loading: false
       });
 
-      // 顯示Google登錄異常通知
       notificationManager.error('Google 登錄失敗', errorMessage, true);
     }
   },

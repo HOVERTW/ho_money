@@ -1,8 +1,32 @@
 version: '3.8'
 
 services:
-  # 認證功能測試環境
-  fintranzo-auth-test:
+  # 本地認證測試環境
+  fintranzo-local-auth-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=test
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+        echo '🏠 本地認證測試環境' &&
+        echo '==================' &&
+        echo '' &&
+        echo '📦 安裝依賴...' &&
+        yarn install --frozen-lockfile &&
+        echo '' &&
+        echo '🧪 開始本地認證測試...' &&
+        node scripts/test-local-auth-simple.js &&
+        echo '' &&
+        echo '✅ 本地認證測試完成'
+      "
+
+  # 混合認證測試環境
+  fintranzo-hybrid-auth-test:
     build:
       context: .
       dockerfile: Dockerfile
@@ -15,16 +39,19 @@ services:
       - /app/node_modules
     command: >
       sh -c "
-        echo '🐳 Docker 認證測試環境' &&
-        echo '======================' &&
+        echo '🔄 混合認證測試環境' &&
+        echo '==================' &&
         echo '' &&
         echo '📦 安裝依賴...' &&
         yarn install --frozen-lockfile &&
         echo '' &&
-        echo '🧪 開始認證測試...' &&
-        node scripts/docker-auth-test.js &&
+        echo '🧪 測試1: 本地認證...' &&
+        node scripts/test-local-auth-simple.js &&
         echo '' &&
-        echo '✅ 認證測試完成'
+        echo '🧪 測試2: Supabase 連接...' &&
+        node scripts/check-supabase-auth-settings.js &&
+        echo '' &&
+        echo '✅ 混合認證測試完成'
       "
 
   # Web 環境認證測試（帶 UI）
