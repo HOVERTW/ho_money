@@ -18,7 +18,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: true, // 🔧 啟用 URL 會話檢測以支持 OAuth 回調
   },
 });
 
@@ -565,10 +565,11 @@ export const authService = {
           console.log('🌐 Web 平台：重定向到 Google OAuth');
           window.location.href = data.url;
 
-          // 返回一個 pending 狀態，因為頁面會重定向
+          // 返回一個特殊的 pending 狀態，表示正在重定向
           return {
             data: { user: null, session: null },
-            error: null
+            error: null,
+            pending: true // 🔧 添加 pending 標記表示正在重定向
           };
         } else {
           // 移動平台：使用 AuthSession 替代 WebBrowser

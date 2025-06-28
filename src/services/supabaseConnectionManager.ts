@@ -47,7 +47,7 @@ class SupabaseConnectionManager {
         auth: {
           autoRefreshToken: true,
           persistSession: true,
-          detectSessionInUrl: false,
+          detectSessionInUrl: true, // 🔧 啟用 URL 會話檢測以支持 OAuth 回調
         },
         realtime: {
           params: {

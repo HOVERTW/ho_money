@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google OAuth 測試</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        button {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover { background-color: #3367d6; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .user-info {
+            background-color: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Google OAuth 測試工具</h1>
+        
+        <div id="status" class="status info">
+            📡 正在初始化 Supabase 連接...
+        </div>
+
+        <div>
+            <button id="testGoogleLogin" onclick="testGoogleLogin()">
+                🔐 測試 Google 登錄
+            </button>
+            <button id="checkSession" onclick="checkCurrentSession()">
+                👤 檢查當前會話
+            </button>
+            <button id="logout" onclick="logout()" disabled>
+                🚪 登出
+            </button>
+        </div>
+
+        <div id="userInfo" class="user-info" style="display: none;">
+            <h3>👤 用戶信息</h3>
+            <div id="userDetails"></div>
+        </div>
+
+        <div>
+            <h3>📋 測試日誌</h3>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase 配置
+        const SUPABASE_URL = 'https://yrryyapzkgrsahranzvo.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlycnl5YXB6a2dyc2FocmFuenZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxNzM2MzUsImV4cCI6MjA2Mzc0OTYzNX0.TccJJ9KGG6R4KiaDb-548kRkhTaPMODYa6vlQsj8dmM';
+
+        // 創建 Supabase 客戶端
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // 日誌函數
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById('log');
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<span style="color: #666;">[${timestamp}]</span> ${message}`;
+            logElement.appendChild(logEntry);
+            logElement.scrollTop = logElement.scrollHeight;
+            
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        // 更新狀態
+        function updateStatus(message, type = 'info') {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+
+        // 顯示用戶信息
+        function showUserInfo(user) {
+            const userInfoElement = document.getElementById('userInfo');
+            const userDetailsElement = document.getElementById('userDetails');
+            
+            if (user) {
+                userDetailsElement.innerHTML = `
+                    <p><strong>Email:</strong> ${user.email}</p>
+                    <p><strong>Name:</strong> ${user.user_metadata?.full_name || '未提供'}</p>
+                    <p><strong>Provider:</strong> ${user.app_metadata?.provider || '未知'}</p>
+                    <p><strong>ID:</strong> ${user.id}</p>
+                    <p><strong>創建時間:</strong> ${new Date(user.created_at).toLocaleString()}</p>
+                `;
+                userInfoElement.style.display = 'block';
+                document.getElementById('logout').disabled = false;
+            } else {
+                userInfoElement.style.display = 'none';
+                document.getElementById('logout').disabled = true;
+            }
+        }
+
+        // 測試 Google 登錄
+        async function testGoogleLogin() {
+            log('🔐 開始 Google OAuth 測試...');
+            updateStatus('🔐 正在啟動 Google 登錄...', 'info');
+            
+            try {
+                const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: window.location.origin + window.location.pathname,
+                        queryParams: {
+                            access_type: 'offline',
+                            prompt: 'consent',
+                        },
+                    },
+                });
+
+                if (error) {
+                    log(`❌ Google 登錄錯誤: ${error.message}`, 'error');
+                    updateStatus(`❌ Google 登錄失敗: ${error.message}`, 'error');
+                    return;
+                }
+
+                if (data.url) {
+                    log(`✅ 重定向到 Google OAuth: ${data.url}`);
+                    updateStatus('🌐 正在重定向到 Google...', 'info');
+                    // 頁面會自動重定向到 Google
+                } else {
+                    log('⚠️ 未獲得 OAuth URL');
+                    updateStatus('⚠️ OAuth 配置可能有問題', 'warning');
+                }
+
+            } catch (error) {
+                log(`💥 Google 登錄異常: ${error.message}`, 'error');
+                updateStatus(`💥 登錄異常: ${error.message}`, 'error');
+            }
+        }
+
+        // 檢查當前會話
+        async function checkCurrentSession() {
+            log('👤 檢查當前會話...');
+            
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+
+                if (error) {
+                    log(`❌ 會話檢查錯誤: ${error.message}`, 'error');
+                    updateStatus(`❌ 會話檢查失敗: ${error.message}`, 'error');
+                    return;
+                }
+
+                if (session) {
+                    log(`✅ 用戶已登錄: ${session.user.email}`);
+                    updateStatus(`✅ 已登錄: ${session.user.email}`, 'success');
+                    showUserInfo(session.user);
+                } else {
+                    log('ℹ️ 用戶未登錄');
+                    updateStatus('ℹ️ 用戶未登錄', 'info');
+                    showUserInfo(null);
+                }
+
+            } catch (error) {
+                log(`💥 會話檢查異常: ${error.message}`, 'error');
+                updateStatus(`💥 會話檢查異常: ${error.message}`, 'error');
+            }
+        }
+
+        // 登出
+        async function logout() {
+            log('🚪 正在登出...');
+            updateStatus('🚪 正在登出...', 'info');
+            
+            try {
+                const { error } = await supabase.auth.signOut();
+
+                if (error) {
+                    log(`❌ 登出錯誤: ${error.message}`, 'error');
+                    updateStatus(`❌ 登出失敗: ${error.message}`, 'error');
+                } else {
+                    log('✅ 登出成功');
+                    updateStatus('✅ 已登出', 'success');
+                    showUserInfo(null);
+                }
+
+            } catch (error) {
+                log(`💥 登出異常: ${error.message}`, 'error');
+                updateStatus(`💥 登出異常: ${error.message}`, 'error');
+            }
+        }
+
+        // 處理 OAuth 回調
+        async function handleOAuthCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const accessToken = urlParams.get('access_token');
+            const refreshToken = urlParams.get('refresh_token');
+            
+            if (accessToken) {
+                log('🔄 處理 OAuth 回調...');
+                updateStatus('🔄 處理 Google 登錄回調...', 'info');
+                
+                try {
+                    const { data, error } = await supabase.auth.getUser();
+                    
+                    if (error) {
+                        log(`❌ 獲取用戶信息錯誤: ${error.message}`, 'error');
+                        updateStatus(`❌ 登錄處理失敗: ${error.message}`, 'error');
+                    } else if (data.user) {
+                        log(`🎉 Google 登錄成功: ${data.user.email}`);
+                        updateStatus(`🎉 Google 登錄成功: ${data.user.email}`, 'success');
+                        showUserInfo(data.user);
+                        
+                        // 清理 URL 參數
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    }
+                    
+                } catch (error) {
+                    log(`💥 回調處理異常: ${error.message}`, 'error');
+                    updateStatus(`💥 回調處理異常: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // 初始化
+        async function initialize() {
+            log('🚀 初始化 Google OAuth 測試工具...');
+            
+            try {
+                // 檢查是否有 OAuth 回調
+                await handleOAuthCallback();
+                
+                // 檢查當前會話
+                await checkCurrentSession();
+                
+                updateStatus('✅ 初始化完成，可以開始測試', 'success');
+                log('✅ 初始化完成');
+                
+            } catch (error) {
+                log(`💥 初始化失敗: ${error.message}`, 'error');
+                updateStatus(`💥 初始化失敗: ${error.message}`, 'error');
+            }
+        }
+
+        // 監聽認證狀態變化
+        supabase.auth.onAuthStateChange((event, session) => {
+            log(`🔄 認證狀態變化: ${event}`);
+            
+            if (event === 'SIGNED_IN' && session) {
+                log(`✅ 用戶登錄: ${session.user.email}`);
+                updateStatus(`✅ 登錄成功: ${session.user.email}`, 'success');
+                showUserInfo(session.user);
+            } else if (event === 'SIGNED_OUT') {
+                log('ℹ️ 用戶登出');
+                updateStatus('ℹ️ 用戶已登出', 'info');
+                showUserInfo(null);
+            }
+        });
+
+        // 頁面加載完成後初始化
+        window.addEventListener('load', initialize);
+    </script>
+</body>
+</html>

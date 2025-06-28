@@ -16,6 +16,7 @@ export interface HybridAuthResponse {
   };
   error: Error | null;
   source: 'local' | 'supabase';
+  pending?: boolean; // 🔧 添加 pending 標記用於 Web 重定向
 }
 
 class HybridAuthService {
@@ -47,7 +48,8 @@ class HybridAuthService {
     return {
       data: response.data || { user: null, session: null },
       error: response.error,
-      source: 'supabase'
+      source: 'supabase',
+      pending: response.pending // 🔧 傳遞 pending 狀態
     };
   }
 
@@ -238,7 +240,14 @@ class HybridAuthService {
     
     try {
       const supabaseResult = await supabaseAuthService.signInWithGoogle();
-      
+
+      // 🔧 檢查是否是 Web 平台的重定向狀態
+      if (supabaseResult.pending) {
+        console.log('🌐 Web 平台：正在重定向到 Google OAuth，不顯示錯誤');
+        // 不顯示任何通知，因為頁面正在重定向
+        return this.convertSupabaseResponse(supabaseResult);
+      }
+
       if (supabaseResult.data.user && !supabaseResult.error) {
         console.log('✅ Google 登錄成功');
         notificationManager.success(
@@ -246,7 +255,7 @@ class HybridAuthService {
           `歡迎回來，${supabaseResult.data.user.email}！`,
           false
         );
-      } else {
+      } else if (supabaseResult.error) {
         console.log('❌ Google 登錄失敗');
         const errorMessage = supabaseResult.error?.message || 'Google 登錄失敗';
         notificationManager.error(
@@ -255,7 +264,7 @@ class HybridAuthService {
           true
         );
       }
-      
+
       return this.convertSupabaseResponse(supabaseResult);
     } catch (error) {
       console.error('💥 Google 登錄異常:', error);

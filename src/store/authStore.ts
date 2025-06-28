@@ -173,6 +173,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error: result.error?.message
       });
 
+      // 🔧 檢查是否是 pending 狀態（Web 重定向）
+      if (result.pending) {
+        console.log('🌐 AuthStore: Web 平台正在重定向到 Google OAuth');
+        // 保持 loading 狀態，不顯示錯誤
+        return;
+      }
+
       if (result.error) {
         console.error('❌ AuthStore: Google 登錄錯誤:', result.error.message);
         const errorMessage = result.error.message;

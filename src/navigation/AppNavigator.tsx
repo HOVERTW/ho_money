@@ -199,6 +199,17 @@ export default function AppNavigator() {
           setUser(session.user);
           setSession(session);
 
+          // 🔧 檢查是否是 Google OAuth 重定向過程中的中間狀態
+          const isOAuthRedirect = typeof window !== 'undefined' &&
+            (window.location.search.includes('access_token') ||
+             window.location.search.includes('code=') ||
+             window.location.search.includes('state='));
+
+          if (isOAuthRedirect) {
+            console.log('🌐 檢測到 OAuth 重定向，跳過用戶數據初始化');
+            return;
+          }
+
           // 初始化用戶數據（僅在首次登錄或新用戶時）
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             try {
