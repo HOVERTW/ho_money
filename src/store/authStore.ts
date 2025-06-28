@@ -222,27 +222,40 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
 
   signOut: async () => {
+    const currentState = get();
+
+    // 🔧 防止重複登出
+    if (currentState.loading || !currentState.user) {
+      console.log('⚠️ AuthStore: 登出已在進行中或用戶未登錄');
+      return;
+    }
+
     set({ loading: true, error: null });
-    
+
     try {
-      const { error } = await authService.signOut();
-      
-      if (error) {
-        set({ error: error.message, loading: false });
-        return;
-      }
-      
-      set({ 
-        user: null, 
-        session: null, 
+      console.log('🚪 AuthStore: 開始登出流程...');
+
+      // 🔧 使用 hybridAuthService 而不是 authService
+      await hybridAuthService.signOut();
+
+      console.log('✅ AuthStore: 登出成功');
+
+      set({
+        user: null,
+        session: null,
         loading: false,
-        error: null 
+        error: null
       });
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'An error occurred',
-        loading: false 
+      console.error('❌ AuthStore: 登出失敗:', error);
+      const errorMessage = error instanceof Error ? error.message : '登出失敗';
+      set({
+        error: errorMessage,
+        loading: false
       });
+
+      // 顯示錯誤通知
+      notificationManager.error('登出失敗', errorMessage, true);
     }
   },
 

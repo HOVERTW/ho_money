@@ -618,8 +618,17 @@ export default function DashboardScreen() {
     }
   };
 
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
   const handleSignOut = async () => {
+    // 🔧 防止重複點擊
+    if (isSigningOut) {
+      console.log('⚠️ 登出已在進行中，跳過重複操作');
+      return;
+    }
+
     try {
+      setIsSigningOut(true);
       console.log('🚪 開始登出流程...');
 
       // 調用 auth store 的登出方法
@@ -632,6 +641,8 @@ export default function DashboardScreen() {
 
     } catch (error) {
       console.error('❌ 登出失敗:', error);
+    } finally {
+      setIsSigningOut(false);
     }
   };
 
@@ -1154,11 +1165,21 @@ export default function DashboardScreen() {
           {/* 登出按鈕 - 取代診斷按鈕，永遠顯示 */}
           <TouchableOpacity
             onPress={user ? handleSignOut : () => console.log('未登錄')}
-            style={[styles.signOutButton, { opacity: user ? 1 : 0.3 }]}
+            style={[
+              styles.signOutButton,
+              {
+                opacity: user ? (isSigningOut ? 0.5 : 1) : 0.3
+              }
+            ]}
+            disabled={isSigningOut}
           >
-            <Ionicons name="log-out-outline" size={20} color="#FF9500" />
+            <Ionicons
+              name={isSigningOut ? "hourglass-outline" : "log-out-outline"}
+              size={20}
+              color="#FF9500"
+            />
             <Text style={{ fontSize: 10, color: '#FF9500' }}>
-              {user ? '登出' : '未登錄'}
+              {isSigningOut ? '登出中...' : (user ? '登出' : '未登錄')}
             </Text>
           </TouchableOpacity>
 

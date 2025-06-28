@@ -254,17 +254,57 @@ function calculateBatchRange(stocks, batchNumber, totalBatches) {
 /**
  * 使用從 Supabase 導出的真實股票列表
  */
-const TAIWAN_STOCKS_CODES = require('../taiwan_stocks_codes_from_supabase.js');
-
 function getTaiwanStockCodes() {
-  const stocks = TAIWAN_STOCKS_CODES.map(code => ({ code }));
+  // 直接從 CSV 檔案讀取股票代碼
+  const fs = require('fs');
+  const path = require('path');
 
-  console.log(`📊 使用 Supabase 導出的股票列表: ${stocks.length} 支`);
-  console.log(`   來源: 實際 Supabase taiwan_stocks 資料表`);
-  console.log(`   包含: ETF + 個股 + 其他格式`);
-  console.log(`   優勢: 100% 有效股票，無無效代碼`);
+  try {
+    const csvPath = path.join(__dirname, '../database/Supabase Snippet Export Taiwan Stocks Data.csv');
+    const csvContent = fs.readFileSync(csvPath, 'utf8');
+    const lines = csvContent.split('\n');
 
-  return stocks;
+    // 跳過標題行，提取股票代碼
+    const stockCodes = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line) {
+        const columns = line.split(',');
+        if (columns.length >= 2) {
+          const code = columns[1]; // 第二欄是股票代碼
+          if (code && code !== 'code') {
+            stockCodes.push(code);
+          }
+        }
+      }
+    }
+
+    const stocks = stockCodes.map(code => ({ code }));
+
+    console.log(`📊 使用 Supabase 導出的股票列表: ${stocks.length} 支`);
+    console.log(`   來源: 實際 Supabase taiwan_stocks 資料表`);
+    console.log(`   包含: ETF + 個股 + 其他格式`);
+    console.log(`   優勢: 100% 有效股票，無無效代碼`);
+
+    return stocks;
+  } catch (error) {
+    console.error('❌ 讀取股票代碼檔案失敗:', error.message);
+    console.log('🔄 使用備用股票列表...');
+
+    // 備用股票列表（主要 ETF 和熱門股票）
+    const backupStocks = [
+      '0050', '0051', '0052', '0053', '0056', '0057', '006208',
+      '2330', '2317', '2454', '2881', '2882', '2883', '2884', '2885',
+      '1301', '1303', '1326', '1402', '2002', '2207', '2301', '2303',
+      '2308', '2327', '2357', '2382', '2395', '2408', '2412', '2474',
+      '2603', '2609', '2615', '2633', '2801', '2880', '2886', '2887',
+      '2890', '2891', '2892', '2912', '3008', '3034', '3037', '3045',
+      '3231', '3481', '3711', '4904', '4938', '5871', '5876', '5880',
+      '6505', '6770', '8454', '8996', '9910', '9917', '9921', '9930'
+    ];
+
+    return backupStocks.map(code => ({ code }));
+  }
 }
 
 /**

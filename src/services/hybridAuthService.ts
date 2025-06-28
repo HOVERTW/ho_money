@@ -313,32 +313,68 @@ class HybridAuthService {
     }
   }
 
+  private isSigningOut = false;
+
   /**
    * 登出
    */
   async signOut(): Promise<void> {
+    // 🔧 防止重複登出操作
+    if (this.isSigningOut) {
+      console.log('⚠️ HybridAuth: 登出已在進行中，跳過重複操作');
+      return;
+    }
+
+    this.isSigningOut = true;
     console.log('🚪 HybridAuth: 開始登出流程');
-    
+
     try {
-      // 同時清除本地和 Supabase 會話
-      await Promise.all([
+      // 分別處理本地和 Supabase 登出，避免一個失敗影響另一個
+      const results = await Promise.allSettled([
         localAuthService.signOut(),
         supabaseAuthService.signOut()
       ]);
-      
-      console.log('✅ 登出成功');
-      notificationManager.success(
-        '登出成功',
-        '您已安全登出',
-        false
-      );
+
+      // 檢查登出結果
+      const localResult = results[0];
+      const supabaseResult = results[1];
+
+      if (localResult.status === 'rejected') {
+        console.warn('⚠️ 本地登出失敗:', localResult.reason);
+      } else {
+        console.log('✅ 本地登出成功');
+      }
+
+      if (supabaseResult.status === 'rejected') {
+        console.warn('⚠️ Supabase 登出失敗:', supabaseResult.reason);
+      } else {
+        console.log('✅ Supabase 登出成功');
+      }
+
+      // 只要有一個成功就算登出成功
+      const hasSuccess = results.some(result => result.status === 'fulfilled');
+
+      if (hasSuccess) {
+        console.log('✅ 登出成功');
+        notificationManager.success(
+          '登出成功',
+          '您已安全登出',
+          false
+        );
+      } else {
+        throw new Error('所有登出操作都失敗了');
+      }
+
     } catch (error) {
       console.error('💥 登出失敗:', error);
       notificationManager.error(
         '登出失敗',
-        '登出過程中發生錯誤',
+        '登出過程中發生錯誤，請重試',
         true
       );
+      throw error; // 重新拋出錯誤，讓調用者知道失敗了
+    } finally {
+      this.isSigningOut = false;
     }
   }
 
