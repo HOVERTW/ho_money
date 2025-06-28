@@ -186,12 +186,17 @@ class TimestampSyncService {
         throw new Error('用戶未登錄');
       }
 
-      // 準備數據
-      const dataWithUser = {
+      // 準備數據並格式化
+      let dataWithUser = {
         ...item.data,
         user_id: this.userId,
         updated_at: new Date().toISOString()
       };
+
+      // 特殊處理資產數據格式
+      if (item.type === 'asset') {
+        dataWithUser = this.formatAssetData(dataWithUser);
+      }
 
       // 根據操作類型執行同步
       switch (item.operation) {
@@ -232,11 +237,56 @@ class TimestampSyncService {
   }
 
   /**
+   * 格式化資產數據以符合Supabase表結構
+   */
+  private formatAssetData(data: any): any {
+    const formatted = { ...data };
+
+    // 確保必需的字段存在
+    if (!formatted.value && formatted.current_value) {
+      formatted.value = Number(formatted.current_value);
+    }
+    if (!formatted.current_value && formatted.value) {
+      formatted.current_value = Number(formatted.value);
+    }
+    if (!formatted.cost_basis && formatted.current_value) {
+      formatted.cost_basis = Number(formatted.current_value);
+    }
+
+    // 確保數值字段為數字類型
+    const numericFields = ['value', 'current_value', 'cost_basis', 'quantity', 'purchase_price', 'current_price', 'sort_order'];
+    numericFields.forEach(field => {
+      if (formatted[field] !== undefined && formatted[field] !== null) {
+        formatted[field] = Number(formatted[field]) || 0;
+      }
+    });
+
+    // 設置默認值
+    if (!formatted.quantity) formatted.quantity = 1;
+    if (!formatted.sort_order) formatted.sort_order = 0;
+
+    // 確保必需字段不為空
+    if (!formatted.name) formatted.name = '未命名資產';
+    if (!formatted.type) formatted.type = 'other';
+    if (!formatted.value) formatted.value = 0;
+
+    console.log('🔧 資產數據格式化完成:', {
+      id: formatted.id,
+      name: formatted.name,
+      type: formatted.type,
+      value: formatted.value,
+      current_value: formatted.current_value
+    });
+
+    return formatted;
+  }
+
+  /**
    * 插入或更新項目
    */
   private async upsertItem(type: SyncItem['type'], data: any): Promise<void> {
     const tableName = this.getTableName(type);
-    
+
     const { error } = await supabase
       .from(tableName)
       .upsert(data, { onConflict: 'id' });

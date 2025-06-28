@@ -37,6 +37,7 @@ import { supabase } from '../../services/supabase';
 import SyncStatusIndicator from '../../components/SyncStatusIndicator';
 import { assetDisplayFixService } from '../../services/assetDisplayFixService';
 import { TimestampSyncTester } from '../../utils/testTimestampSync';
+import { AssetSyncFixTester } from '../../utils/testAssetSyncFix';
 // import { SupabaseTableChecker } from '../../utils/supabaseTableChecker';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -784,9 +785,12 @@ export default function DashboardScreen() {
       // 測試創建交易的同步
       await TimestampSyncTester.testCreateTransaction();
 
+      // 測試資產同步修復
+      await AssetSyncFixTester.testAssetSyncFix();
+
       Alert.alert(
         '測試完成',
-        '即時同步測試已完成，請查看控制台日誌了解詳細結果。',
+        '即時同步測試已完成，包括資產同步修復測試。請查看控制台日誌了解詳細結果。',
         [{ text: '確定' }]
       );
 
