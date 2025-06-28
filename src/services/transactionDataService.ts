@@ -8,6 +8,7 @@ import { eventEmitter, EVENTS } from './eventEmitter';
 import { enhancedSyncService } from './enhancedSyncService';
 import { generateUUID, isValidUUID, ensureValidUUID } from '../utils/uuid';
 import { instantSyncService } from './instantSyncService';
+import { timestampSyncService } from './timestampSyncService';
 
 export interface Transaction {
   id: string;
@@ -622,8 +623,13 @@ class TransactionDataService {
         // 即使本地存儲失敗，也繼續雲端同步
       }
 
-      // 🚫 停用即時同步：專注於手動上傳
-      console.log('🚫 即時同步已停用，交易添加完成，僅保存到本地:', transaction.description);
+      // ⚡ 時間戳記即時同步
+      try {
+        await timestampSyncService.addToQueue('transaction', transaction, 'create');
+        console.log('⚡ 已添加到時間戳記同步隊列:', transaction.description);
+      } catch (syncError) {
+        console.error('⚠️ 時間戳記同步失敗，但本地操作已完成:', syncError);
+      }
 
       // 通知監聽器
       this.notifyListeners();
@@ -653,8 +659,13 @@ class TransactionDataService {
       await this.saveToStorage();
       this.notifyListeners();
 
-      // 同步更新到雲端
-      await enhancedSyncService.syncTransactionUpdate(id, this.transactions[index]);
+      // ⚡ 時間戳記即時同步
+      try {
+        await timestampSyncService.addToQueue('transaction', this.transactions[index], 'update');
+        console.log('⚡ 交易更新已添加到時間戳記同步隊列:', id);
+      } catch (syncError) {
+        console.error('⚠️ 時間戳記同步失敗，但本地操作已完成:', syncError);
+      }
     }
   }
 
@@ -685,34 +696,12 @@ class TransactionDataService {
       await AsyncStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(this.transactions));
       console.log('💾 深度修復：交易刪除已強制保存到本地存儲');
 
-      // 深度修復：多次嘗試同步刪除到雲端
-      let cloudDeleteSuccess = false;
-      const maxAttempts = 3;
-
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          console.log(`🔄 深度修復：第${attempt}次嘗試同步刪除交易到雲端`);
-          await this.syncDeleteToSupabase(id);
-          cloudDeleteSuccess = true;
-          console.log(`✅ 深度修復：第${attempt}次雲端刪除成功`);
-          break;
-        } catch (syncError) {
-          console.error(`❌ 深度修復：第${attempt}次雲端刪除失敗:`, syncError);
-          if (attempt < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-      }
-
-      // 深度修復：使用增強同步服務作為備選
-      if (!cloudDeleteSuccess) {
-        try {
-          console.log('🔄 深度修復：使用增強同步服務作為備選');
-          await enhancedSyncService.syncTransactionDelete(id);
-          console.log('✅ 深度修復：增強同步服務刪除成功');
-        } catch (enhancedError) {
-          console.error('❌ 深度修復：增強同步服務刪除失敗:', enhancedError);
-        }
+      // ⚡ 時間戳記即時同步刪除
+      try {
+        await timestampSyncService.addToQueue('transaction', { id }, 'delete');
+        console.log('⚡ 交易刪除已添加到時間戳記同步隊列:', id);
+      } catch (syncError) {
+        console.error('⚠️ 時間戳記同步失敗，但本地操作已完成:', syncError);
       }
 
       // 深度修復：立即通知監聽器

@@ -5,7 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  RefreshControl,
+
   Dimensions,
   Modal,
   TextInput,
@@ -32,17 +32,18 @@ import { useAuthStore } from '../../store/authStore';
 import { userDataSyncService } from '../../services/userDataSyncService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../services/supabase';
-import { unifiedDataManager } from '../../services/unifiedDataManager';
-import { DiagnosticButton } from '../../components/DiagnosticButton';
+// 移除unifiedDataManager導入 - 改為時間戳記即時同步機制
+
 import SyncStatusIndicator from '../../components/SyncStatusIndicator';
 import { assetDisplayFixService } from '../../services/assetDisplayFixService';
+import { TimestampSyncTester } from '../../utils/testTimestampSync';
 // import { SupabaseTableChecker } from '../../utils/supabaseTableChecker';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
-  const [refreshing, setRefreshing] = useState(false);
+  // 移除refreshing狀態 - 改為時間戳記即時同步機制
   const [isInitialized, setIsInitialized] = useState(false); // 防止重複初始化
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [assets, setAssets] = useState<AssetData[]>([]);
@@ -97,22 +98,7 @@ export default function DashboardScreen() {
     initUserProfile();
   }, []);
 
-  // 監聽用戶登錄狀態變化，自動觸發數據同步（防止重複執行）
-  const syncTriggeredRef = useRef(false);
-  useEffect(() => {
-    if (user && isInitialized && !syncTriggeredRef.current) {
-      syncTriggeredRef.current = true;
-      console.log('👤 檢測到用戶登錄，自動觸發數據同步...');
-      // 延遲執行，確保登錄流程完成
-      setTimeout(() => {
-        handleSyncToSupabase();
-        // 重置標記，允許下次登錄時再次同步
-        setTimeout(() => {
-          syncTriggeredRef.current = false;
-        }, 5000);
-      }, 2000);
-    }
-  }, [user, isInitialized]);
+  // 移除手動同步觸發 - 改為時間戳記即時同步機制
 
   // 監聽所有資料變化（只在初始化完成後執行）
   const listenersSetupRef = useRef(false);
@@ -578,45 +564,7 @@ export default function DashboardScreen() {
     },
   };
 
-  // 防止連續刷新的 ref
-  const lastRefreshTime = useRef(0);
-  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const onRefresh = async () => {
-    const now = Date.now();
-
-    // 防止連續快速刷新（500ms 內只允許一次）
-    if (now - lastRefreshTime.current < 500) {
-      console.log('⚠️ 刷新過於頻繁，已忽略');
-      return;
-    }
-
-    lastRefreshTime.current = now;
-
-    // 清除之前的超時
-    if (refreshTimeoutRef.current) {
-      clearTimeout(refreshTimeoutRef.current);
-    }
-
-    setRefreshing(true);
-    console.log('🔄 DashboardScreen 手動刷新所有數據');
-
-    try {
-      setTransactions(transactionDataService.getTransactions());
-      setAssets(assetTransactionSyncService.getAssets());
-      setLiabilities(liabilityService.getLiabilities());
-
-      // 設置超時來停止刷新狀態
-      refreshTimeoutRef.current = setTimeout(() => {
-        setRefreshing(false);
-        refreshTimeoutRef.current = null;
-      }, 1000);
-
-    } catch (error) {
-      console.error('❌ 刷新數據失敗:', error);
-      setRefreshing(false);
-    }
-  };
+  // 移除手動刷新功能 - 改為時間戳記即時同步機制
 
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -673,17 +621,7 @@ export default function DashboardScreen() {
     setShowEditNameModal(false);
   };
 
-  // 上傳按鈕處理函數
-  const handleUploadClick = () => {
-    if (user) {
-      // 用戶已登錄，直接進行同步
-      handleSyncToSupabase();
-    } else {
-      // 用戶未登錄，顯示登錄模態
-      setShowLoginModal(true);
-      clearError();
-    }
-  };
+  // 移除上傳按鈕處理函數 - 改為自動同步機制
 
   // 處理登錄
   const handleLogin = async () => {
@@ -719,10 +657,7 @@ export default function DashboardScreen() {
           console.log('✅ 登錄/註冊成功:', currentUser.email);
           setShowLoginModal(false);
           resetLoginForm();
-          // 登錄成功後自動同步
-          setTimeout(() => {
-            handleSyncToSupabase();
-          }, 1000);
+          // 移除手動同步 - 改為時間戳記即時同步機制
         } else if (currentError) {
           console.log('❌ 登錄/註冊失敗:', currentError);
           console.error('❌ 登錄/註冊失敗:', currentError);
@@ -751,10 +686,7 @@ export default function DashboardScreen() {
           console.log('✅ Google 登錄成功:', currentUser.email);
           setShowLoginModal(false);
           resetLoginForm();
-          // 登錄成功後自動同步
-          setTimeout(() => {
-            handleSyncToSupabase();
-          }, 1000);
+          // 移除手動同步 - 改為時間戳記即時同步機制
         } else if (currentError) {
           console.log('❌ Google 登錄失敗:', currentError);
           // 通知已在 authStore 中處理，這裡不需要額外顯示
@@ -839,213 +771,31 @@ export default function DashboardScreen() {
     }
   };
 
-  // 🚀 全新上傳邏輯：使用統一數據管理器
-  const handleSyncToSupabase = async () => {
+  // 移除手動上傳邏輯 - 改為時間戳記即時同步機制
+
+  // 測試即時同步功能
+  const handleTestTimestampSync = async () => {
+    console.log('🧪 手動觸發即時同步測試');
+
     try {
-      console.log('🚀 全新上傳：開始使用統一數據管理器上傳...');
+      // 運行完整測試
+      await TimestampSyncTester.runFullTest();
 
-      // 檢查用戶是否已登錄
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        Alert.alert('錯誤', '請先登錄才能上傳數據');
-        return;
-      }
+      // 測試創建交易的同步
+      await TimestampSyncTester.testCreateTransaction();
 
-      console.log('✅ 全新上傳：用戶已登錄，開始上傳流程');
-
-      // 顯示上傳進度
-      Alert.alert('上傳中', '正在上傳本地數據到雲端，請稍候...', [], { cancelable: false });
-
-      // 初始化統一數據管理器
-      await unifiedDataManager.initialize();
-
-      // 使用統一數據管理器上傳
-      const result = await unifiedDataManager.uploadAllToCloud();
-
-      console.log('🎯 全新上傳：上傳結果:', result);
-
-      if (result.errors.length === 0) {
-        // 上傳成功
-        Alert.alert(
-          '上傳成功！',
-          `已成功上傳 ${result.uploaded} 筆數據到雲端！\n\n數據已安全保存到雲端存儲。`,
-          [{ text: '確定', onPress: () => console.log('✅ 全新上傳：用戶確認上傳成功') }]
-        );
-      } else {
-        // 部分失敗
-        Alert.alert(
-          '上傳部分成功',
-          `成功上傳：${result.uploaded} 筆\n錯誤：${result.errors.length} 個\n\n錯誤詳情：\n${result.errors.join('\n')}`,
-          [{ text: '確定', onPress: () => console.log('⚠️ 全新上傳：用戶確認部分成功') }]
-        );
-      }
-
-    } catch (error) {
-      console.error('❌ 全新上傳：上傳失敗:', error);
       Alert.alert(
-        '上傳失敗',
-        `上傳過程中發生錯誤: ${error instanceof Error ? error.message : '未知錯誤'}`,
-        [{ text: '確定', onPress: () => console.log('❌ 全新上傳：用戶確認上傳錯誤') }]
+        '測試完成',
+        '即時同步測試已完成，請查看控制台日誌了解詳細結果。',
+        [{ text: '確定' }]
       );
-    }
-  };
-
-  // 診斷 Supabase 表結構
-  const handleDiagnoseSupabase = async () => {
-    console.log('🔥 診斷按鈕被點擊！');
-    Alert.alert('診斷按鈕測試', '診斷按鈕正常工作！');
-
-    try {
-      console.log('🚨 開始超級診斷和修復...');
-      Alert.alert('開始診斷', '正在執行超級修復，請查看控制台日誌...');
-
-      // 步驟 0: 檢查用戶登錄狀態
-      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
-      console.log('👤 用戶狀態:', currentUser ? `已登錄 (${currentUser.email})` : '未登錄');
-
-      if (!currentUser) {
-        Alert.alert('錯誤', '請先登錄');
-        return;
-      }
-
-      console.log('🔍 步驟 1: 檢查 Supabase 連接...');
-
-      // 步驟 1: 測試基本連接
-      try {
-        const { count, error: testError } = await supabase
-          .from('assets')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', currentUser.id);
-
-        if (testError) {
-          console.error('❌ Supabase 連接測試失敗:', testError);
-          Alert.alert('連接失敗', `Supabase 連接有問題: ${testError.message}`);
-          return;
-        }
-        console.log('✅ Supabase 連接正常，資產數量:', count);
-      } catch (connectionError) {
-        console.error('❌ 連接測試異常:', connectionError);
-        Alert.alert('連接異常', '無法連接到 Supabase');
-        return;
-      }
-
-      console.log('🔍 步驟 2: 獲取資產數據...');
-
-      // 步驟 2: 獲取資產數據
-      const { data: supabaseAssets, error: assetsError } = await supabase
-        .from('assets')
-        .select('*')
-        .eq('user_id', currentUser.id);
-
-      if (assetsError) {
-        console.error('❌ 獲取資產失敗:', assetsError);
-        Alert.alert('獲取失敗', `無法獲取資產數據: ${assetsError.message}`);
-        return;
-      }
-
-      console.log(`📊 從 Supabase 獲得 ${supabaseAssets?.length || 0} 項資產`);
-
-      if (supabaseAssets && supabaseAssets.length > 0) {
-        console.log('📋 原始資產數據:', supabaseAssets);
-
-        console.log('🔍 步驟 3: 轉換資產格式...');
-
-        // 步驟 3: 轉換為本地格式
-        const localAssets = supabaseAssets.map((asset: any, index: number) => {
-          const converted = {
-            id: asset.id,
-            name: asset.name || `資產${index + 1}`,
-            type: asset.type || 'bank',
-            quantity: Number(asset.quantity) || 1,
-            cost_basis: Number(asset.cost_basis || asset.value || asset.current_value || 0),
-            current_value: Number(asset.current_value || asset.value || asset.cost_basis || 0),
-            stock_code: asset.stock_code,
-            purchase_price: Number(asset.purchase_price || 0),
-            current_price: Number(asset.current_price || 0),
-            last_updated: asset.updated_at || asset.created_at,
-            sort_order: Number(asset.sort_order) || index
-          };
-          console.log(`✅ 轉換資產 ${index + 1}: ${converted.name} = ${converted.current_value}`);
-          return converted;
-        });
-
-        console.log('🔍 步驟 4: 保存到本地存儲...');
-
-        // 步驟 4: 保存到本地存儲 - 使用正確的鍵名
-        await AsyncStorage.setItem('@FinTranzo:assets', JSON.stringify(localAssets));
-        console.log('✅ 已保存到本地存儲 (使用正確鍵名: @FinTranzo:assets)');
-
-        console.log('🔍 步驟 5: 直接更新 UI 狀態...');
-
-        // 步驟 5: 直接更新狀態，不依賴任何服務
-        setAssets(localAssets);
-        setForceRefresh(prev => prev + 1);
-
-        console.log('🔍 步驟 6: 發送事件通知...');
-
-        // 步驟 6: 跳過事件通知，避免導入錯誤
-        console.log('⚠️ 跳過事件發送，避免導入錯誤');
-
-        console.log('🔍 步驟 7: 強制刷新數據...');
-
-        // 步驟 7: 強制重新加載資產服務並更新狀態
-        await assetTransactionSyncService.forceReload();
-        setTransactions(transactionDataService.getTransactions());
-        setAssets(assetTransactionSyncService.getAssets());
-        setLiabilities(liabilityService.getLiabilities());
-        setForceRefresh(prev => prev + 1);
-
-        console.log('✅ 資產服務已強制重新加載');
-
-        const totalValue = localAssets.reduce((sum, asset) => sum + asset.current_value, 0);
-        console.log(`✅ 超級修復完成！總價值: ${totalValue}`);
-
-        // 步驟 8: 驗證同步結果
-        console.log('🔍 步驟 8: 驗證同步結果...');
-        const verifyAssets = assetTransactionSyncService.getAssets();
-        console.log('📊 驗證結果: 資產服務中的資產數量:', verifyAssets.length);
-        console.log('📊 驗證結果: 資產服務中的總價值:', verifyAssets.reduce((sum, asset) => sum + asset.current_value, 0));
-
-        Alert.alert(
-          '超級修復成功！',
-          `已成功獲取並設置 ${localAssets.length} 項資產。\n總價值: ${totalValue.toLocaleString()} 元\n\n資產服務驗證: ${verifyAssets.length} 項資產\n\n請檢查資產負債表是否正確顯示。`
-        );
-
-      } else {
-        console.log('📝 Supabase 中沒有找到資產數據');
-
-        // 檢查是否有其他表的數據
-        console.log('🔍 檢查其他表的數據...');
-        try {
-          const { count: transactionCount } = await supabase
-            .from('transactions')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', currentUser.id);
-
-          const { count: liabilityCount } = await supabase
-            .from('liabilities')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', currentUser.id);
-
-          console.log('📊 其他數據統計:', {
-            transactions: transactionCount,
-            liabilities: liabilityCount
-          });
-        } catch (checkError) {
-          console.log('⚠️ 檢查其他表失敗:', checkError);
-        }
-
-        Alert.alert(
-          '沒有資產數據',
-          'Supabase 中沒有找到您的資產數據。\n\n請先在資產負債頁面添加一些資產，然後再嘗試同步。'
-        );
-      }
 
     } catch (error) {
-      console.error('❌ 超級修復失敗:', error);
+      console.error('❌ 即時同步測試失敗:', error);
       Alert.alert(
-        '修復失敗',
-        `修復過程中發生錯誤：\n${error.message || '未知錯誤'}\n\n請查看控制台日誌了解詳細信息。`
+        '測試失敗',
+        `測試過程中發生錯誤: ${error instanceof Error ? error.message : '未知錯誤'}`,
+        [{ text: '確定' }]
       );
     }
   };
@@ -1146,20 +896,14 @@ export default function DashboardScreen() {
           {/* 同步狀態指示器 */}
           <SyncStatusIndicator style={styles.syncIndicator} />
 
-          {/* 上傳按鈕 - 只在已登錄時顯示 */}
+          {/* 用戶郵箱顯示 - 只在已登錄時顯示 */}
           {user && (
-            <TouchableOpacity onPress={handleSyncToSupabase} style={styles.uploadButton}>
-              <Ionicons name="cloud-upload-outline" size={20} color="#007AFF" />
-              <Text style={{ fontSize: 10, color: '#007AFF' }}>上傳</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* 刷新數據按鈕 - 只在已登錄時顯示 */}
-          {user && (
-            <TouchableOpacity onPress={handleForceRefreshData} style={[styles.uploadButton, { marginLeft: 8 }]}>
-              <Ionicons name="refresh-outline" size={20} color="#34C759" />
-              <Text style={{ fontSize: 10, color: '#34C759' }}>刷新</Text>
-            </TouchableOpacity>
+            <View style={styles.userEmailContainer}>
+              <Ionicons name="person-circle-outline" size={16} color="#007AFF" />
+              <Text style={styles.userEmailText} numberOfLines={1}>
+                {user.email}
+              </Text>
+            </View>
           )}
 
           {/* 登出按鈕 - 取代診斷按鈕，永遠顯示 */}
@@ -1183,9 +927,18 @@ export default function DashboardScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* 診斷按鈕 - 只在已登錄時顯示 */}
-          {user && (
-            <DiagnosticButton style={styles.diagnoseButton} />
+
+
+          {/* 開發環境測試按鈕 */}
+          {__DEV__ && user && (
+            <TouchableOpacity
+              onPress={handleTestTimestampSync}
+              style={styles.testButton}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            >
+              <Ionicons name="flask-outline" size={20} color="#34C759" />
+              <Text style={{ fontSize: 10, color: '#34C759' }}>測試</Text>
+            </TouchableOpacity>
           )}
 
           {/* 一鍵清除按鈕 */}
@@ -1213,7 +966,7 @@ export default function DashboardScreen() {
               <Text style={styles.loginBannerTitle}>體驗雲端同步</Text>
               <Text style={styles.loginBannerSubtitle}>登錄後可在多設備間同步您的財務數據</Text>
             </View>
-            <TouchableOpacity onPress={handleUploadClick} style={styles.loginBannerButton}>
+            <TouchableOpacity onPress={() => setShowLoginModal(true)} style={styles.loginBannerButton}>
               <Text style={styles.loginBannerButtonText}>登錄</Text>
             </TouchableOpacity>
           </View>
@@ -1225,9 +978,7 @@ export default function DashboardScreen() {
         contentContainerStyle={{
           paddingBottom: Math.max(insets.bottom + 80, 100), // 確保底部有足夠空間
         }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+
       >
         {/* Net Worth Chart */}
         <View style={styles.chartCard}>
@@ -1716,6 +1467,17 @@ const styles = StyleSheet.create({
     borderColor: '#E5F3FF',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  testButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#E8F5E8',
+    borderWidth: 1,
+    borderColor: '#34C759',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 40,
+    minHeight: 40,
   },
   clearDataButton: {
     padding: 10,
@@ -2232,6 +1994,22 @@ const styles = StyleSheet.create({
   switchModeText: {
     fontSize: 14,
     color: '#007AFF',
+    fontWeight: '500',
+  },
+  userEmailContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F8FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 8,
+    maxWidth: 150,
+  },
+  userEmailText: {
+    fontSize: 10,
+    color: '#007AFF',
+    marginLeft: 4,
     fontWeight: '500',
   },
 });

@@ -9,6 +9,7 @@ import { liabilityTransactionSyncService } from './liabilityTransactionSyncServi
 import { startDailyUpdates } from '../utils/dailyUpdateScheduler';
 import { categoryRepairService } from './categoryRepairService';
 import { oauthCallbackHandler } from './oauthCallbackHandler';
+import { timestampSyncService } from './timestampSyncService';
 
 class AppInitializationService {
   private isInitialized = false;
@@ -22,31 +23,34 @@ class AppInitializationService {
     console.log('🚀 開始初始化應用服務...');
 
     try {
-      // 0. 初始化 OAuth 回調處理（優先處理登錄狀態）
+      // 0. 初始化時間戳記同步服務（最優先）
+      await this.safeExecute('時間戳記同步服務', () => this.initializeTimestampSync());
+
+      // 1. 初始化 OAuth 回調處理（優先處理登錄狀態）
       await this.safeExecute('OAuth 回調處理', () => this.initializeOAuthHandler());
 
-      // 1. 清除舊的預設數據
+      // 2. 清除舊的預設數據
       await this.safeExecute('清除舊數據', () => this.clearOldDefaultData());
 
-      // 2. 初始化交易資料服務
+      // 3. 初始化交易資料服務
       await this.safeExecute('交易服務', () => this.initializeTransactionService());
 
-      // 3. 緊急修復：安全初始化資產服務（防止清除用戶資產）
+      // 4. 緊急修復：安全初始化資產服務（防止清除用戶資產）
       await this.safeExecute('資產服務', async () => {
         await assetTransactionSyncService.initialize();
         const assetCount = assetTransactionSyncService.getAssets().length;
         console.log(`✅ 緊急修復：資產服務已安全初始化（${assetCount} 個資產）`);
       });
 
-      // 4. 初始化負債服務
+      // 5. 初始化負債服務
       await this.safeExecute('負債服務', async () => {
         await liabilityService.initialize();
         console.log('✅ 負債服務已初始化（空列表）');
       });
 
-      // 4. 自動還款服務（已移除）
+      // 6. 自動還款服務（已移除）
 
-      // 5. 初始化負債循環交易同步服務
+      // 7. 初始化負債循環交易同步服務
       await this.safeExecute('負債循環交易同步服務', async () => {
         await liabilityTransactionSyncService.initialize();
         console.log('✅ 負債循環交易同步服務已初始化');
@@ -203,6 +207,20 @@ class AppInitializationService {
       }
     } catch (error) {
       console.error('❌ 類別修復服務初始化失敗:', error);
+      // 不拋出錯誤，因為這不是關鍵功能
+    }
+  }
+
+  /**
+   * 初始化時間戳記同步服務
+   */
+  private async initializeTimestampSync(): Promise<void> {
+    try {
+      console.log('🕐 初始化時間戳記同步服務...');
+      await timestampSyncService.initialize();
+      console.log('✅ 時間戳記同步服務已初始化');
+    } catch (error) {
+      console.error('❌ 時間戳記同步服務初始化失敗:', error);
       // 不拋出錯誤，因為這不是關鍵功能
     }
   }

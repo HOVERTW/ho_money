@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { eventEmitter, EVENTS } from './eventEmitter';
 import { supabase, TABLES } from './supabase';
 import { enhancedSyncService } from './enhancedSyncService';
+import { timestampSyncService } from './timestampSyncService';
 import { generateUUID, ensureValidUUID } from '../utils/uuid';
 
 // 本地存儲的鍵名
@@ -337,8 +338,13 @@ class LiabilityService {
     this.notifyListeners();
     await this.saveToStorage();
 
-    // 🚫 停用即時同步：專注於手動上傳
-    console.log('🚫 即時同步已停用，負債添加完成，僅保存到本地:', liability.name);
+    // ⚡ 時間戳記即時同步
+    try {
+      await timestampSyncService.addToQueue('liability', liability, 'create');
+      console.log('⚡ 負債已添加到時間戳記同步隊列:', liability.name);
+    } catch (syncError) {
+      console.error('⚠️ 時間戳記同步失敗，但本地操作已完成:', syncError);
+    }
 
     // 發射事件
     eventEmitter.emit(EVENTS.LIABILITY_ADDED, liability);
@@ -355,8 +361,13 @@ class LiabilityService {
       this.notifyListeners();
       await this.saveToStorage();
 
-      // 🚫 停用即時同步：專注於手動上傳
-      console.log('🚫 即時同步已停用，負債更新完成，僅保存到本地:', id);
+      // ⚡ 時間戳記即時同步
+      try {
+        await timestampSyncService.addToQueue('liability', this.liabilities[index], 'update');
+        console.log('⚡ 負債更新已添加到時間戳記同步隊列:', id);
+      } catch (syncError) {
+        console.error('⚠️ 時間戳記同步失敗，但本地操作已完成:', syncError);
+      }
     }
   }
 
@@ -369,8 +380,13 @@ class LiabilityService {
     this.notifyListeners();
     await this.saveToStorage();
 
-    // 🚫 停用即時同步：專注於手動上傳
-    console.log('🚫 即時同步已停用，負債刪除完成，僅從本地移除:', id);
+    // ⚡ 時間戳記即時同步刪除
+    try {
+      await timestampSyncService.addToQueue('liability', { id }, 'delete');
+      console.log('⚡ 負債刪除已添加到時間戳記同步隊列:', id);
+    } catch (syncError) {
+      console.error('⚠️ 時間戳記同步失敗，但本地操作已完成:', syncError);
+    }
   }
 
   /**

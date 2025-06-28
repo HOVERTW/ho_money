@@ -9,6 +9,7 @@ import { eventEmitter, EVENTS } from './eventEmitter';
 import { generateUUID, isValidUUID, ensureValidUUID } from '../utils/uuid';
 import { enhancedSyncService } from './enhancedSyncService';
 import { instantSyncService } from './instantSyncService';
+import { timestampSyncService } from './timestampSyncService';
 
 // 本地存儲的鍵名
 const STORAGE_KEYS = {
@@ -662,9 +663,17 @@ class AssetTransactionSyncService {
       // 通知監聽器
       this.notifyListeners();
 
-      // 修復：只保存到本地存儲，不自動同步到雲端
+      // 保存到本地存儲
       await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
-      console.log('💾 修復：資產數據已保存到本地存儲（不自動同步）');
+      console.log('💾 資產數據已保存到本地存儲');
+
+      // ⚡ 時間戳記即時同步
+      try {
+        await timestampSyncService.addToQueue('asset', asset, 'create');
+        console.log('⚡ 資產已添加到時間戳記同步隊列:', asset.name);
+      } catch (syncError) {
+        console.error('⚠️ 時間戳記同步失敗，但本地操作已完成:', syncError);
+      }
 
       console.log('✅ 修復：資產本地添加完成，ID:', asset.id);
     } catch (error) {
@@ -682,9 +691,17 @@ class AssetTransactionSyncService {
       this.assets[index] = { ...this.assets[index], ...updatedAsset };
       this.notifyListeners();
 
-      // 深度修復：只保存到本地，完全禁用自動同步
+      // 保存到本地存儲
       await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
-      console.log('💾 深度修復：資產更新已保存到本地（完全禁用自動同步）');
+      console.log('💾 資產更新已保存到本地');
+
+      // ⚡ 時間戳記即時同步
+      try {
+        await timestampSyncService.addToQueue('asset', this.assets[index], 'update');
+        console.log('⚡ 資產更新已添加到時間戳記同步隊列:', assetId);
+      } catch (syncError) {
+        console.error('⚠️ 時間戳記同步失敗，但本地操作已完成:', syncError);
+      }
     }
   }
 
@@ -714,50 +731,16 @@ class AssetTransactionSyncService {
       // 深度修復：立即通知監聽器
       this.notifyListeners();
 
-      // 深度修復：強制保存到本地存儲
+      // 強制保存到本地存儲
       await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
-      console.log('💾 深度修復：資產刪除已強制保存到本地存儲');
+      console.log('💾 資產刪除已強制保存到本地存儲');
 
-      // 深度修復：多次嘗試同步刪除到雲端
-      let cloudDeleteSuccess = false;
-      const maxAttempts = 3;
-
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            console.log(`🔄 深度修復：第${attempt}次嘗試同步刪除資產到雲端`);
-            const { error } = await supabase
-              .from(TABLES.ASSETS)
-              .delete()
-              .eq('id', assetId)
-              .eq('user_id', user.id);
-
-            if (error) {
-              console.error(`❌ 深度修復：第${attempt}次雲端刪除失敗:`, error);
-              if (attempt < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-              }
-            } else {
-              console.log(`✅ 深度修復：第${attempt}次雲端刪除成功`);
-              cloudDeleteSuccess = true;
-              break;
-            }
-          } else {
-            console.log('📝 深度修復：用戶未登錄，跳過雲端刪除');
-            cloudDeleteSuccess = true;
-            break;
-          }
-        } catch (syncError) {
-          console.error(`❌ 深度修復：第${attempt}次雲端刪除異常:`, syncError);
-          if (attempt < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-      }
-
-      if (!cloudDeleteSuccess) {
-        console.warn('⚠️ 深度修復：雲端刪除失敗，但本地刪除已完成');
+      // ⚡ 時間戳記即時同步刪除
+      try {
+        await timestampSyncService.addToQueue('asset', { id: assetId }, 'delete');
+        console.log('⚡ 資產刪除已添加到時間戳記同步隊列:', assetId);
+      } catch (syncError) {
+        console.error('⚠️ 時間戳記同步失敗，但本地操作已完成:', syncError);
       }
 
       console.log('✅ 深度修復：資產刪除完成');
