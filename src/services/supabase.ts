@@ -332,9 +332,9 @@ export const authService = {
     }
   },
 
-  // 🆕 直接註冊用戶（不需要郵件確認）
+  // 🆕 改進的用戶註冊（確保同步到 Supabase）
   createUserDirectly: async (email: string, password: string): Promise<AuthResponse> => {
-    console.log('🚀 直接創建用戶（跳過郵件確認）:', email);
+    console.log('🚀 改進的用戶註冊:', email);
 
     try {
       // 首先檢查用戶是否已存在
@@ -344,67 +344,101 @@ export const authService = {
         return existingUserCheck;
       }
 
-      // 🔧 使用簡化的註冊流程
-      console.log('🔧 使用簡化註冊流程...');
+      console.log('🔧 開始新用戶註冊流程...');
 
-      // 方法1: 嘗試不帶任何選項的註冊
-      let signUpResult = await supabase.auth.signUp({
+      // 🎯 關鍵：使用正確的註冊參數
+      const signUpResult = await supabase.auth.signUp({
         email,
-        password
+        password,
+        options: {
+          // 不設置 emailRedirectTo，避免郵件確認問題
+          data: {
+            // 添加用戶元數據
+            app_name: 'FinTranzo',
+            registration_source: 'web',
+            created_via: 'direct_signup'
+          }
+        }
       });
 
-      console.log('📝 簡化註冊結果:', {
+      console.log('📝 註冊結果詳情:', {
         user: signUpResult.data.user ? {
           id: signUpResult.data.user.id,
           email: signUpResult.data.user.email,
-          email_confirmed_at: signUpResult.data.user.email_confirmed_at
+          email_confirmed_at: signUpResult.data.user.email_confirmed_at,
+          created_at: signUpResult.data.user.created_at
         } : null,
-        session: signUpResult.data.session ? 'exists' : 'null',
+        session: signUpResult.data.session ? {
+          access_token: signUpResult.data.session.access_token ? 'exists' : 'null',
+          expires_at: signUpResult.data.session.expires_at
+        } : null,
         error: signUpResult.error?.message
       });
 
-      // 如果註冊成功
-      if (signUpResult.data.user && !signUpResult.error) {
-        // 🎯 新策略：如果用戶已創建但未確認，我們認為這是成功的
-        console.log('✅ 用戶創建成功！');
+      // 處理註冊結果
+      if (signUpResult.error) {
+        console.error('❌ 註冊失敗:', signUpResult.error.message);
 
-        // 檢查是否有 session（已確認的用戶會有 session）
-        if (signUpResult.data.session) {
-          console.log('🎉 用戶已確認，可以直接使用');
-          return signUpResult;
-        } else {
-          console.log('📧 用戶需要確認，但我們將其視為成功');
-
-          // 🔧 創建一個"成功"的響應，即使沒有 session
-          // 這樣前端可以顯示成功消息並引導用戶登錄
-          return {
-            data: {
-              user: signUpResult.data.user,
-              session: null // 沒有 session，但用戶已創建
-            },
-            error: null
-          };
-        }
-      }
-
-      // 如果註冊失敗，返回錯誤
-      return signUpResult;
-
-    } catch (error) {
-      console.error('💥 直接創建用戶錯誤:', error);
-
-      // 如果是用戶已存在的錯誤，嘗試登錄
-      if (error.message && error.message.includes('already registered')) {
-        console.log('🔄 用戶已存在，嘗試登錄...');
-        try {
+        // 特殊處理：如果是用戶已存在，嘗試登錄
+        if (signUpResult.error.message.includes('already registered')) {
+          console.log('🔄 用戶已存在，嘗試登錄...');
           const loginResult = await supabase.auth.signInWithPassword({ email, password });
           if (loginResult.data.user && !loginResult.error) {
             console.log('✅ 已存在用戶登錄成功');
             return loginResult;
           }
-        } catch (loginError) {
-          console.error('💥 已存在用戶登錄失敗:', loginError);
         }
+
+        return signUpResult;
+      }
+
+      // 註冊成功的情況
+      if (signUpResult.data.user) {
+        console.log('✅ 用戶已創建到 Supabase');
+        console.log('👤 用戶ID:', signUpResult.data.user.id);
+        console.log('📧 郵箱狀態:', signUpResult.data.user.email_confirmed_at ? '已確認' : '未確認');
+
+        // 🎯 關鍵改進：如果沒有 session，嘗試立即登錄
+        if (!signUpResult.data.session) {
+          console.log('🔄 沒有 session，嘗試立即登錄...');
+
+          // 等待一下讓數據庫同步
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          const immediateLogin = await supabase.auth.signInWithPassword({ email, password });
+
+          if (immediateLogin.data.user && immediateLogin.data.session) {
+            console.log('✅ 立即登錄成功，用戶可直接使用');
+            return immediateLogin;
+          } else {
+            console.log('⚠️ 立即登錄失敗，但用戶已創建');
+            console.log('💡 可能需要在 Supabase Dashboard 中禁用郵件確認');
+
+            // 返回用戶已創建的成功狀態
+            return {
+              data: {
+                user: signUpResult.data.user,
+                session: null
+              },
+              error: null
+            };
+          }
+        } else {
+          console.log('🎉 註冊成功並已自動登錄');
+          return signUpResult;
+        }
+      }
+
+      // 未知情況
+      console.log('⚠️ 註冊結果不明確');
+      return signUpResult;
+
+    } catch (error) {
+      console.error('💥 註冊過程異常:', error);
+
+      // 如果是網路錯誤，提供更友好的錯誤信息
+      if (error.message && error.message.includes('fetch')) {
+        throw new Error('網路連接失敗，請檢查網路連接後重試');
       }
 
       throw error;

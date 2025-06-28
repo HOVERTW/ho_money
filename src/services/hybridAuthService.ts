@@ -87,37 +87,90 @@ class HybridAuthService {
   }
 
   /**
-   * 註冊
+   * 註冊（改進版，確保 Supabase 同步）
    */
   async signUp(email: string, password: string): Promise<HybridAuthResponse> {
     console.log('📝 HybridAuth: 開始註冊流程:', email);
-    console.log('📋 使用認證模式:', this.useLocalAuth ? '本地認證' : 'Supabase認證');
+    console.log('📋 使用認證模式:', this.useLocalAuth ? '本地優先' : 'Supabase優先');
 
-    if (this.useLocalAuth) {
-      try {
-        console.log('🏠 嘗試本地註冊...');
-        const localResult = await localAuthService.signUp(email, password);
-        
-        if (localResult.data.user && !localResult.error) {
-          console.log('✅ 本地註冊成功');
-          notificationManager.success(
-            '註冊成功',
-            `歡迎加入 FinTranzo，${email}！（本地認證）`,
-            false
-          );
-          return this.convertLocalResponse(localResult);
-        } else {
-          console.log('❌ 本地註冊失敗，嘗試 Supabase...');
-          // 本地註冊失敗，嘗試 Supabase
-          return await this.trySupabaseAuth(email, password, 'signUp');
+    // 🎯 新策略：總是嘗試 Supabase 註冊以確保數據同步
+    console.log('☁️ 優先嘗試 Supabase 註冊（確保數據同步）...');
+
+    try {
+      const supabaseResult = await this.trySupabaseAuth(email, password, 'signUp');
+
+      if (supabaseResult.data.user && !supabaseResult.error) {
+        console.log('✅ Supabase 註冊成功，數據已同步');
+
+        // 🔄 同時在本地創建用戶備份
+        if (this.useLocalAuth) {
+          try {
+            console.log('🏠 創建本地備份...');
+            await localAuthService.signUp(email, password);
+            console.log('✅ 本地備份創建成功');
+          } catch (localError) {
+            console.log('⚠️ 本地備份創建失敗，但 Supabase 註冊已成功');
+          }
         }
-      } catch (error) {
-        console.error('💥 本地註冊異常，嘗試 Supabase...', error);
-        return await this.trySupabaseAuth(email, password, 'signUp');
+
+        return supabaseResult;
+      } else {
+        console.log('❌ Supabase 註冊失敗，嘗試本地註冊...');
+
+        // Supabase 失敗，使用本地註冊
+        if (this.useLocalAuth) {
+          const localResult = await localAuthService.signUp(email, password);
+
+          if (localResult.data.user && !localResult.error) {
+            console.log('✅ 本地註冊成功（Supabase 備用失敗）');
+            notificationManager.warning(
+              '註冊成功',
+              `歡迎加入 FinTranzo，${email}！（本地模式，雲端同步暫時不可用）`,
+              false
+            );
+            return this.convertLocalResponse(localResult);
+          }
+        }
+
+        // 兩種方式都失敗
+        console.log('❌ 所有註冊方式都失敗');
+        return supabaseResult; // 返回 Supabase 的錯誤信息
       }
-    } else {
-      // 直接使用 Supabase
-      return await this.trySupabaseAuth(email, password, 'signUp');
+    } catch (error) {
+      console.error('💥 註冊過程異常:', error);
+
+      // 異常情況下嘗試本地註冊
+      if (this.useLocalAuth) {
+        try {
+          console.log('🏠 異常情況下嘗試本地註冊...');
+          const localResult = await localAuthService.signUp(email, password);
+
+          if (localResult.data.user && !localResult.error) {
+            console.log('✅ 本地註冊成功（異常恢復）');
+            notificationManager.warning(
+              '註冊成功',
+              `歡迎加入 FinTranzo，${email}！（離線模式）`,
+              false
+            );
+            return this.convertLocalResponse(localResult);
+          }
+        } catch (localError) {
+          console.error('💥 本地註冊也失敗:', localError);
+        }
+      }
+
+      // 所有方式都失敗
+      notificationManager.error(
+        '註冊失敗',
+        '註冊服務暫時不可用，請稍後再試',
+        true
+      );
+
+      return {
+        data: { user: null, session: null },
+        error: error instanceof Error ? error : new Error('註冊失敗'),
+        source: 'local'
+      };
     }
   }
 
