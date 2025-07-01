@@ -622,8 +622,19 @@ class TransactionDataService {
         // 即使本地存儲失敗，也繼續雲端同步
       }
 
-      // 🚫 停用即時同步：專注於手動上傳
-      console.log('🚫 即時同步已停用，交易添加完成，僅保存到本地:', transaction.description);
+      // ✅ 啟用即時同步：自動上傳到雲端
+      if (this.isUserLoggedIn()) {
+        try {
+          console.log('🔄 啟動即時同步，上傳交易到雲端:', transaction.description);
+          await instantSyncService.syncTransaction(transaction);
+          console.log('✅ 即時同步成功:', transaction.description);
+        } catch (syncError) {
+          console.error('❌ 即時同步失敗:', syncError);
+          // 即使同步失敗，也不影響本地保存
+        }
+      } else {
+        console.log('📝 用戶未登錄，僅保存到本地:', transaction.description);
+      }
 
       // 通知監聽器
       this.notifyListeners();
@@ -991,6 +1002,19 @@ class TransactionDataService {
     return this.transactions.filter(transaction =>
       transaction.date.split('T')[0] === date
     );
+  }
+
+  /**
+   * 檢查用戶是否已登錄
+   */
+  private async isUserLoggedIn(): Promise<boolean> {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      return !error && !!user;
+    } catch (error) {
+      console.error('❌ 檢查登錄狀態失敗:', error);
+      return false;
+    }
   }
 
   /**

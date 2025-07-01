@@ -352,11 +352,30 @@ class UnifiedDataManager {
       if (this.transactions.length > 0) {
         console.log(`📤 上傳 ${this.transactions.length} 筆交易記錄...`);
 
-        const transactionsForUpload = this.transactions.map(transaction => {
+        // 🔧 修復：過濾掉無效的交易，並詳細檢查每筆交易
+        const validTransactions = this.transactions.filter(transaction => {
+          if (!transaction) {
+            console.warn('⚠️ 發現空交易，跳過');
+            return false;
+          }
+          if (!transaction.id) {
+            console.warn('⚠️ 發現無ID交易，跳過:', transaction);
+            return false;
+          }
+          if (!transaction.type) {
+            console.warn('⚠️ 發現無類型交易，跳過:', transaction);
+            return false;
+          }
+          return true;
+        });
+
+        console.log(`📊 交易過濾結果: 原始${this.transactions.length}筆 -> 有效${validTransactions.length}筆`);
+
+        const transactionsForUpload = validTransactions.map(transaction => {
           // 確保交易類型正確
           let transactionType = transaction.type;
           if (!transactionType || !['income', 'expense', 'transfer'].includes(transactionType)) {
-            console.warn(`⚠️ 交易類型無效: "${transactionType}", 設為 expense`);
+            console.warn(`⚠️ 交易類型無效: "${transactionType}" (交易: ${transaction.description}), 設為 expense`);
             transactionType = 'expense';
           }
 
@@ -379,7 +398,7 @@ class UnifiedDataManager {
             updated_at: new Date().toISOString()
           };
 
-          console.log(`📝 準備上傳交易: ${uploadData.type} - ${uploadData.description} - ${uploadData.amount}`);
+          console.log(`📝 準備上傳交易: ${uploadData.type} - "${uploadData.description}" - ${uploadData.amount} (原始類型: "${transaction.type}")`);
           return uploadData;
         });
 
