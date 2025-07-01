@@ -24,7 +24,7 @@ import { eventEmitter, EVENTS } from '../../services/eventEmitter';
 import { recurringTransactionService } from '../../services/recurringTransactionService';
 import { FinancialCalculator } from '../../utils/financialCalculator';
 
-import { runSyncValidationTests } from '../../utils/testSyncValidation';
+// import { runSyncValidationTests } from '../../utils/testSyncValidation';
 import { userProfileService, UserProfile } from '../../services/userProfileService';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import { clearAllStorage } from '../../utils/storageManager';
@@ -2065,7 +2065,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-  loggedInContainer: {
+  loggedInModalContainer: {
     alignItems: 'center',
     paddingVertical: 20,
   },
