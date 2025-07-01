@@ -899,15 +899,25 @@ export default function DashboardScreen() {
       // 運行上傳功能測試
       await UploadFunctionTester.testUploadFunction();
 
+      // 專門測試收入交易上傳
+      await UploadFunctionTester.testIncomeTransactionUpload();
+
       Alert.alert(
         '測試完成',
-        '上傳功能測試已完成，請查看控制台日誌了解詳細結果。',
+        '上傳功能測試已完成，包括收入交易專項測試。請查看控制台日誌了解詳細結果。',
         [
           {
             text: '創建測試數據',
             onPress: async () => {
               await UploadFunctionTester.createTestData();
-              Alert.alert('完成', '測試數據已創建，可以再次測試上傳功能。');
+              Alert.alert('完成', '測試數據已創建，包括收入和支出交易。');
+            }
+          },
+          {
+            text: '測試收入上傳',
+            onPress: async () => {
+              await UploadFunctionTester.testIncomeTransactionUpload();
+              Alert.alert('完成', '收入交易上傳測試已完成，請查看控制台。');
             }
           },
           { text: '確定' }

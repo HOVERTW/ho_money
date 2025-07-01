@@ -352,18 +352,36 @@ class UnifiedDataManager {
       if (this.transactions.length > 0) {
         console.log(`📤 上傳 ${this.transactions.length} 筆交易記錄...`);
 
-        const transactionsForUpload = this.transactions.map(transaction => ({
-          id: transaction.id,
-          user_id: user.id,
-          amount: Number(transaction.amount || 0),
-          type: transaction.type || 'expense',
-          description: transaction.description || '',
-          category: transaction.category || '其他',
-          account: transaction.account || '現金',
-          date: transaction.date || new Date().toISOString(),
-          created_at: transaction.created_at || new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }));
+        const transactionsForUpload = this.transactions.map(transaction => {
+          // 確保交易類型正確
+          let transactionType = transaction.type;
+          if (!transactionType || !['income', 'expense', 'transfer'].includes(transactionType)) {
+            console.warn(`⚠️ 交易類型無效: "${transactionType}", 設為 expense`);
+            transactionType = 'expense';
+          }
+
+          // 確保日期格式正確（只取日期部分）
+          let dateString = transaction.date || new Date().toISOString();
+          if (dateString.includes('T')) {
+            dateString = dateString.split('T')[0];
+          }
+
+          const uploadData = {
+            id: transaction.id,
+            user_id: user.id,
+            amount: Number(transaction.amount || 0),
+            type: transactionType,
+            description: transaction.description || '',
+            category: transaction.category || '其他',
+            account: transaction.account || '現金',
+            date: dateString,
+            created_at: transaction.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+
+          console.log(`📝 準備上傳交易: ${uploadData.type} - ${uploadData.description} - ${uploadData.amount}`);
+          return uploadData;
+        });
 
         const { data: transactionData, error: transactionError } = await supabase
           .from('transactions')
