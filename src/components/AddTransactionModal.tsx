@@ -110,6 +110,36 @@ export default function AddTransactionModal({ visible, onClose, onAdd, selectedD
     };
   }, []);
 
+  // 🎯 監聽交易類型變化，自動設置預設類別
+  useEffect(() => {
+    if (editableCategories.expense.length === 0 && editableCategories.income.length === 0) {
+      return; // 類別還沒載入完成
+    }
+
+    let defaultCategory = '';
+
+    if (type === 'expense') {
+      // 支出預設為"餐飲"，如果沒有則取第一個
+      defaultCategory = editableCategories.expense.includes('餐飲')
+        ? '餐飲'
+        : (editableCategories.expense[0] || '餐飲');
+    } else if (type === 'income') {
+      // 🎯 收入預設為"薪水"，如果沒有則取第一個
+      defaultCategory = editableCategories.income.includes('薪水')
+        ? '薪水'
+        : (editableCategories.income[0] || '薪水');
+    } else if (type === 'transfer') {
+      // 轉移預設為第一個
+      defaultCategory = editableCategories.transfer[0] || '轉移';
+    }
+
+    // 只在類別真的需要改變時才設置，避免無限循環
+    if (defaultCategory && category !== defaultCategory) {
+      console.log(`🎯 交易類型切換為 ${type}，設置預設類別為: ${defaultCategory}`);
+      setCategory(defaultCategory);
+    }
+  }, [type, editableCategories]);
+
   // 獲取可用資產列表
   useEffect(() => {
     const updateAssets = () => {
@@ -154,7 +184,11 @@ export default function AddTransactionModal({ visible, onClose, onAdd, selectedD
       setAmount('');
       setDescription('');
       setType('expense');
-      setCategory(editableCategories.expense.length > 0 ? editableCategories.expense[0] : '餐飲');
+      // 🎯 使用正確的預設類別邏輯
+      const defaultExpenseCategory = editableCategories.expense.includes('餐飲')
+        ? '餐飲'
+        : (editableCategories.expense[0] || '餐飲');
+      setCategory(defaultExpenseCategory);
       setAccount(availableAssets.length > 0 ? availableAssets[0].name : '');
       setSelectedBankId('');
       setIsRecurring(false);
@@ -371,7 +405,11 @@ export default function AddTransactionModal({ visible, onClose, onAdd, selectedD
     setAmount('');
     setDescription('');
     setType('expense');
-    setCategory(editableCategories.expense.length > 0 ? editableCategories.expense[0] : '餐飲');
+    // 🎯 使用正確的預設類別邏輯
+    const defaultExpenseCategory = editableCategories.expense.includes('餐飲')
+      ? '餐飲'
+      : (editableCategories.expense[0] || '餐飲');
+    setCategory(defaultExpenseCategory);
     setAccount(availableAssets.length > 0 ? availableAssets[0].name : '');
     setSelectedBankId('');
     setFromAccount(availableAssets.length > 0 ? availableAssets[0].name : '');
