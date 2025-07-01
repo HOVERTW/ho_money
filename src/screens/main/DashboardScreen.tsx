@@ -36,6 +36,7 @@ import { unifiedDataManager } from '../../services/unifiedDataManager';
 import { DiagnosticButton } from '../../components/DiagnosticButton';
 import SyncStatusIndicator from '../../components/SyncStatusIndicator';
 import { assetDisplayFixService } from '../../services/assetDisplayFixService';
+import { UploadFunctionTester } from '../../utils/testUploadFunction';
 // import { SupabaseTableChecker } from '../../utils/supabaseTableChecker';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -890,6 +891,39 @@ export default function DashboardScreen() {
     }
   };
 
+  // 測試上傳功能
+  const handleTestUpload = async () => {
+    console.log('🧪 測試上傳功能被點擊！');
+
+    try {
+      // 運行上傳功能測試
+      await UploadFunctionTester.testUploadFunction();
+
+      Alert.alert(
+        '測試完成',
+        '上傳功能測試已完成，請查看控制台日誌了解詳細結果。',
+        [
+          {
+            text: '創建測試數據',
+            onPress: async () => {
+              await UploadFunctionTester.createTestData();
+              Alert.alert('完成', '測試數據已創建，可以再次測試上傳功能。');
+            }
+          },
+          { text: '確定' }
+        ]
+      );
+
+    } catch (error) {
+      console.error('❌ 測試上傳功能失敗:', error);
+      Alert.alert(
+        '測試失敗',
+        `測試過程中發生錯誤: ${error instanceof Error ? error.message : '未知錯誤'}`,
+        [{ text: '確定' }]
+      );
+    }
+  };
+
   // 診斷 Supabase 表結構
   const handleDiagnoseSupabase = async () => {
     console.log('🔥 診斷按鈕被點擊！');
@@ -1182,6 +1216,18 @@ export default function DashboardScreen() {
               {isSigningOut ? '登出中...' : (user ? '登出' : '未登錄')}
             </Text>
           </TouchableOpacity>
+
+          {/* 測試上傳按鈕 - 只在開發環境和已登錄時顯示 */}
+          {__DEV__ && user && (
+            <TouchableOpacity
+              onPress={handleTestUpload}
+              style={styles.testUploadButton}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            >
+              <Ionicons name="flask-outline" size={20} color="#FF9500" />
+              <Text style={{ fontSize: 10, color: '#FF9500' }}>測試</Text>
+            </TouchableOpacity>
+          )}
 
           {/* 診斷按鈕 - 只在已登錄時顯示 */}
           {user && (
@@ -1723,6 +1769,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFE5E5',
     borderWidth: 2,
     borderColor: '#FF3B30',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 40,
+    minHeight: 40,
+  },
+  testUploadButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#FFF5E6',
+    borderWidth: 1,
+    borderColor: '#FFE5B3',
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 40,
