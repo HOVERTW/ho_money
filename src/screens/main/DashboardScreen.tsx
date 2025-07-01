@@ -23,7 +23,7 @@ import { liabilityService, LiabilityData } from '../../services/liabilityService
 import { eventEmitter, EVENTS } from '../../services/eventEmitter';
 import { recurringTransactionService } from '../../services/recurringTransactionService';
 import { FinancialCalculator } from '../../utils/financialCalculator';
-import { ReliableDeleteService } from '../../services/reliableDeleteService';
+
 import { runSyncValidationTests } from '../../utils/testSyncValidation';
 import { userProfileService, UserProfile } from '../../services/userProfileService';
 import ErrorBoundary from '../../components/ErrorBoundary';
@@ -33,7 +33,7 @@ import { userDataSyncService } from '../../services/userDataSyncService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../services/supabase';
 import { unifiedDataManager } from '../../services/unifiedDataManager';
-import { DiagnosticButton } from '../../components/DiagnosticButton';
+
 import SyncStatusIndicator from '../../components/SyncStatusIndicator';
 import { assetDisplayFixService } from '../../services/assetDisplayFixService';
 import { UploadFunctionTester } from '../../utils/testUploadFunction';
@@ -49,7 +49,7 @@ export default function DashboardScreen() {
   const [assets, setAssets] = useState<AssetData[]>([]);
   const [liabilities, setLiabilities] = useState<LiabilityData[]>([]);
   const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month' | 'total'>('month');
-  const [forceRefresh, setForceRefresh] = useState(0); // 強制刷新計數器
+
 
   // 用戶名稱編輯相關狀態
   const [showEditNameModal, setShowEditNameModal] = useState(false);
@@ -234,7 +234,7 @@ export default function DashboardScreen() {
       liabilities: liabilities?.length || 0
     });
     return calculateSummary();
-  }, [transactions, assets, liabilities]); // 移除 forceRefresh 依賴
+  }, [transactions, assets, liabilities]);
 
   // 計算指定時間範圍的日期
   const getDateRange = () => {
@@ -783,62 +783,7 @@ export default function DashboardScreen() {
     clearError();
   };
 
-  // 強制刷新用戶數據（使用三種方法確保修復）
-  const handleForceRefreshData = async () => {
-    try {
-      console.log('🔄 開始三重修復數據...');
 
-      // 檢查用戶是否已登錄
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        console.log('❌ 用戶未登錄，無法刷新數據');
-        Alert.alert('錯誤', '用戶未登錄，無法刷新數據');
-        return;
-      }
-
-      // 使用綜合修復服務
-      const fixResult = await assetDisplayFixService.comprehensiveFix();
-
-      // 同時刷新交易數據
-      await transactionDataService.forceRefreshUserData();
-
-      // 獲取最終統計
-      const transactionStats = transactionDataService.getDataStats();
-      const validation = await assetDisplayFixService.validateAssetData();
-
-      console.log('📊 三重修復完成，最終統計:', {
-        transactions: transactionStats.transactions,
-        accounts: transactionStats.accounts,
-        assets: validation.serviceCount,
-        supabaseAssets: validation.supabaseCount
-      });
-
-      // 顯示詳細結果
-      const resultMessage = `修復結果：
-
-✅ 方法1 (直接加載): ${fixResult.methods.method1.success ? '成功' : '失敗'} - ${fixResult.methods.method1.count} 個資產
-✅ 方法2 (服務重載): ${fixResult.methods.method2.success ? '成功' : '失敗'} - ${fixResult.methods.method2.count} 個資產
-✅ 方法3 (同步帳戶): ${fixResult.methods.method3.success ? '成功' : '失敗'} - ${fixResult.methods.method3.count} 個資產
-
-最終統計：
-• 交易: ${transactionStats.transactions} 筆
-• 帳戶: ${transactionStats.accounts} 個
-• 資產: ${validation.serviceCount} 個
-• Supabase資產: ${validation.supabaseCount} 個
-• 數據一致性: ${validation.consistent ? '✅' : '❌'}`;
-
-      Alert.alert(
-        fixResult.success ? '修復成功' : '修復失敗',
-        resultMessage,
-        [{ text: '確定' }]
-      );
-
-    } catch (error) {
-      console.error('❌ 三重修復失敗:', error);
-      Alert.alert('修復失敗', `錯誤: ${error.message}`);
-    }
-  };
 
   // 🚀 全新上傳邏輯：使用統一數據管理器
   const handleSyncToSupabase = async () => {
@@ -1023,7 +968,6 @@ export default function DashboardScreen() {
 
         // 步驟 5: 直接更新狀態，不依賴任何服務
         setAssets(localAssets);
-        setForceRefresh(prev => prev + 1);
 
         console.log('🔍 步驟 6: 發送事件通知...');
 
@@ -1037,7 +981,6 @@ export default function DashboardScreen() {
         setTransactions(transactionDataService.getTransactions());
         setAssets(assetTransactionSyncService.getAssets());
         setLiabilities(liabilityService.getLiabilities());
-        setForceRefresh(prev => prev + 1);
 
         console.log('✅ 資產服務已強制重新加載');
 
@@ -1094,45 +1037,7 @@ export default function DashboardScreen() {
     }
   };
 
-  // 🗑️ 可靠刪除：使用可靠刪除服務
-  const handleClearAllData = async () => {
-    console.log('🗑️ 可靠刪除：清空按鈕被點擊');
 
-    // 🔧 WEB 環境測試：直接執行清空，跳過確認對話框
-    console.log('🗑️ 可靠刪除：WEB 環境直接執行清空測試');
-    console.log('🗑️ 可靠刪除：用戶確認清空所有數據');
-    try {
-      console.log('🗑️ 可靠刪除：進入 try 區塊');
-      console.log('🗑️ 可靠刪除：ReliableDeleteService 是否存在:', typeof ReliableDeleteService);
-      console.log('🗑️ 可靠刪除：clearAllData 方法是否存在:', typeof ReliableDeleteService.clearAllData);
-
-      setIsLoading(true);
-
-      // 使用可靠刪除服務
-      console.log('🗑️ 可靠刪除：準備調用 clearAllData');
-      const result = await ReliableDeleteService.clearAllData({
-        verifyDeletion: true,
-        retryCount: 3,
-        timeout: 15000
-      });
-      console.log('🗑️ 可靠刪除：clearAllData 調用完成，結果:', result);
-
-      if (result.success) {
-        console.log('✅ 可靠刪除：清空成功');
-
-        // 重新加載數據
-        await loadDashboardData();
-
-        console.log('✅ 可靠刪除：清空完成，UI 已更新');
-      } else {
-        console.error('❌ 可靠刪除：清空失敗:', result.errors);
-      }
-    } catch (error) {
-      console.error('❌ 可靠刪除：操作異常:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('zh-TW', {
@@ -1198,13 +1103,7 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           )}
 
-          {/* 刷新數據按鈕 - 只在已登錄時顯示 */}
-          {user && (
-            <TouchableOpacity onPress={handleForceRefreshData} style={[styles.uploadButton, { marginLeft: 8 }]}>
-              <Ionicons name="refresh-outline" size={20} color="#34C759" />
-              <Text style={{ fontSize: 10, color: '#34C759' }}>刷新</Text>
-            </TouchableOpacity>
-          )}
+
 
           {/* 登出按鈕 - 取代診斷按鈕，永遠顯示 */}
           <TouchableOpacity
@@ -1239,23 +1138,9 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           )}
 
-          {/* 診斷按鈕 - 只在已登錄時顯示 */}
-          {user && (
-            <DiagnosticButton style={styles.diagnoseButton} />
-          )}
 
-          {/* 一鍵清除按鈕 */}
-          <TouchableOpacity
-            onPress={(e) => {
-              e.stopPropagation();
-              console.log('🗑️ 一鍵清空按鈕被點擊');
-              handleClearAllData();
-            }}
-            style={styles.clearDataButton}
-            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-          >
-            <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-          </TouchableOpacity>
+
+
         </View>
 
       </View>
@@ -1773,17 +1658,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  clearDataButton: {
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: '#FFE5E5',
-    borderWidth: 2,
-    borderColor: '#FF3B30',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 40,
-    minHeight: 40,
-  },
+
   testUploadButton: {
     padding: 8,
     borderRadius: 8,
@@ -1795,15 +1670,7 @@ const styles = StyleSheet.create({
     minWidth: 40,
     minHeight: 40,
   },
-  diagnoseButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#F0F8FF',
-    borderWidth: 1,
-    borderColor: '#E5F3FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+
 
   // 登錄橫幅樣式
   loginBanner: {
