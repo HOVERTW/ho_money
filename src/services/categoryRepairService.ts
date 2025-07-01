@@ -170,13 +170,13 @@ class CategoryRepairService {
   }
 
   /**
-   * 更新本地類別數據
+   * 更新本地類別數據（修復：合併而不是覆蓋）
    */
   private async updateLocalCategories(userId: string): Promise<void> {
     try {
       console.log('🔄 更新本地類別數據...');
 
-      const { data: categories, error } = await supabase
+      const { data: supabaseCategories, error } = await supabase
         .from(TABLES.CATEGORIES)
         .select('*')
         .eq('user_id', userId);
@@ -186,8 +186,13 @@ class CategoryRepairService {
         return;
       }
 
-      // 更新 transactionDataService 中的類別數據
-      const localCategories = categories.map(cat => ({
+      // 🔧 修復：獲取當前本地類別，進行合併而不是覆蓋
+      const currentCategories = transactionDataService.getCategories();
+      console.log(`📊 當前本地類別數量: ${currentCategories.length}`);
+      console.log(`📊 Supabase類別數量: ${supabaseCategories?.length || 0}`);
+
+      // 轉換Supabase類別格式
+      const newCategories = (supabaseCategories || []).map(cat => ({
         id: cat.id,
         name: cat.name,
         icon: cat.icon,
@@ -195,11 +200,25 @@ class CategoryRepairService {
         type: cat.type
       }));
 
-      // 使用 transactionDataService 的內部方法更新類別
-      (transactionDataService as any).categories = localCategories;
+      // 🔧 修復：合併類別而不是覆蓋
+      const mergedCategories = [...currentCategories];
+
+      // 添加新的類別（避免重複）
+      newCategories.forEach(newCat => {
+        const exists = mergedCategories.some(existing =>
+          existing.name === newCat.name && existing.type === newCat.type
+        );
+        if (!exists) {
+          mergedCategories.push(newCat);
+          console.log(`➕ 添加新類別: ${newCat.name} (${newCat.type})`);
+        }
+      });
+
+      // 🔧 修復：使用合併後的類別更新
+      (transactionDataService as any).categories = mergedCategories;
       await (transactionDataService as any).saveToStorage();
 
-      console.log(`✅ 本地類別數據已更新，共 ${localCategories.length} 個類別`);
+      console.log(`✅ 本地類別數據已更新，共 ${mergedCategories.length} 個類別`);
 
     } catch (error) {
       console.error('❌ 更新本地類別數據失敗:', error);
