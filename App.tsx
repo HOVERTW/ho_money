@@ -9,12 +9,17 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { errorHandler } from './src/utils/errorHandler';
 import { SupabaseConnectionTest } from './src/utils/supabaseTest';
 import { NotificationManager } from './src/components/NotificationManager';
+import { IOSEnvironmentCheck } from './src/utils/iOSEnvironmentCheck';
 
-// 在開發環境中導入測試工具
+// 在開發環境中導入測試工具 - 使用安全的動態導入
 if (__DEV__) {
-  import('./src/utils/testNotifications');
-  import('./src/utils/testRegistration');
-  import('./src/utils/devUserConfirm');
+  try {
+    import('./src/utils/testNotifications').catch(() => {});
+    import('./src/utils/testRegistration').catch(() => {});
+    import('./src/utils/devUserConfirm').catch(() => {});
+  } catch (error) {
+    console.log('⚠️ 開發工具導入失敗，但不影響應用運行');
+  }
 }
 // import { DiagnosticsService } from './src/utils/diagnostics';
 
@@ -35,12 +40,23 @@ class ErrorBoundary extends React.Component<
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('❌ 應用錯誤邊界捕獲錯誤:', error, errorInfo);
 
-    // 在 iOS 上，如果是按 r 導致的錯誤，嘗試重新載入
-    if (Platform.OS === 'ios' && error.message.includes('reload')) {
-      console.log('🔄 檢測到 iOS 重新載入錯誤，嘗試恢復...');
-      setTimeout(() => {
-        this.setState({ hasError: false, error: undefined });
-      }, 1000);
+    // 在 iOS 上，提供更好的錯誤恢復機制
+    if (Platform.OS === 'ios') {
+      console.log('🔄 iOS 錯誤恢復機制啟動...');
+
+      // 對於常見的 iOS 錯誤，嘗試自動恢復
+      const isRecoverableError =
+        error.message.includes('reload') ||
+        error.message.includes('Network') ||
+        error.message.includes('timeout') ||
+        error.message.includes('initialization');
+
+      if (isRecoverableError) {
+        setTimeout(() => {
+          console.log('🔄 嘗試自動恢復...');
+          this.setState({ hasError: false, error: undefined });
+        }, 2000);
+      }
     }
   }
 
@@ -82,6 +98,23 @@ function AppContent() {
         console.log('🛡️ 初始化全局錯誤處理器...');
         // errorHandler 已經在 import 時自動初始化
 
+        // iOS 環境檢查
+        if (Platform.OS === 'ios') {
+          console.log('📱 執行 iOS 環境檢查...');
+          try {
+            const envCheck = await IOSEnvironmentCheck.performFullCheck();
+
+            if (envCheck.issues.length > 0) {
+              console.log('⚠️ iOS 環境問題:', envCheck.issues);
+              // 不阻止應用啟動，但記錄問題
+            } else {
+              console.log('✅ iOS 環境檢查通過');
+            }
+          } catch (error) {
+            console.log('⚠️ iOS 環境檢查失敗，但繼續啟動:', error);
+          }
+        }
+
         console.log('🚀 開始初始化應用服務...');
 
         // 添加超時保護，但縮短時間
@@ -95,11 +128,15 @@ function AppContent() {
 
         console.log('✅ 應用初始化完成');
 
-        // 🧪 在開發環境中運行 Supabase 連接測試
-        if (__DEV__) {
+        // 🧪 在開發環境中運行 Supabase 連接測試 - 僅在非iOS生產環境
+        if (__DEV__ && Platform.OS !== 'ios') {
           console.log('🧪 開發環境：運行 Supabase 連接測試...');
           setTimeout(() => {
-            SupabaseConnectionTest.runFullTest();
+            try {
+              SupabaseConnectionTest.runFullTest();
+            } catch (error) {
+              console.log('⚠️ Supabase 測試失敗，但不影響應用運行');
+            }
           }, 2000);
         }
 

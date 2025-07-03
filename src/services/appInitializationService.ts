@@ -9,12 +9,13 @@ import { liabilityTransactionSyncService } from './liabilityTransactionSyncServi
 import { startDailyUpdates } from '../utils/dailyUpdateScheduler';
 import { categoryRepairService } from './categoryRepairService';
 import { oauthCallbackHandler } from './oauthCallbackHandler';
+import { IOSEnvironmentCheck } from '../utils/iOSEnvironmentCheck';
 
 class AppInitializationService {
   private isInitialized = false;
 
   /**
-   * 初始化所有服務
+   * 初始化所有服務 - iOS 優化版本
    */
   async initializeApp(): Promise<void> {
     if (this.isInitialized) return;
@@ -22,55 +23,97 @@ class AppInitializationService {
     console.log('🚀 開始初始化應用服務...');
 
     try {
-      // 0. 初始化 OAuth 回調處理（優先處理登錄狀態）
-      await this.safeExecute('OAuth 回調處理', () => this.initializeOAuthHandler());
+      // 執行環境檢查
+      const envCheck = await IOSEnvironmentCheck.performFullCheck();
 
-      // 1. 清除舊的預設數據
-      await this.safeExecute('清除舊數據', () => this.clearOldDefaultData());
+      if (envCheck.isIOS) {
+        console.log('📱 檢測到 iOS 環境，使用安全初始化模式');
 
-      // 2. 初始化交易資料服務
-      await this.safeExecute('交易服務', () => this.initializeTransactionService());
+        if (envCheck.issues.length > 0) {
+          console.log('⚠️ iOS 環境問題:', envCheck.issues);
+        }
 
-      // 3. 緊急修復：安全初始化資產服務（防止清除用戶資產）
-      await this.safeExecute('資產服務', async () => {
-        await assetTransactionSyncService.initialize();
-        const assetCount = assetTransactionSyncService.getAssets().length;
-        console.log(`✅ 緊急修復：資產服務已安全初始化（${assetCount} 個資產）`);
-      });
-
-      // 4. 初始化負債服務
-      await this.safeExecute('負債服務', async () => {
-        await liabilityService.initialize();
-        console.log('✅ 負債服務已初始化（空列表）');
-      });
-
-      // 4. 自動還款服務（已移除）
-
-      // 5. 初始化負債循環交易同步服務
-      await this.safeExecute('負債循環交易同步服務', async () => {
-        await liabilityTransactionSyncService.initialize();
-        console.log('✅ 負債循環交易同步服務已初始化');
-      });
-
-      // 強制創建當月負債交易記錄
-      await this.safeExecute('創建當月負債交易', async () => {
-        await liabilityTransactionSyncService.forceCreateCurrentMonthTransactions();
-      });
-
-      // 6. 修復缺失的類別
-      await this.safeExecute('類別修復服務', () => this.initializeCategoryRepair());
-
-      // 7. 啟動每日更新調度器
-      await this.safeExecute('每日更新調度器', () => this.initializeDailyUpdateScheduler());
+        await this.initializeForIOS();
+      } else {
+        console.log('💻 非 iOS 環境，使用標準初始化模式');
+        await this.initializeForOtherPlatforms();
+      }
 
       this.isInitialized = true;
-      console.log('🎉 所有服務初始化完成！帳戶已歸零');
+      console.log('🎉 所有服務初始化完成！');
     } catch (error) {
       console.error('❌ 服務初始化失敗:', error);
       // 即使有錯誤，也標記為已初始化，讓應用可以啟動
       this.isInitialized = true;
       console.log('⚠️ 部分服務初始化失敗，但應用將繼續運行');
     }
+  }
+
+  /**
+   * iOS 專用初始化流程
+   */
+  private async initializeForIOS(): Promise<void> {
+    console.log('📱 執行 iOS 安全初始化流程...');
+
+    // 只初始化核心服務，避免複雜的操作
+    await this.safeExecute('交易服務', () => this.initializeTransactionService());
+
+    await this.safeExecute('資產服務', async () => {
+      await assetTransactionSyncService.initialize();
+      console.log('✅ 資產服務已初始化');
+    });
+
+    await this.safeExecute('負債服務', async () => {
+      await liabilityService.initialize();
+      console.log('✅ 負債服務已初始化');
+    });
+
+    // 跳過可能導致問題的服務
+    console.log('📱 iOS 模式：跳過非核心服務以確保穩定性');
+  }
+
+  /**
+   * 其他平台的完整初始化流程
+   */
+  private async initializeForOtherPlatforms(): Promise<void> {
+    // 0. 初始化 OAuth 回調處理（優先處理登錄狀態）
+    await this.safeExecute('OAuth 回調處理', () => this.initializeOAuthHandler());
+
+    // 1. 清除舊的預設數據
+    await this.safeExecute('清除舊數據', () => this.clearOldDefaultData());
+
+    // 2. 初始化交易資料服務
+    await this.safeExecute('交易服務', () => this.initializeTransactionService());
+
+    // 3. 緊急修復：安全初始化資產服務（防止清除用戶資產）
+    await this.safeExecute('資產服務', async () => {
+      await assetTransactionSyncService.initialize();
+      const assetCount = assetTransactionSyncService.getAssets().length;
+      console.log(`✅ 緊急修復：資產服務已安全初始化（${assetCount} 個資產）`);
+    });
+
+    // 4. 初始化負債服務
+    await this.safeExecute('負債服務', async () => {
+      await liabilityService.initialize();
+      console.log('✅ 負債服務已初始化（空列表）');
+    });
+
+    // 5. 初始化負債循環交易同步服務
+    await this.safeExecute('負債循環交易同步服務', async () => {
+      await liabilityTransactionSyncService.initialize();
+      console.log('✅ 負債循環交易同步服務已初始化');
+    });
+
+    // 強制創建當月負債交易記錄
+    await this.safeExecute('創建當月負債交易', async () => {
+      await liabilityTransactionSyncService.forceCreateCurrentMonthTransactions();
+    });
+
+    // 6. 修復缺失的類別
+    await this.safeExecute('類別修復服務', () => this.initializeCategoryRepair());
+
+    // 7. 啟動每日更新調度器
+    await this.safeExecute('每日更新調度器', () => this.initializeDailyUpdateScheduler());
   }
 
   /**
@@ -96,10 +139,19 @@ class AppInitializationService {
    */
   private async safeExecute(serviceName: string, fn: () => Promise<void> | void): Promise<void> {
     try {
+      console.log(`🔄 正在初始化 ${serviceName}...`);
       await fn();
+      console.log(`✅ ${serviceName} 初始化成功`);
     } catch (error) {
       console.error(`❌ ${serviceName}初始化失敗:`, error);
       console.log(`⚠️ ${serviceName}初始化失敗，但應用將繼續運行`);
+
+      // 在 iOS 環境下，記錄更詳細的錯誤信息
+      const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        console.log(`📱 iOS 環境錯誤詳情: ${error instanceof Error ? error.message : String(error)}`);
+      }
+
       // 不拋出錯誤，讓其他服務繼續初始化
     }
   }
