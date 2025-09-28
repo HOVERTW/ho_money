@@ -266,10 +266,28 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
         console.error('❌ 請填寫金額');
         return;
       }
+    } else if (type === 'real_estate') {
+      // 不動產需要檢查坪數和每坪成本
+      if (!area) {
+        console.error('❌ 請輸入坪數');
+        Alert.alert('錯誤', '請輸入坪數');
+        return;
+      }
+      if (!pricePerPing) {
+        console.error('❌ 請輸入每坪成本');
+        Alert.alert('錯誤', '請輸入每坪成本');
+        return;
+      }
+      if (!currentPricePerPing) {
+        console.error('❌ 請輸入每坪市價');
+        Alert.alert('錯誤', '請輸入每坪市價');
+        return;
+      }
     } else if (type !== 'vehicle' && type !== 'insurance') {
       // 汽車和保單不需要持有數量
       if (!quantity) {
         console.error('❌ 請填寫持有數量');
+        Alert.alert('錯誤', '請輸入數量');
         return;
       }
 
