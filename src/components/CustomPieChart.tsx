@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+// 暫時移除 SVG 導入以修復 iOS 閃退問題
+// import Svg, { Path } from 'react-native-svg';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -91,17 +92,10 @@ const CustomPieChart: React.FC<CustomPieChartProps> = ({
             <Text style={styles.chartPlaceholderSubtext}>請使用手機版查看圖表</Text>
           </View>
         ) : (
-          <Svg width={width} height={180}>
-            {slices.map((slice, index) => (
-              <Path
-                key={`pie-slice-${slice.name}-${index}`}
-                d={slice.pathData}
-                fill={slice.color}
-                stroke="#fff"
-                strokeWidth={2}
-              />
-            ))}
-          </Svg>
+          <View style={styles.chartPlaceholder}>
+            <Text style={styles.chartPlaceholderText}>圓餅圖暫時不可用</Text>
+            <Text style={styles.chartPlaceholderSubtext}>正在修復 iOS 兼容性問題</Text>
+          </View>
         )}
       </View>
 

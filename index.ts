@@ -1,15 +1,21 @@
-// Minimal polyfills for React Native
+// iOS 安全 polyfills
 import 'react-native-url-polyfill/auto';
 
-// Buffer polyfill for react-native-svg
-import { Buffer } from 'buffer';
-global.Buffer = Buffer;
+// iOS 安全模式：暫時移除可能導致閃退的 polyfills
+// import { Buffer } from 'buffer';
+// global.Buffer = Buffer;
 
-// Chrome 擴展錯誤修復（在 Web 環境中）
-if (typeof window !== 'undefined') {
-  import('./src/utils/chromeExtensionFix').then(({ chromeExtensionFix }) => {
-    chromeExtensionFix.initialize();
-  });
+// Chrome 擴展錯誤修復（僅在 Web 環境中）
+if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
+  try {
+    import('./src/utils/chromeExtensionFix').then(({ chromeExtensionFix }) => {
+      chromeExtensionFix.initialize();
+    }).catch(error => {
+      console.log('⚠️ Chrome 擴展修復載入失敗:', error);
+    });
+  } catch (error) {
+    console.log('⚠️ Chrome 擴展修復初始化失敗:', error);
+  }
 }
 
 import { registerRootComponent } from 'expo';

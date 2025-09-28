@@ -56,11 +56,16 @@ export class IOSEnvironmentCheck {
    */
   static async checkNetworkConnection(): Promise<boolean> {
     try {
-      // 嘗試連接到 Supabase
-      const response = await fetch(process.env.EXPO_PUBLIC_SUPABASE_URL + '/rest/v1/', {
-        method: 'HEAD',
-        timeout: 5000
+      // 嘗試連接到 Supabase，使用 Promise.race 實現超時
+      const timeoutPromise = new Promise<Response>((_, reject) => {
+        setTimeout(() => reject(new Error('Network timeout')), 5000);
       });
+
+      const fetchPromise = fetch(process.env.EXPO_PUBLIC_SUPABASE_URL + '/rest/v1/', {
+        method: 'HEAD'
+      });
+
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
       return response.ok;
     } catch (error) {
       console.log('⚠️ 網絡連接檢查失敗:', error);

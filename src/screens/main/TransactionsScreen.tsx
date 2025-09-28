@@ -14,19 +14,27 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+// 導入安全的月曆組件
+import SafeCalendar from '../../components/SafeCalendar';
+
 // 條件性導入，避免 Web 平台的問題
 let Haptics: any = null;
 let DeviceMotion: any = null;
-let Calendar: any = null;
 
-// 只在非 Web 平台導入這些模組
+// 安全的模組導入，使用 try-catch 包裝每個模組
 if (Platform.OS !== 'web') {
+  // 導入 Haptics
   try {
     Haptics = require('expo-haptics');
-    DeviceMotion = require('expo-sensors').DeviceMotion;
-    Calendar = require('react-native-calendars').Calendar;
   } catch (error) {
-    console.log('⚠️ 某些模組在當前平台不可用:', error);
+    console.log('⚠️ Haptics 模組不可用:', error);
+  }
+
+  // 導入 DeviceMotion
+  try {
+    DeviceMotion = require('expo-sensors').DeviceMotion;
+  } catch (error) {
+    console.log('⚠️ DeviceMotion 模組不可用:', error);
   }
 }
 
@@ -190,8 +198,11 @@ export default function TransactionsScreen() {
     lastShakeTime.current = now;
   }, [shakeCount, goToCurrentMonth]);
 
-  // 設置搖動檢測（僅在非 Web 平台）
+  // 暫時禁用搖動檢測，避免 iOS 權限問題
   useEffect(() => {
+    console.log('🔄 搖動檢測已暫時禁用');
+    return; // 直接返回，不設置搖動檢測
+
     if (Platform.OS === 'web' || !DeviceMotion) {
       console.log('🔄 跳過搖動檢測設置（Web 平台）');
       return;

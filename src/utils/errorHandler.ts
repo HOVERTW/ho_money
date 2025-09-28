@@ -204,10 +204,19 @@ class ErrorHandler {
    * 包裝 AsyncStorage 操作以處理錯誤
    */
   public wrapAsyncStorage() {
-    if (typeof window === 'undefined') return;
+    // 只在 React Native 環境中執行
+    try {
+      const Platform = require('react-native').Platform;
+      if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
+        return; // 不是手機環境，跳過
+      }
+    } catch (error) {
+      return; // 無法檢測平台，跳過
+    }
 
-    // 檢查是否有 AsyncStorage
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    try {
+      // 檢查是否有 AsyncStorage
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
     
     const originalGetItem = AsyncStorage.getItem;
     const originalSetItem = AsyncStorage.setItem;
@@ -239,15 +248,20 @@ class ErrorHandler {
         'AsyncStorage.removeItem'
       );
     };
+    } catch (error) {
+      console.log('⚠️ AsyncStorage 包裝失敗，但不影響應用運行:', error);
+    }
   }
 }
 
 // 創建全局實例
 export const errorHandler = new ErrorHandler();
 
-// 初始化 AsyncStorage 包裝
-if (typeof window !== 'undefined') {
+// 初始化 AsyncStorage 包裝 - 只在適當的環境中
+try {
   errorHandler.wrapAsyncStorage();
+} catch (error) {
+  console.log('⚠️ AsyncStorage 包裝初始化失敗，但不影響應用運行');
 }
 
 // 導出便捷函數

@@ -4,13 +4,8 @@ const config = getDefaultConfig(__dirname);
 
 // EAS Build 優化配置
 config.resolver.assetExts.push('bin');
-config.resolver.sourceExts.push('svg');
-
-// 確保 SVG 和圖表庫正確解析
-config.resolver.alias = {
-  ...config.resolver.alias,
-  'react-native-svg': 'react-native-svg',
-};
+// 暫時移除 SVG 支持以修復 iOS 閃退問題
+// config.resolver.sourceExts.push('svg');
 
 // 優化 bundle 大小
 config.transformer.minifierConfig = {

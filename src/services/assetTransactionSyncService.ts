@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, TABLES } from './supabase';
 import { eventEmitter, EVENTS } from './eventEmitter';
 import { generateUUID, isValidUUID, ensureValidUUID } from '../utils/uuid';
+import { unifiedSyncManager } from './unifiedSyncManager';
 import { enhancedSyncService } from './enhancedSyncService';
 import { instantSyncService } from './instantSyncService';
 
@@ -377,20 +378,30 @@ class AssetTransactionSyncService {
   }
 
   /**
-   * 同步單個資產到 Supabase
+   * 同步單個資產到 Supabase（增強版）
    */
   private async syncAssetToSupabase(asset: AssetData): Promise<void> {
     try {
-      console.log('🔄 同步單個資產到雲端:', asset.name);
+      console.log('🔄 開始同步資產到雲端:', {
+        name: asset.name,
+        id: asset.id,
+        type: asset.type,
+        current_value: asset.current_value
+      });
 
       // 檢查用戶是否已登錄
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        console.error('❌ 獲取用戶信息失敗:', authError);
+        throw new Error(`認證失敗: ${authError.message}`);
+      }
+
       if (!user) {
         console.log('📝 用戶未登錄，跳過雲端同步');
         return;
       }
 
-      console.log('✅ 用戶已登錄，開始同步資產到雲端');
+      console.log('✅ 用戶已登錄:', user.email);
 
       // 確保 ID 是有效的 UUID 格式
       const assetId = ensureValidUUID(asset.id);
@@ -410,72 +421,76 @@ class AssetTransactionSyncService {
         current_value: Number(asset.current_value || asset.cost_basis || 0),
         cost_basis: Number(asset.cost_basis || asset.current_value || 0),
         quantity: Number(asset.quantity || 1),
-        stock_code: asset.stock_code,
+        stock_code: asset.stock_code || null,
         purchase_price: Number(asset.purchase_price || asset.cost_basis || 0),
         current_price: Number(asset.current_price || asset.current_value || asset.cost_basis || 0),
         sort_order: asset.sort_order || 0,
+        area: asset.area || null,
+        price_per_ping: asset.price_per_ping || null,
+        current_price_per_ping: asset.current_price_per_ping || null,
+        buy_exchange_rate: asset.buy_exchange_rate || null,
+        current_exchange_rate: asset.current_exchange_rate || null,
+        insurance_amount: asset.insurance_amount || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
 
-      // 先檢查資產是否存在，然後決定插入或更新
-      const { data: existingAsset } = await supabase
+      console.log('📝 準備同步的資產數據:', supabaseAsset);
+
+      // 使用 upsert 進行插入或更新
+      const { data, error } = await supabase
         .from(TABLES.ASSETS)
-        .select('id')
+        .upsert(supabaseAsset, {
+          onConflict: 'id',
+          ignoreDuplicates: false
+        })
+        .select();
+
+      if (error) {
+        console.error('❌ 資產同步失敗:', {
+          error: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          asset: supabaseAsset
+        });
+        throw new Error(`資產同步失敗: ${error.message}`);
+      }
+
+      console.log('✅ 資產同步成功:', data);
+
+      // 驗證資產是否真的同步成功
+      const { data: verifyData, error: verifyError } = await supabase
+        .from(TABLES.ASSETS)
+        .select('id, name, current_value')
         .eq('id', assetId)
         .eq('user_id', user.id)
         .single();
 
-      let error;
-      if (existingAsset) {
-        // 更新現有資產
-        const { error: updateError } = await supabase
-          .from(TABLES.ASSETS)
-          .update({
-            name: supabaseAsset.name,
-            type: supabaseAsset.type,
-            value: supabaseAsset.value,
-            current_value: supabaseAsset.current_value,
-            cost_basis: supabaseAsset.cost_basis,
-            quantity: supabaseAsset.quantity,
-            stock_code: supabaseAsset.stock_code,
-            purchase_price: supabaseAsset.purchase_price,
-            current_price: supabaseAsset.current_price,
-            sort_order: supabaseAsset.sort_order,
-            updated_at: supabaseAsset.updated_at
-          })
-          .eq('id', assetId)
-          .eq('user_id', user.id);
-        error = updateError;
-      } else {
-        // 插入新資產
-        const { error: insertError } = await supabase
-          .from(TABLES.ASSETS)
-          .insert(supabaseAsset);
-        error = insertError;
+      if (verifyError) {
+        console.error('❌ 資產同步驗證失敗:', verifyError);
+        throw new Error(`資產同步驗證失敗: ${verifyError.message}`);
       }
 
-      if (error) {
-        console.error('❌ 同步資產到雲端失敗:', error);
-        console.error('❌ 錯誤詳情:', error.message, error.details, error.hint);
-      } else {
-        // 驗證資產是否真的同步成功
-        const { data: verifyData, error: verifyError } = await supabase
-          .from(TABLES.ASSETS)
-          .select('id')
-          .eq('id', asset.id)
-          .eq('user_id', user.id)
-          .single();
-
-        if (verifyError || !verifyData) {
-          console.error('❌ 雲端資產同步驗證失敗:', verifyError);
-        } else {
-          console.log('✅ 雲端資產同步驗證成功:', asset.id);
-        }
+      if (!verifyData) {
+        console.error('❌ 資產同步後未找到數據');
+        throw new Error('資產同步後未找到數據');
       }
+
+      console.log('✅ 資產同步驗證成功:', verifyData);
 
     } catch (error) {
-      console.error('❌ 同步資產到雲端異常:', error);
+      console.error('❌ 同步資產到雲端異常:', {
+        error: error.message,
+        stack: error.stack,
+        asset: {
+          id: asset.id,
+          name: asset.name,
+          type: asset.type
+        }
+      });
+      // 重新拋出錯誤，讓調用方知道同步失敗
+      throw error;
     }
   }
 
@@ -636,11 +651,11 @@ class AssetTransactionSyncService {
   }
 
   /**
-   * 添加新資產 (修復：避免重複上傳)
+   * 添加新資產（重新啟用自動同步）
    */
   async addAsset(asset: AssetData): Promise<void> {
     try {
-      console.log('📝 修復：開始添加資產:', asset.name);
+      console.log('📝 開始添加資產:', asset.name);
 
       // 如果沒有指定排序順序，設置為最後
       if (asset.sort_order === undefined) {
@@ -648,25 +663,32 @@ class AssetTransactionSyncService {
         asset.sort_order = maxOrder + 1;
       }
 
-      // 修復：檢查是否已存在相同ID的資產，避免重複添加
+      // 檢查是否已存在相同ID的資產，避免重複添加
       const existingAssetIndex = this.assets.findIndex(a => a.id === asset.id);
       if (existingAssetIndex !== -1) {
-        console.log('⚠️ 修復：資產已存在，更新而非添加:', asset.id);
+        console.log('⚠️ 資產已存在，更新而非添加:', asset.id);
         this.assets[existingAssetIndex] = asset;
       } else {
         // 添加到本地數據
         this.assets.push(asset);
-        console.log('✅ 修復：新資產已添加到本地');
+        console.log('✅ 新資產已添加到本地');
       }
 
       // 通知監聽器
       this.notifyListeners();
 
-      // 修復：只保存到本地存儲，不自動同步到雲端
+      // 保存到本地存儲
       await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
-      console.log('💾 修復：資產數據已保存到本地存儲（不自動同步）');
+      console.log('💾 資產數據已保存到本地存儲');
 
-      console.log('✅ 修復：資產本地添加完成，ID:', asset.id);
+      // 使用統一同步管理器進行同步
+      const syncResult = await unifiedSyncManager.syncAsset(asset, 'create');
+      if (syncResult.success) {
+        console.log('✅ 資產已自動同步到雲端');
+      } else {
+        console.warn('⚠️ 資產同步失敗，但本地操作已完成:', syncResult.error);
+      }
+
     } catch (error) {
       console.error('❌ 添加資產失敗:', error);
       throw error;
@@ -674,95 +696,83 @@ class AssetTransactionSyncService {
   }
 
   /**
-   * 深度修復：更新資產（完全禁用自動同步）
+   * 更新資產（重新啟用自動同步）
    */
   async updateAsset(assetId: string, updatedAsset: Partial<AssetData>): Promise<void> {
-    const index = this.assets.findIndex(asset => asset.id === assetId);
-    if (index !== -1) {
+    try {
+      console.log('🔄 開始更新資產:', assetId, updatedAsset);
+
+      const index = this.assets.findIndex(asset => asset.id === assetId);
+      if (index === -1) {
+        console.warn('⚠️ 找不到要更新的資產:', assetId);
+        return;
+      }
+
+      // 更新本地資產數據
       this.assets[index] = { ...this.assets[index], ...updatedAsset };
+
+      // 通知監聽器
       this.notifyListeners();
 
-      // 深度修復：只保存到本地，完全禁用自動同步
+      // 保存到本地存儲
       await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
-      console.log('💾 深度修復：資產更新已保存到本地（完全禁用自動同步）');
+      console.log('💾 資產更新已保存到本地存儲');
+
+      // 使用統一同步管理器進行同步
+      const syncResult = await unifiedSyncManager.syncAsset(this.assets[index], 'update');
+      if (syncResult.success) {
+        console.log('✅ 資產更新已同步到雲端');
+      } else {
+        console.warn('⚠️ 資產更新同步失敗，但本地操作已完成:', syncResult.error);
+      }
+
+    } catch (error) {
+      console.error('❌ 更新資產失敗:', error);
+      throw error;
     }
   }
 
   /**
-   * 深度修復：刪除資產（強化刪除邏輯）
+   * 刪除資產（使用統一同步管理器）
    */
   async deleteAsset(assetId: string): Promise<void> {
     try {
-      console.log('🗑️ 深度修復：開始刪除資產:', assetId);
+      console.log('🗑️ 開始刪除資產:', assetId);
 
-      // 深度修復：查找要刪除的資產
+      // 查找要刪除的資產
       const assetToDelete = this.assets.find(asset => asset.id === assetId);
       if (!assetToDelete) {
-        console.warn('⚠️ 深度修復：找不到要刪除的資產:', assetId);
+        console.warn('⚠️ 找不到要刪除的資產:', assetId);
         return;
       }
 
-      console.log('🎯 深度修復：找到要刪除的資產:', assetToDelete.name);
+      console.log('🎯 找到要刪除的資產:', assetToDelete.name);
 
-      // 深度修復：從本地數據中移除
+      // 從本地數據中移除
       const beforeCount = this.assets.length;
       this.assets = this.assets.filter(asset => asset.id !== assetId);
       const afterCount = this.assets.length;
 
-      console.log(`🗑️ 深度修復：資產數量變化: ${beforeCount} → ${afterCount}`);
+      console.log(`🗑️ 資產數量變化: ${beforeCount} → ${afterCount}`);
 
-      // 深度修復：立即通知監聽器
+      // 立即通知監聽器
       this.notifyListeners();
 
-      // 深度修復：強制保存到本地存儲
+      // 保存到本地存儲
       await AsyncStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(this.assets));
-      console.log('💾 深度修復：資產刪除已強制保存到本地存儲');
+      console.log('💾 資產刪除已保存到本地存儲');
 
-      // 深度修復：多次嘗試同步刪除到雲端
-      let cloudDeleteSuccess = false;
-      const maxAttempts = 3;
-
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            console.log(`🔄 深度修復：第${attempt}次嘗試同步刪除資產到雲端`);
-            const { error } = await supabase
-              .from(TABLES.ASSETS)
-              .delete()
-              .eq('id', assetId)
-              .eq('user_id', user.id);
-
-            if (error) {
-              console.error(`❌ 深度修復：第${attempt}次雲端刪除失敗:`, error);
-              if (attempt < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-              }
-            } else {
-              console.log(`✅ 深度修復：第${attempt}次雲端刪除成功`);
-              cloudDeleteSuccess = true;
-              break;
-            }
-          } else {
-            console.log('📝 深度修復：用戶未登錄，跳過雲端刪除');
-            cloudDeleteSuccess = true;
-            break;
-          }
-        } catch (syncError) {
-          console.error(`❌ 深度修復：第${attempt}次雲端刪除異常:`, syncError);
-          if (attempt < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
+      // 使用統一同步管理器同步刪除到雲端
+      const syncResult = await unifiedSyncManager.syncAsset(assetToDelete, 'delete');
+      if (syncResult.success) {
+        console.log('✅ 資產刪除已同步到雲端');
+      } else {
+        console.warn('⚠️ 資產刪除同步失敗，但本地操作已完成:', syncResult.error);
       }
 
-      if (!cloudDeleteSuccess) {
-        console.warn('⚠️ 深度修復：雲端刪除失敗，但本地刪除已完成');
-      }
-
-      console.log('✅ 深度修復：資產刪除完成');
+      console.log('✅ 資產刪除完成');
     } catch (error) {
-      console.error('❌ 深度修復：資產刪除失敗:', error);
+      console.error('❌ 資產刪除失敗:', error);
       throw error;
     }
   }

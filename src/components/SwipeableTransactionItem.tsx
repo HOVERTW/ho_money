@@ -8,7 +8,8 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Swipeable } from 'react-native-gesture-handler';
+// 暫時移除 Swipeable 以修復 iOS 閃退問題
+// import { Swipeable } from 'react-native-gesture-handler';
 import { RecurringFrequency } from '../types';
 
 // 1.5個垃圾桶寬度
@@ -71,11 +72,7 @@ export default function SwipeableTransactionItem({
   };
 
   return (
-    <Swipeable
-      renderRightActions={renderRightActions}
-      rightThreshold={100}
-      friction={1}
-    >
+    <View style={styles.swipeableContainer}>
       <TouchableOpacity
         style={styles.transactionItem}
         onPress={() => onEdit?.(item)}
@@ -147,11 +144,33 @@ export default function SwipeableTransactionItem({
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
-    </Swipeable>
+      {/* 暫時添加刪除按鈕以替代滑動功能 */}
+      <TouchableOpacity
+        style={styles.tempDeleteButton}
+        onPress={handleDelete}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // 容器樣式
+  swipeableContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  // 臨時刪除按鈕樣式
+  tempDeleteButton: {
+    padding: 12,
+    marginLeft: 8,
+    borderRadius: 8,
+    backgroundColor: '#FFF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   // 刪除按鈕樣式（1.5個垃圾桶寬度）
   deleteAction: {
     backgroundColor: '#FF3B30',

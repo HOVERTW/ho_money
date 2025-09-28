@@ -210,24 +210,20 @@ export default function AppNavigator() {
             return;
           }
 
-          // 初始化用戶數據（僅在首次登錄或新用戶時）
+          // 延遲初始化用戶數據，避免阻塞啟動
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            try {
-              console.log('🔄 開始初始化用戶數據...');
-
-              // 1. 初始化用戶數據（遷移和同步）
-              await userDataSyncService.initializeUserData(session.user);
-
-              // 2. 直接重新加載交易數據服務（確保數據顯示）
-              const { transactionDataService } = await import('../services/transactionDataService');
-              await transactionDataService.reloadUserData(session.user.id);
-
-              console.log('✅ 用戶數據初始化完成');
-            } catch (error) {
-              console.error('❌ 用戶數據初始化失敗:', error);
-              // 不阻止用戶繼續使用應用，但記錄錯誤
-              console.log('⚠️ 繼續使用應用，但數據同步可能有問題');
-            }
+            // 使用 setTimeout 延遲執行，不阻塞主線程
+            setTimeout(async () => {
+              try {
+                console.log('🔄 後台初始化用戶數據...');
+                await userDataSyncService.initializeUserData(session.user);
+                const { transactionDataService } = await import('../services/transactionDataService');
+                await transactionDataService.reloadUserData(session.user.id);
+                console.log('✅ 用戶數據初始化完成');
+              } catch (error) {
+                console.error('❌ 用戶數據初始化失敗:', error);
+              }
+            }, 100); // 100ms 延遲，讓應用先完成啟動
           }
         } else {
           // 用戶登出
@@ -244,7 +240,7 @@ export default function AppNavigator() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [setUser, setSession]);
+  }, []); // 空依賴數組，避免無限循環
 
   if (isLoading) {
     return <LoadingScreen />;

@@ -163,13 +163,18 @@ class AppInitializationService {
     try {
       console.log('🧹 檢查並清除舊的預設數據...');
 
-      // 獲取跨平台存儲服務 - 優先手機原生，Web 使用 localStorage fallback
+      // 獲取跨平台存儲服務 - 使用靜態 import 避免 iOS 問題
       let AsyncStorage;
       try {
-        // 手機環境：使用原生 AsyncStorage
-        const asyncStorageModule = await import('@react-native-async-storage/async-storage');
-        AsyncStorage = asyncStorageModule.default;
-        console.log('✅ 使用原生 AsyncStorage (手機環境)');
+        // 檢查是否在 React Native 環境中
+        const Platform = require('react-native').Platform;
+        if (Platform.OS === 'ios' || Platform.OS === 'android') {
+          // 手機環境：使用原生 AsyncStorage
+          AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          console.log('✅ 使用原生 AsyncStorage (手機環境)');
+        } else {
+          throw new Error('Not mobile environment');
+        }
       } catch (importError) {
         // Web 環境：使用 localStorage 作為 fallback
         console.log('⚠️ 原生 AsyncStorage 不可用，使用 localStorage (Web 環境)');

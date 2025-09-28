@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -78,24 +78,24 @@ export default function DashboardScreen() {
   // 防止重複初始化的 ref
   const initializationRef = useRef(false);
 
-  // 初始化用戶資料服務和資產同步（只執行一次）
+  // 極速初始化 - 延遲非關鍵操作
   useEffect(() => {
     if (initializationRef.current) return;
     initializationRef.current = true;
 
-    const initUserProfile = async () => {
+    console.log('🚀 DashboardScreen 極速啟動');
+    setIsInitialized(true); // 立即標記為已初始化
+
+    // 延遲初始化用戶資料，避免阻塞渲染
+    setTimeout(async () => {
       try {
-        console.log('🚀 開始初始化 DashboardScreen...');
         await userProfileService.initialize();
         setUserProfile(userProfileService.getProfile());
-        setIsInitialized(true);
-        console.log('✅ DashboardScreen 初始化完成');
+        console.log('✅ DashboardScreen 後台初始化完成');
       } catch (error) {
         console.error('❌ 用戶資料初始化失敗:', error);
-        setIsInitialized(true); // 即使失敗也標記為已初始化，避免重複嘗試
       }
-    };
-    initUserProfile();
+    }, 50); // 50ms 延遲
   }, []);
 
   // 監聽用戶登錄狀態變化，自動觸發數據同步（防止重複執行）
@@ -113,7 +113,7 @@ export default function DashboardScreen() {
         }, 5000);
       }, 2000);
     }
-  }, [user, isInitialized]);
+  }, [user, isInitialized, handleSyncToSupabase]); // 添加函數依賴
 
   // 監聽所有資料變化（只在初始化完成後執行）
   const listenersSetupRef = useRef(false);
@@ -786,7 +786,7 @@ export default function DashboardScreen() {
 
 
   // 🚀 全新上傳邏輯：使用統一數據管理器
-  const handleSyncToSupabase = async () => {
+  const handleSyncToSupabase = useCallback(async () => {
     try {
       console.log('🚀 全新上傳：開始使用統一數據管理器上傳...');
 
@@ -834,7 +834,7 @@ export default function DashboardScreen() {
         [{ text: '確定', onPress: () => console.log('❌ 全新上傳：用戶確認上傳錯誤') }]
       );
     }
-  };
+  }, []); // 空依賴數組，因為函數內部使用的都是穩定的引用
 
   // 測試上傳功能
   const handleTestUpload = async () => {

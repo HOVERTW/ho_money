@@ -12,7 +12,8 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Swipeable } from 'react-native-gesture-handler';
+// 暫時移除 Swipeable 以修復 iOS 閃退問題
+// import { Swipeable } from 'react-native-gesture-handler';
 import AddAssetModal from '../../components/AddAssetModal';
 import AddLiabilityModal from '../../components/AddLiabilityModal';
 import { assetTransactionSyncService, AssetData } from '../../services/assetTransactionSyncService';
@@ -536,12 +537,8 @@ export default function BalanceSheetScreen() {
               {assets.map((asset, index) => (
                 <View key={asset.id} style={styles.itemContainer}>
                   {!isAssetEditMode ? (
-                    // 🗑️ 可靠刪除：重新啟用資產滑動刪除功能
-                    <Swipeable
-                      renderRightActions={() => renderRightActions(() => handleDeleteAsset(asset.id))}
-                      rightThreshold={100}
-                      friction={1}
-                    >
+                    // 暫時移除滑動刪除功能，使用按鈕替代
+                    <View style={styles.itemWithDeleteContainer}>
                       <TouchableOpacity
                         style={styles.itemCard}
                         onPress={() => handleEditAsset(asset)}
@@ -682,7 +679,15 @@ export default function BalanceSheetScreen() {
                           )}
                         </View>
                       </TouchableOpacity>
-                    </Swipeable>
+                      {/* 臨時刪除按鈕 */}
+                      <TouchableOpacity
+                        style={styles.tempDeleteButton}
+                        onPress={() => handleDeleteAsset(asset.id)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                      </TouchableOpacity>
+                    </View>
                   ) : (
                     <View style={styles.editModeCard}>
                       <TouchableOpacity
@@ -772,12 +777,8 @@ export default function BalanceSheetScreen() {
               {liabilities.map((liability, index) => (
                 <View key={liability.id} style={styles.itemContainer}>
                   {!isLiabilityEditMode ? (
-                    // 🗑️ 可靠刪除：重新啟用滑動刪除功能
-                    <Swipeable
-                      renderRightActions={() => renderRightActions(() => handleDeleteLiability(liability.id))}
-                      rightThreshold={100}
-                      friction={1}
-                    >
+                    // 暫時移除滑動刪除功能，使用按鈕替代
+                    <View style={styles.itemWithDeleteContainer}>
                       <TouchableOpacity
                         style={styles.itemCard}
                         onPress={() => {
@@ -837,7 +838,15 @@ export default function BalanceSheetScreen() {
                           )}
                         </View>
                       </TouchableOpacity>
-                    </Swipeable>
+                      {/* 臨時刪除按鈕 */}
+                      <TouchableOpacity
+                        style={styles.tempDeleteButton}
+                        onPress={() => handleDeleteLiability(liability.id)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                      </TouchableOpacity>
+                    </View>
                   ) : (
                     <View style={styles.editModeCard}>
                       <TouchableOpacity
@@ -922,6 +931,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
+  },
+  // 新增樣式
+  itemWithDeleteContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tempDeleteButton: {
+    padding: 12,
+    marginLeft: 8,
+    borderRadius: 8,
+    backgroundColor: '#FFF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flex: 1,
