@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // import { PieChart, LineChart, BarChart } from 'react-native-chart-kit'; // 移除不兼容的圖表庫
 import { transactionDataService, Transaction } from '../../services/transactionDataService';
 // import { currentMonthCalculationService } from '../../services/currentMonthCalculationService'; // 已移除
+import { setWebTitle } from '../../utils/webTitle';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -24,6 +25,11 @@ export default function ChartsScreen() {
   const [selectedChart, setSelectedChart] = useState<'spending' | 'income' | 'assets'>('spending');
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('month');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  // 設置網頁標題
+  useEffect(() => {
+    setWebTitle('Ho記帳');
+  }, []);
 
   // 監聽交易資料變化
   useEffect(() => {

@@ -23,12 +23,18 @@ import { transactionDataService } from '../../services/transactionDataService';
 import { eventEmitter, EVENTS } from '../../services/eventEmitter';
 import { retrySyncWithBackoff, getCurrentDataState } from '../../utils/forceRefreshManager';
 import { ReliableDeleteService } from '../../services/reliableDeleteService';
+import { setWebTitle } from '../../utils/webTitle';
 
 export default function BalanceSheetScreen() {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [showAddAssetModal, setShowAddAssetModal] = useState(false);
   const [showAddLiabilityModal, setShowAddLiabilityModal] = useState(false);
+
+  // 設置網頁標題
+  useEffect(() => {
+    setWebTitle('Ho記帳');
+  }, []);
 
   // 使用同步服務管理資產狀態
   const [assets, setAssets] = useState<AssetData[]>([]);

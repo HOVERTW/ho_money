@@ -48,6 +48,7 @@ import { liabilityService } from '../../services/liabilityService';
 import { liabilityTransactionSyncService } from '../../services/liabilityTransactionSyncService';
 import { eventEmitter, EVENTS } from '../../services/eventEmitter';
 import { generateUUID, ensureValidUUID } from '../../utils/uuid';
+import { setWebTitle } from '../../utils/webTitle';
 import { ReliableDeleteService } from '../../services/reliableDeleteService';
 
 export default function TransactionsScreen() {
@@ -59,6 +60,11 @@ export default function TransactionsScreen() {
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().split('T')[0]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [futureRecurringTransactions, setFutureRecurringTransactions] = useState<any[]>([]);
+
+  // 設置網頁標題
+  useEffect(() => {
+    setWebTitle('Ho記帳');
+  }, []);
 
   // 動畫相關
   const fadeAnim = useRef(new Animated.Value(1)).current;

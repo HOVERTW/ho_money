@@ -14,6 +14,7 @@ import { transactionDataService, Transaction, Category, Account } from '../../se
 // import { currentMonthCalculationService } from '../../services/currentMonthCalculationService'; // 已移除
 import { FinancialCalculator } from '../../utils/financialCalculator';
 import { eventEmitter, EVENTS } from '../../services/eventEmitter';
+import { setWebTitle } from '../../utils/webTitle';
 
 export default function CashFlowScreen() {
   const insets = useSafeAreaInsets();
@@ -22,6 +23,11 @@ export default function CashFlowScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all'); // 新增：類別篩選
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [refreshKey, setRefreshKey] = useState(0); // 🔥 新增：強制刷新鍵
+
+  // 設置網頁標題
+  useEffect(() => {
+    setWebTitle('Ho記帳');
+  }, []);
 
   // 自動刷新函數
   const autoRefresh = () => {

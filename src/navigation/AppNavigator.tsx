@@ -116,27 +116,42 @@ function MainNavigator() {
       <MainTab.Screen
         name="Dashboard"
         component={DashboardScreen}
-        options={{ title: '儀表板' }}
+        options={{
+          title: 'Ho記帳',
+          tabBarLabel: '總表'
+        }}
       />
       <MainTab.Screen
         name="Transactions"
         component={TransactionsScreen}
-        options={{ title: '記帳' }}
+        options={{
+          title: 'Ho記帳',
+          tabBarLabel: '記帳'
+        }}
       />
       <MainTab.Screen
         name="BalanceSheet"
         component={BalanceSheetScreen}
-        options={{ title: '資產負債' }}
+        options={{
+          title: 'Ho記帳',
+          tabBarLabel: '資產'
+        }}
       />
       <MainTab.Screen
         name="CashFlow"
         component={CashFlowScreen}
-        options={{ title: '收支分析' }}
+        options={{
+          title: 'Ho記帳',
+          tabBarLabel: '收支分析'
+        }}
       />
       <MainTab.Screen
         name="Charts"
         component={ChartsScreen}
-        options={{ title: '圖表分析' }}
+        options={{
+          title: 'Ho記帳',
+          tabBarLabel: '圖表分析'
+        }}
       />
 
       {/* <MainTab.Screen

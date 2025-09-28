@@ -37,6 +37,7 @@ import { unifiedDataManager } from '../../services/unifiedDataManager';
 import SyncStatusIndicator from '../../components/SyncStatusIndicator';
 import { assetDisplayFixService } from '../../services/assetDisplayFixService';
 import { UploadFunctionTester } from '../../utils/testUploadFunction';
+import { setWebTitle } from '../../utils/webTitle';
 // import { SupabaseTableChecker } from '../../utils/supabaseTableChecker';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -45,6 +46,11 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false); // 防止重複初始化
+
+  // 設置網頁標題
+  useEffect(() => {
+    setWebTitle('Ho記帳');
+  }, []);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [assets, setAssets] = useState<AssetData[]>([]);
   const [liabilities, setLiabilities] = useState<LiabilityData[]>([]);
