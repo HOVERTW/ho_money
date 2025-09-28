@@ -546,27 +546,12 @@ export default function BalanceSheetScreen() {
                         onPress={() => handleEditAsset(asset)}
                         activeOpacity={0.7}
                       >
-                        <View style={styles.itemContent}>
+                        <View style={styles.itemHeader}>
                           <View style={styles.itemTitleContainer}>
                             <Text style={styles.itemName}>{asset.name}</Text>
                             <Text style={styles.itemType}>{getAssetTypeLabel(asset.type)}</Text>
                           </View>
                         </View>
-                      </TouchableOpacity>
-                      {/* 深度刪除按鈕 */}
-                      <TouchableOpacity
-                        onPress={() => {
-                          console.log('🗑️ 深度刪除按鈕被點擊 - 資產ID:', asset.id);
-                          handleDeleteAsset(asset.id);
-                        }}
-                        style={[styles.deepDeleteButton, { backgroundColor: '#FFE5E5' }]} // 臨時加強背景色
-                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                      >
-                        <Ionicons name="trash-outline" size={24} color="#FF3B30" />
-                        <Text style={{ fontSize: 10, color: '#FF3B30', marginTop: 2 }}>刪除</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.itemDetailsContainer}>
 
                         <View style={styles.itemDetails}>
                           {/* 現金和銀行只顯示當前價值 */}
@@ -683,6 +668,19 @@ export default function BalanceSheetScreen() {
                             </>
                           )}
                         </View>
+                      </TouchableOpacity>
+                      {/* 深度刪除按鈕 */}
+                      <TouchableOpacity
+                        onPress={() => {
+                          console.log('🗑️ 深度刪除按鈕被點擊 - 資產ID:', asset.id);
+                          handleDeleteAsset(asset.id);
+                        }}
+                        style={[styles.deepDeleteButton, { backgroundColor: '#FFE5E5' }]} // 臨時加強背景色
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                      >
+                        <Ionicons name="trash-outline" size={24} color="#FF3B30" />
+                        <Text style={{ fontSize: 10, color: '#FF3B30', marginTop: 2 }}>刪除</Text>
+                      </TouchableOpacity>
                     </View>
                   ) : (
                     <View style={styles.editModeCard}>
@@ -786,27 +784,12 @@ export default function BalanceSheetScreen() {
                         }}
                         activeOpacity={0.7}
                       >
-                        <View style={styles.itemContent}>
+                        <View style={styles.itemHeader}>
                           <View style={styles.itemTitleContainer}>
                             <Text style={styles.itemName}>{liability.name}</Text>
                             <Text style={styles.itemType}>{getLiabilityTypeLabel(liability.type)}</Text>
                           </View>
                         </View>
-                      </TouchableOpacity>
-                      {/* 深度刪除按鈕 */}
-                      <TouchableOpacity
-                        onPress={() => {
-                          console.log('🗑️ 深度刪除按鈕被點擊 - 負債ID:', liability.id);
-                          handleDeleteLiability(liability.id);
-                        }}
-                        style={[styles.deepDeleteButton, { backgroundColor: '#FFE5E5' }]} // 臨時加強背景色
-                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                      >
-                        <Ionicons name="trash-outline" size={24} color="#FF3B30" />
-                        <Text style={{ fontSize: 10, color: '#FF3B30', marginTop: 2 }}>刪除</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.itemDetailsContainer}>
 
                         <View style={styles.itemDetails}>
                           <View style={styles.detailRow}>
@@ -836,6 +819,19 @@ export default function BalanceSheetScreen() {
                             </View>
                           )}
                         </View>
+                      </TouchableOpacity>
+                      {/* 深度刪除按鈕 */}
+                      <TouchableOpacity
+                        onPress={() => {
+                          console.log('🗑️ 深度刪除按鈕被點擊 - 負債ID:', liability.id);
+                          handleDeleteLiability(liability.id);
+                        }}
+                        style={[styles.deepDeleteButton, { backgroundColor: '#FFE5E5' }]} // 臨時加強背景色
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                      >
+                        <Ionicons name="trash-outline" size={24} color="#FF3B30" />
+                        <Text style={{ fontSize: 10, color: '#FF3B30', marginTop: 2 }}>刪除</Text>
+                      </TouchableOpacity>
                     </View>
                   ) : (
                     <View style={styles.editModeCard}>
@@ -940,9 +936,8 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     borderRadius: 12,
-  },
-  itemContent: {
-    flex: 1,
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
   },
   itemDetailsContainer: {
     paddingHorizontal: 16,
