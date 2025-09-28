@@ -98,6 +98,57 @@ export default function DashboardScreen() {
     }, 50); // 50ms 延遲
   }, []);
 
+  // 🚀 全新上傳邏輯：使用統一數據管理器
+  const handleSyncToSupabase = useCallback(async () => {
+    try {
+      console.log('🚀 全新上傳：開始使用統一數據管理器上傳...');
+
+      // 檢查用戶是否已登錄
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('錯誤', '請先登錄才能上傳數據');
+        return;
+      }
+
+      console.log('✅ 全新上傳：用戶已登錄，開始上傳流程');
+
+      // 顯示上傳進度
+      Alert.alert('上傳中', '正在上傳本地數據到雲端，請稍候...', [], { cancelable: false });
+
+      // 初始化統一數據管理器
+      await unifiedDataManager.initialize();
+
+      // 使用統一數據管理器上傳
+      const result = await unifiedDataManager.uploadAllToCloud();
+
+      console.log('🎯 全新上傳：上傳結果:', result);
+
+      if (result.errors.length === 0) {
+        // 上傳成功
+        Alert.alert(
+          '上傳成功！',
+          `已成功上傳 ${result.uploaded} 筆數據到雲端！\n\n數據已安全保存到雲端存儲。`,
+          [{ text: '確定', onPress: () => console.log('✅ 全新上傳：用戶確認上傳成功') }]
+        );
+      } else {
+        // 部分失敗
+        Alert.alert(
+          '上傳部分成功',
+          `成功上傳：${result.uploaded} 筆\n錯誤：${result.errors.length} 個\n\n錯誤詳情：\n${result.errors.join('\n')}`,
+          [{ text: '確定', onPress: () => console.log('⚠️ 全新上傳：用戶確認部分成功') }]
+        );
+      }
+
+    } catch (error) {
+      console.error('❌ 全新上傳：上傳過程中發生錯誤:', error);
+      Alert.alert(
+        '上傳失敗',
+        `上傳過程中發生錯誤：\n${error.message || '未知錯誤'}\n\n請檢查網絡連接後重試。`,
+        [{ text: '確定' }]
+      );
+    }
+  }, []);
+
   // 監聽用戶登錄狀態變化，自動觸發數據同步（防止重複執行）
   const syncTriggeredRef = useRef(false);
   useEffect(() => {
@@ -113,7 +164,7 @@ export default function DashboardScreen() {
         }, 5000);
       }, 2000);
     }
-  }, [user, isInitialized, handleSyncToSupabase]); // 添加函數依賴
+  }, [user, isInitialized, handleSyncToSupabase]); // 現在函數已經在上面定義了
 
   // 監聽所有資料變化（只在初始化完成後執行）
   const listenersSetupRef = useRef(false);
@@ -785,56 +836,7 @@ export default function DashboardScreen() {
 
 
 
-  // 🚀 全新上傳邏輯：使用統一數據管理器
-  const handleSyncToSupabase = useCallback(async () => {
-    try {
-      console.log('🚀 全新上傳：開始使用統一數據管理器上傳...');
 
-      // 檢查用戶是否已登錄
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        Alert.alert('錯誤', '請先登錄才能上傳數據');
-        return;
-      }
-
-      console.log('✅ 全新上傳：用戶已登錄，開始上傳流程');
-
-      // 顯示上傳進度
-      Alert.alert('上傳中', '正在上傳本地數據到雲端，請稍候...', [], { cancelable: false });
-
-      // 初始化統一數據管理器
-      await unifiedDataManager.initialize();
-
-      // 使用統一數據管理器上傳
-      const result = await unifiedDataManager.uploadAllToCloud();
-
-      console.log('🎯 全新上傳：上傳結果:', result);
-
-      if (result.errors.length === 0) {
-        // 上傳成功
-        Alert.alert(
-          '上傳成功！',
-          `已成功上傳 ${result.uploaded} 筆數據到雲端！\n\n數據已安全保存到雲端存儲。`,
-          [{ text: '確定', onPress: () => console.log('✅ 全新上傳：用戶確認上傳成功') }]
-        );
-      } else {
-        // 部分失敗
-        Alert.alert(
-          '上傳部分成功',
-          `成功上傳：${result.uploaded} 筆\n錯誤：${result.errors.length} 個\n\n錯誤詳情：\n${result.errors.join('\n')}`,
-          [{ text: '確定', onPress: () => console.log('⚠️ 全新上傳：用戶確認部分成功') }]
-        );
-      }
-
-    } catch (error) {
-      console.error('❌ 全新上傳：上傳失敗:', error);
-      Alert.alert(
-        '上傳失敗',
-        `上傳過程中發生錯誤: ${error instanceof Error ? error.message : '未知錯誤'}`,
-        [{ text: '確定', onPress: () => console.log('❌ 全新上傳：用戶確認上傳錯誤') }]
-      );
-    }
-  }, []); // 空依賴數組，因為函數內部使用的都是穩定的引用
 
   // 測試上傳功能
   const handleTestUpload = async () => {
