@@ -539,31 +539,33 @@ export default function BalanceSheetScreen() {
               {assets.map((asset, index) => (
                 <View key={asset.id} style={styles.itemContainer}>
                   {!isAssetEditMode ? (
-                    // 暫時移除滑動刪除功能，使用按鈕替代
-                    <View style={styles.itemWithDeleteContainer}>
+                    // 滿版佈局，右側保留一個垃圾桶圖標
+                    <View style={styles.fullWidthItemContainer}>
                       <TouchableOpacity
-                        style={styles.itemCard}
+                        style={styles.fullWidthItemCard}
                         onPress={() => handleEditAsset(asset)}
                         activeOpacity={0.7}
                       >
-                        <View style={styles.itemHeader}>
+                        <View style={styles.itemContent}>
                           <View style={styles.itemTitleContainer}>
                             <Text style={styles.itemName}>{asset.name}</Text>
                             <Text style={styles.itemType}>{getAssetTypeLabel(asset.type)}</Text>
                           </View>
-                          {/* 🔧 WEB 環境臨時刪除按鈕 - 防止事件冒泡 */}
-                          <TouchableOpacity
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              console.log('🗑️ 刪除按鈕被點擊 - 資產ID:', asset.id);
-                              handleDeleteAsset(asset.id);
-                            }}
-                            style={styles.webDeleteButton}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                          >
-                            <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-                          </TouchableOpacity>
                         </View>
+                      </TouchableOpacity>
+                      {/* 深度刪除按鈕 */}
+                      <TouchableOpacity
+                        onPress={() => {
+                          console.log('🗑️ 深度刪除按鈕被點擊 - 資產ID:', asset.id);
+                          handleDeleteAsset(asset.id);
+                        }}
+                        style={styles.deepDeleteButton}
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                      >
+                        <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.itemDetailsContainer}>
 
                         <View style={styles.itemDetails}>
                           {/* 現金和銀行只顯示當前價值 */}
@@ -680,15 +682,6 @@ export default function BalanceSheetScreen() {
                             </>
                           )}
                         </View>
-                      </TouchableOpacity>
-                      {/* 臨時刪除按鈕 */}
-                      <TouchableOpacity
-                        style={styles.tempDeleteButton}
-                        onPress={() => handleDeleteAsset(asset.id)}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-                      </TouchableOpacity>
                     </View>
                   ) : (
                     <View style={styles.editModeCard}>
@@ -779,10 +772,10 @@ export default function BalanceSheetScreen() {
               {liabilities.map((liability, index) => (
                 <View key={liability.id} style={styles.itemContainer}>
                   {!isLiabilityEditMode ? (
-                    // 暫時移除滑動刪除功能，使用按鈕替代
-                    <View style={styles.itemWithDeleteContainer}>
+                    // 滿版佈局，右側保留一個垃圾桶圖標
+                    <View style={styles.fullWidthItemContainer}>
                       <TouchableOpacity
-                        style={styles.itemCard}
+                        style={styles.fullWidthItemCard}
                         onPress={() => {
                           Alert.alert(
                             '負債管理',
@@ -792,24 +785,26 @@ export default function BalanceSheetScreen() {
                         }}
                         activeOpacity={0.7}
                       >
-                        <View style={styles.itemHeader}>
+                        <View style={styles.itemContent}>
                           <View style={styles.itemTitleContainer}>
                             <Text style={styles.itemName}>{liability.name}</Text>
                             <Text style={styles.itemType}>{getLiabilityTypeLabel(liability.type)}</Text>
                           </View>
-                          {/* 🔧 WEB 環境臨時刪除按鈕 - 防止事件冒泡 */}
-                          <TouchableOpacity
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              console.log('🗑️ 刪除按鈕被點擊 - 負債ID:', liability.id);
-                              handleDeleteLiability(liability.id);
-                            }}
-                            style={styles.webDeleteButton}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                          >
-                            <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-                          </TouchableOpacity>
                         </View>
+                      </TouchableOpacity>
+                      {/* 深度刪除按鈕 */}
+                      <TouchableOpacity
+                        onPress={() => {
+                          console.log('🗑️ 深度刪除按鈕被點擊 - 負債ID:', liability.id);
+                          handleDeleteLiability(liability.id);
+                        }}
+                        style={styles.deepDeleteButton}
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                      >
+                        <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.itemDetailsContainer}>
 
                         <View style={styles.itemDetails}>
                           <View style={styles.detailRow}>
@@ -839,15 +834,6 @@ export default function BalanceSheetScreen() {
                             </View>
                           )}
                         </View>
-                      </TouchableOpacity>
-                      {/* 臨時刪除按鈕 */}
-                      <TouchableOpacity
-                        style={styles.tempDeleteButton}
-                        onPress={() => handleDeleteLiability(liability.id)}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-                      </TouchableOpacity>
                     </View>
                   ) : (
                     <View style={styles.editModeCard}>
@@ -934,18 +920,41 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
-  // 新增樣式
-  itemWithDeleteContainer: {
+  // 滿版佈局樣式
+  fullWidthItemContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
+    marginBottom: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  tempDeleteButton: {
-    padding: 12,
-    marginLeft: 8,
-    borderRadius: 8,
-    backgroundColor: '#FFF2F2',
+  fullWidthItemCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+  },
+  itemContent: {
+    flex: 1,
+  },
+  itemDetailsContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: '#fff',
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  deepDeleteButton: {
+    width: 60,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
   },
   content: {
     flex: 1,

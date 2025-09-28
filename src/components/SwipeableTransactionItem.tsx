@@ -72,9 +72,9 @@ export default function SwipeableTransactionItem({
   };
 
   return (
-    <View style={styles.swipeableContainer}>
+    <View style={styles.fullWidthTransactionContainer}>
       <TouchableOpacity
-        style={styles.transactionItem}
+        style={styles.fullWidthTransactionItem}
         onPress={() => onEdit?.(item)}
         activeOpacity={0.7}
       >
@@ -130,24 +130,15 @@ export default function SwipeableTransactionItem({
             {item.type === 'transfer' ? '' : (item.type === 'income' ? '+' : '-')}
             {formatCurrency(Math.abs(item.amount))}
           </Text>
-          {/* 🔧 WEB 環境臨時刪除按鈕 - 防止事件冒泡 */}
-          <TouchableOpacity
-            onPress={(e) => {
-              e.stopPropagation();
-              console.log('🗑️ 刪除按鈕被點擊 - 交易ID:', item.id);
-              handleDelete();
-            }}
-            style={styles.webDeleteButton}
-            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-          >
-            <Ionicons name="trash-outline" size={18} color="#FF3B30" />
-          </TouchableOpacity>
         </View>
       </TouchableOpacity>
-      {/* 暫時添加刪除按鈕以替代滑動功能 */}
+      {/* 深度刪除按鈕 */}
       <TouchableOpacity
-        style={styles.tempDeleteButton}
-        onPress={handleDelete}
+        onPress={() => {
+          console.log('🗑️ 深度刪除按鈕被點擊 - 交易ID:', item.id);
+          handleDelete();
+        }}
+        style={styles.deepDeleteButton}
         activeOpacity={0.7}
       >
         <Ionicons name="trash-outline" size={20} color="#FF3B30" />
@@ -157,19 +148,35 @@ export default function SwipeableTransactionItem({
 }
 
 const styles = StyleSheet.create({
-  // 容器樣式
-  swipeableContainer: {
+  // 滿版交易容器樣式
+  fullWidthTransactionContainer: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginBottom: 8,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  fullWidthTransactionItem: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
   },
-  // 臨時刪除按鈕樣式
-  tempDeleteButton: {
-    padding: 12,
-    marginLeft: 8,
-    borderRadius: 8,
-    backgroundColor: '#FFF2F2',
+  deepDeleteButton: {
+    width: 60,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
   },
   // 刪除按鈕樣式（1.5個垃圾桶寬度）
   deleteAction: {
