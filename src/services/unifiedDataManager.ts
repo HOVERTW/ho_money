@@ -328,7 +328,7 @@ class UnifiedDataManager {
   // ==================== 雲端同步操作 ====================
 
   /**
-   * 上傳所有本地數據到 Supabase
+   * 上傳所有本地數據到 Supabase（包含刪除同步）
    */
   async uploadAllToCloud(): Promise<SyncResult> {
     const result: SyncResult = {
@@ -338,7 +338,7 @@ class UnifiedDataManager {
     };
 
     try {
-      console.log('☁️ 開始上傳所有本地數據到雲端...');
+      console.log('☁️ 開始完整同步本地數據到雲端（包含刪除操作）...');
 
       // 檢查用戶登錄狀態
       const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -346,7 +346,10 @@ class UnifiedDataManager {
         throw new Error('用戶未登錄或認證失敗');
       }
 
-      console.log('✅ 用戶認證成功，開始上傳數據');
+      console.log('✅ 用戶認證成功，開始完整同步數據');
+
+      // 🔧 新增：先同步刪除操作（清理雲端多餘的數據）
+      await this.syncDeletionsToCloud(user.id, result);
 
       // 上傳交易數據
       if (this.transactions.length > 0) {
@@ -651,6 +654,110 @@ class UnifiedDataManager {
       console.error('❌ 一鍵清除失敗:', error);
       result.errors.push(`清除失敗: ${error.message}`);
       return result;
+    }
+  }
+
+  /**
+   * 同步刪除操作到雲端（清理雲端多餘的數據）
+   */
+  private async syncDeletionsToCloud(userId: string, result: SyncResult): Promise<void> {
+    try {
+      console.log('🗑️ 開始同步刪除操作到雲端...');
+
+      // 獲取本地資產ID列表
+      const localAssetIds = this.assets.map(asset => asset.id);
+      console.log(`📊 本地資產數量: ${localAssetIds.length}`);
+
+      // 獲取雲端資產ID列表
+      const { data: cloudAssets, error: assetError } = await supabase
+        .from('assets')
+        .select('id')
+        .eq('user_id', userId);
+
+      if (assetError) {
+        console.error('❌ 獲取雲端資產失敗:', assetError);
+        result.errors.push(`獲取雲端資產失敗: ${assetError.message}`);
+        return;
+      }
+
+      const cloudAssetIds = cloudAssets?.map(asset => asset.id) || [];
+      console.log(`☁️ 雲端資產數量: ${cloudAssetIds.length}`);
+
+      // 找出需要從雲端刪除的資產（存在於雲端但不存在於本地）
+      const assetsToDelete = cloudAssetIds.filter(id => !localAssetIds.includes(id));
+      console.log(`🗑️ 需要從雲端刪除的資產: ${assetsToDelete.length}個`);
+
+      // 批量刪除雲端多餘的資產
+      if (assetsToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('assets')
+          .delete()
+          .eq('user_id', userId)
+          .in('id', assetsToDelete);
+
+        if (deleteError) {
+          console.error('❌ 批量刪除雲端資產失敗:', deleteError);
+          result.errors.push(`批量刪除雲端資產失敗: ${deleteError.message}`);
+        } else {
+          result.deleted += assetsToDelete.length;
+          console.log(`✅ 成功從雲端刪除 ${assetsToDelete.length} 個資產`);
+        }
+      }
+
+      // 同樣處理交易數據
+      const localTransactionIds = this.transactions.map(t => t.id);
+      const { data: cloudTransactions, error: transactionError } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('user_id', userId);
+
+      if (!transactionError && cloudTransactions) {
+        const cloudTransactionIds = cloudTransactions.map(t => t.id);
+        const transactionsToDelete = cloudTransactionIds.filter(id => !localTransactionIds.includes(id));
+
+        if (transactionsToDelete.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('transactions')
+            .delete()
+            .eq('user_id', userId)
+            .in('id', transactionsToDelete);
+
+          if (!deleteError) {
+            result.deleted += transactionsToDelete.length;
+            console.log(`✅ 成功從雲端刪除 ${transactionsToDelete.length} 筆交易`);
+          }
+        }
+      }
+
+      // 同樣處理負債數據
+      const localLiabilityIds = this.liabilities.map(l => l.id);
+      const { data: cloudLiabilities, error: liabilityError } = await supabase
+        .from('liabilities')
+        .select('id')
+        .eq('user_id', userId);
+
+      if (!liabilityError && cloudLiabilities) {
+        const cloudLiabilityIds = cloudLiabilities.map(l => l.id);
+        const liabilitiesToDelete = cloudLiabilityIds.filter(id => !localLiabilityIds.includes(id));
+
+        if (liabilitiesToDelete.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('liabilities')
+            .delete()
+            .eq('user_id', userId)
+            .in('id', liabilitiesToDelete);
+
+          if (!deleteError) {
+            result.deleted += liabilitiesToDelete.length;
+            console.log(`✅ 成功從雲端刪除 ${liabilitiesToDelete.length} 筆負債`);
+          }
+        }
+      }
+
+      console.log('✅ 刪除同步完成');
+    } catch (error) {
+      console.error('❌ 同步刪除操作失敗:', error);
+      result.errors.push(`同步刪除失敗: ${error.message}`);
     }
   }
 }
