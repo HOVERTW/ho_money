@@ -559,10 +559,11 @@ export default function BalanceSheetScreen() {
                           console.log('🗑️ 深度刪除按鈕被點擊 - 資產ID:', asset.id);
                           handleDeleteAsset(asset.id);
                         }}
-                        style={styles.deepDeleteButton}
+                        style={[styles.deepDeleteButton, { backgroundColor: '#FFE5E5' }]} // 臨時加強背景色
                         hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                       >
-                        <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                        <Ionicons name="trash-outline" size={24} color="#FF3B30" />
+                        <Text style={{ fontSize: 10, color: '#FF3B30', marginTop: 2 }}>刪除</Text>
                       </TouchableOpacity>
                     </View>
                     <View style={styles.itemDetailsContainer}>
@@ -798,10 +799,11 @@ export default function BalanceSheetScreen() {
                           console.log('🗑️ 深度刪除按鈕被點擊 - 負債ID:', liability.id);
                           handleDeleteLiability(liability.id);
                         }}
-                        style={styles.deepDeleteButton}
+                        style={[styles.deepDeleteButton, { backgroundColor: '#FFE5E5' }]} // 臨時加強背景色
                         hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                       >
-                        <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                        <Ionicons name="trash-outline" size={24} color="#FF3B30" />
+                        <Text style={{ fontSize: 10, color: '#FF3B30', marginTop: 2 }}>刪除</Text>
                       </TouchableOpacity>
                     </View>
                     <View style={styles.itemDetailsContainer}>
@@ -932,6 +934,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+    minHeight: 80, // 確保有足夠高度顯示垃圾桶
   },
   fullWidthItemCard: {
     flex: 1,
@@ -950,11 +953,14 @@ const styles = StyleSheet.create({
   },
   deepDeleteButton: {
     width: 60,
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
     borderTopRightRadius: 12,
     borderBottomRightRadius: 12,
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255, 59, 48, 0.2)',
   },
   content: {
     flex: 1,
