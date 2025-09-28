@@ -15,7 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { assetTransactionSyncService } from '../services/assetTransactionSyncService';
 import StockSearchInput from './StockSearchInput';
 import USStockSearchInput from './USStockSearchInput';
-import MobileTouchableOpacity from './MobileTouchableOpacity';
+import WebTouchableOpacity from './WebTouchableOpacity';
 import { StockSearchResult, taiwanStockService } from '../services/taiwanStockService';
 import { USStockSearchResult } from '../services/usStockQueryService';
 import { exchangeRateService } from '../services/exchangeRateService';
@@ -424,13 +424,13 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
               <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
             <Text style={styles.title}>{editingAsset ? '編輯資產' : '新增資產'}</Text>
-            <MobileTouchableOpacity
+            <WebTouchableOpacity
               onPress={handleSubmit}
               style={styles.saveButton}
               debugLabel="保存資產按鈕"
             >
               <Text style={styles.saveButtonText}>保存</Text>
-            </MobileTouchableOpacity>
+            </WebTouchableOpacity>
           </View>
 
           <ScrollView
@@ -456,10 +456,10 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
               scrollEnabled={true}
               keyExtractor={(item) => item.key}
               renderItem={({ item: assetType }) => (
-                <MobileTouchableOpacity
+                <WebTouchableOpacity
                   style={[styles.typeButton, type === assetType.key && styles.activeTypeButton]}
                   onPress={() => {
-                    console.log('🔄 手機端資產類型選擇:', assetType.key);
+                    console.log('🔄 網頁版資產類型選擇:', assetType.key);
                     setType(assetType.key);
                   }}
                   debugLabel={`資產類型-${assetType.label}`}
@@ -468,7 +468,7 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
                   <Text style={[styles.typeButtonText, type === assetType.key && styles.activeTypeButtonText]}>
                     {assetType.label}
                   </Text>
-                </MobileTouchableOpacity>
+                </WebTouchableOpacity>
               )}
               contentContainerStyle={styles.typeScrollContent}
               scrollEventThrottle={16}

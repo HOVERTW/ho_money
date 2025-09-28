@@ -1,18 +1,18 @@
 /**
- * 增強的TouchableOpacity組件
- * 專門為手機網頁版優化觸控響應
+ * 網頁版觸控優化組件
+ * 專門為網頁版優化的 TouchableOpacity
  */
 
 import React from 'react';
-import { TouchableOpacity, TouchableOpacityProps, Platform } from 'react-native';
+import { TouchableOpacity, TouchableOpacityProps } from 'react-native';
 
-interface MobileTouchableOpacityProps extends TouchableOpacityProps {
+interface WebTouchableOpacityProps extends TouchableOpacityProps {
   onPress?: () => void;
   children: React.ReactNode;
   debugLabel?: string;
 }
 
-const MobileTouchableOpacity: React.FC<MobileTouchableOpacityProps> = ({
+const WebTouchableOpacity: React.FC<WebTouchableOpacityProps> = ({
   onPress,
   children,
   debugLabel,
@@ -25,7 +25,7 @@ const MobileTouchableOpacity: React.FC<MobileTouchableOpacityProps> = ({
     if (debugLabel) {
       console.log(`🔄 網頁版觸控事件: ${debugLabel}`);
     }
-
+    
     // 網頁版專用 - 添加小延遲確保事件正確處理
     setTimeout(() => {
       onPress?.();
@@ -56,4 +56,4 @@ const MobileTouchableOpacity: React.FC<MobileTouchableOpacityProps> = ({
   );
 };
 
-export default MobileTouchableOpacity;
+export default WebTouchableOpacity;

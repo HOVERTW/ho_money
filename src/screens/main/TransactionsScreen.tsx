@@ -17,26 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // 導入安全的月曆組件
 import SafeCalendar from '../../components/SafeCalendar';
 
-// 條件性導入，避免 Web 平台的問題
-let Haptics: any = null;
-let DeviceMotion: any = null;
-
-// 安全的模組導入，使用 try-catch 包裝每個模組
-if (Platform.OS !== 'web') {
-  // 導入 Haptics
-  try {
-    Haptics = require('expo-haptics');
-  } catch (error) {
-    console.log('⚠️ Haptics 模組不可用:', error);
-  }
-
-  // 導入 DeviceMotion
-  try {
-    DeviceMotion = require('expo-sensors').DeviceMotion;
-  } catch (error) {
-    console.log('⚠️ DeviceMotion 模組不可用:', error);
-  }
-}
+// 網頁版專用 - 移除APP相關功能
 
 import AddTransactionModal from '../../components/AddTransactionModal';
 import SwipeableTransactionItem from '../../components/SwipeableTransactionItem';
@@ -71,11 +52,7 @@ export default function TransactionsScreen() {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
 
-  // 搖動檢測相關
-  const [shakeCount, setShakeCount] = useState(0);
-  const shakeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastShakeTime = useRef(0);
-  const lastShakeDetectionTime = useRef(0);
+  // 網頁版專用 - 移除搖動檢測相關狀態
 
   // 防抖狀態
   const [isNavigating, setIsNavigating] = useState(false);
@@ -87,14 +64,7 @@ export default function TransactionsScreen() {
 
   // 翻頁動畫效果
   const playPageFlipAnimation = () => {
-    // 觸覺反饋（僅在支援的平台）
-    if (Haptics && Platform.OS !== 'web') {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch (error) {
-        console.log('⚠️ 觸覺反饋不可用:', error);
-      }
-    }
+    // 網頁版專用 - 移除觸覺反饋
 
     // 視覺動畫序列
     Animated.sequence([
@@ -166,111 +136,7 @@ export default function TransactionsScreen() {
     console.log('🔄 已回到當前月份');
   }, []);
 
-  // 搖動檢測邏輯
-  const handleShake = useCallback(() => {
-    console.log('🔄 搖晃檢測觸發');
-
-    const now = Date.now();
-    const timeDiff = now - lastShakeTime.current;
-
-    console.log('🔄 搖動檢測，時間差:', timeDiff, '當前計數:', shakeCount);
-
-    // 如果距離上次搖動超過1.5秒，重置計數
-    if (timeDiff > 1500) {
-      console.log('🔄 重置搖動計數');
-      setShakeCount(1);
-      lastShakeTime.current = now;
-
-      // 設置超時重置計數
-      if (shakeTimeoutRef.current) {
-        clearTimeout(shakeTimeoutRef.current);
-      }
-      shakeTimeoutRef.current = setTimeout(() => {
-        console.log('🔄 超時：重置搖動計數');
-        setShakeCount(0);
-      }, 1500);
-    } else {
-      // 在短時間內的第二次搖動
-      console.log('🔄 檢測到第二次搖動！執行回到當前月份');
-      setShakeCount(0);
-      goToCurrentMonth();
-
-      // 清除超時
-      if (shakeTimeoutRef.current) {
-        clearTimeout(shakeTimeoutRef.current);
-      }
-    }
-
-    lastShakeTime.current = now;
-  }, [shakeCount, goToCurrentMonth]);
-
-  // 暫時禁用搖動檢測，避免 iOS 權限問題
-  useEffect(() => {
-    console.log('🔄 搖動檢測已暫時禁用');
-    return; // 直接返回，不設置搖動檢測
-
-    if (Platform.OS === 'web' || !DeviceMotion) {
-      console.log('🔄 跳過搖動檢測設置（Web 平台）');
-      return;
-    }
-
-    let subscription: any;
-
-    const setupShakeDetection = async () => {
-      try {
-        // 檢查設備運動傳感器是否可用
-        const isAvailable = await DeviceMotion.isAvailableAsync();
-        if (!isAvailable) {
-          console.log('🔄 設備運動傳感器不可用');
-          return;
-        }
-
-        console.log('🔄 設置搖動檢測');
-
-        // 設置更新間隔
-        DeviceMotion.setUpdateInterval(100);
-
-        // 訂閱設備運動事件
-        subscription = DeviceMotion.addListener((motionData: any) => {
-          const { acceleration } = motionData;
-          if (acceleration) {
-            const { x, y, z } = acceleration;
-
-            // 計算總加速度
-            const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
-
-            // 搖動閾值（加速度 8 以上才啟動功能，只在記帳頁面生效）
-            const shakeThreshold = 8.0;
-
-            if (totalAcceleration > shakeThreshold) {
-              const now = Date.now();
-              // 防抖：至少間隔500ms才能觸發下一次搖動檢測（降低敏感度）
-              if (now - lastShakeDetectionTime.current > 500) {
-                lastShakeDetectionTime.current = now;
-                console.log('🔄 檢測到搖動，加速度:', totalAcceleration.toFixed(2));
-                handleShake();
-              }
-            }
-          }
-        });
-      } catch (error) {
-        console.error('❌ 搖動檢測設置失敗:', error);
-      }
-    };
-
-    setupShakeDetection();
-
-    // 清理函數
-    return () => {
-      if (subscription) {
-        subscription.remove();
-        console.log('🔄 清理搖動檢測');
-      }
-      if (shakeTimeoutRef.current) {
-        clearTimeout(shakeTimeoutRef.current);
-      }
-    };
-  }, [handleShake]);
+  // 網頁版專用 - 移除搖動檢測功能
 
   // 初始化交易資料服務和處理循環交易的生成
   useEffect(() => {

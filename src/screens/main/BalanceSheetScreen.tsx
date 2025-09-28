@@ -23,6 +23,7 @@ import { transactionDataService } from '../../services/transactionDataService';
 import { eventEmitter, EVENTS } from '../../services/eventEmitter';
 import { retrySyncWithBackoff, getCurrentDataState } from '../../utils/forceRefreshManager';
 import { ReliableDeleteService } from '../../services/reliableDeleteService';
+import WebAssetDeleteService from '../../services/webAssetDeleteService';
 import { setWebTitle } from '../../utils/webTitle';
 
 export default function BalanceSheetScreen() {
@@ -229,55 +230,50 @@ export default function BalanceSheetScreen() {
   };
 
   const handleDeleteAsset = async (assetId: string) => {
-    console.log('🗑️ 可靠刪除：資產刪除被觸發', assetId);
+    console.log('🗑️ 網頁版：資產刪除被觸發', assetId);
 
     const asset = assets.find(a => a.id === assetId);
     if (!asset) {
-      console.error('❌ 可靠刪除：找不到要刪除的資產');
+      console.error('❌ 找不到要刪除的資產');
       Alert.alert('錯誤', '找不到要刪除的資產');
       return;
     }
 
-    // 🔧 WEB 環境測試：直接執行刪除，跳過確認對話框
-    console.log('🗑️ 可靠刪除：WEB 環境直接執行刪除測試');
-    console.log('🗑️ 可靠刪除：用戶確認刪除資產 - 開始執行');
+    console.log('🗑️ 網頁版：開始執行完全刪除');
     try {
-      console.log('🗑️ 可靠刪除：進入 try 區塊');
-      console.log('🗑️ 可靠刪除：ReliableDeleteService 是否存在:', typeof ReliableDeleteService);
-      console.log('🗑️ 可靠刪除：deleteAsset 方法是否存在:', typeof ReliableDeleteService.deleteAsset);
+      // 使用網頁版專用的完全刪除服務
+      const result = await WebAssetDeleteService.deleteAssetCompletely(assetId);
 
-      // 使用可靠刪除服務
-      console.log('🗑️ 可靠刪除：準備調用 deleteAsset');
-      const result = await ReliableDeleteService.deleteAsset(assetId, {
-        verifyDeletion: true,
-        retryCount: 3,
-        timeout: 10000
-      });
-      console.log('🗑️ 可靠刪除：deleteAsset 調用完成');
-
-      console.log('🗑️ 可靠刪除：deleteAsset 調用完成，結果:', result);
+      console.log('🗑️ 網頁版：刪除結果:', result);
 
       if (result.success) {
-        console.log('✅ 可靠刪除：資產刪除成功');
+        console.log('✅ 網頁版：資產完全刪除成功');
+        console.log(`📊 刪除統計: 本地=${result.deletedFromLocal}, 雲端=${result.deletedFromCloud}, 緩存=${result.deletedFromCache}, 服務=${result.deletedFromServices}`);
+        console.log(`🔗 相關交易刪除: ${result.relatedTransactionsDeleted} 筆`);
 
         // 從本地狀態中移除
         setAssets(prev => prev.filter(a => a.id !== assetId));
 
-        // 強制刷新所有相關服務的數據
-        console.log('🔄 可靠刪除：強制刷新資產服務數據');
-        await assetTransactionSyncService.loadAssets();
-
         // 發送刷新事件
-        console.log('🔄 可靠刪除：發送財務數據更新事件');
-        eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, { source: 'asset_deleted', timestamp: Date.now() });
+        console.log('🔄 網頁版：發送財務數據更新事件');
+        eventEmitter.emit(EVENTS.FINANCIAL_DATA_UPDATED, {
+          source: 'asset_deleted_web',
+          timestamp: Date.now(),
+          deletedAssetId: assetId
+        });
 
-        console.log('✅ 可靠刪除：資產刪除完成，UI 已更新');
+        console.log('✅ 網頁版：資產刪除完成，UI 已更新');
+
+        // 顯示成功提示
+        Alert.alert('成功', `資產 "${asset.name}" 已完全刪除\n相關交易: ${result.relatedTransactionsDeleted} 筆`);
       } else {
-        console.error('❌ 可靠刪除：資產刪除失敗:', result.errors);
+        console.error('❌ 網頁版：資產刪除失敗:', result.errors);
+        Alert.alert('刪除失敗', `刪除過程中發生錯誤:\n${result.errors.join('\n')}`);
       }
 
     } catch (error) {
-      console.error('❌ 可靠刪除：資產刪除異常:', error);
+      console.error('❌ 網頁版：資產刪除異常:', error);
+      Alert.alert('錯誤', `刪除過程中發生異常: ${error.message}`);
     }
   };
 
