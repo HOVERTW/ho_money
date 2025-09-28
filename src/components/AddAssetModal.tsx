@@ -15,6 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { assetTransactionSyncService } from '../services/assetTransactionSyncService';
 import StockSearchInput from './StockSearchInput';
 import USStockSearchInput from './USStockSearchInput';
+import MobileTouchableOpacity from './MobileTouchableOpacity';
 import { StockSearchResult, taiwanStockService } from '../services/taiwanStockService';
 import { USStockSearchResult } from '../services/usStockQueryService';
 import { exchangeRateService } from '../services/exchangeRateService';
@@ -254,6 +255,8 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
 
 
   const handleSubmit = () => {
+    console.log('🔄 手機端提交處理開始...');
+
     // 需要現在價值的資產類型
     const needsCurrentValue = ['tw_stock', 'us_stock', 'mutual_fund', 'cryptocurrency', 'insurance', 'real_estate', 'vehicle', 'other'];
 
@@ -379,6 +382,8 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
       }
     }
 
+    console.log('🔄 手機端提交資產數據:', asset);
+
     onAdd(asset);
 
     // 重置表單
@@ -400,7 +405,7 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
     setSourceAssetId('');
 
     onClose();
-    console.log('✅', editingAsset ? '資產已更新' : '資產已添加');
+    console.log('✅ 手機端提交完成:', editingAsset ? '資產已更新' : '資產已添加');
   };
 
   const selectedAssetType = assetTypes.find(t => t.key === type);
@@ -419,9 +424,13 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
               <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
             <Text style={styles.title}>{editingAsset ? '編輯資產' : '新增資產'}</Text>
-            <TouchableOpacity onPress={handleSubmit} style={styles.saveButton}>
+            <MobileTouchableOpacity
+              onPress={handleSubmit}
+              style={styles.saveButton}
+              debugLabel="保存資產按鈕"
+            >
               <Text style={styles.saveButtonText}>保存</Text>
-            </TouchableOpacity>
+            </MobileTouchableOpacity>
           </View>
 
           <ScrollView
@@ -431,8 +440,10 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
               flexGrow: 1
             }}
             showsVerticalScrollIndicator={false}
-            nestedScrollEnabled={true}
-            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled={false}
+            keyboardShouldPersistTaps="always"
+            scrollEventThrottle={16}
+            bounces={false}
           >
           {/* 資產類型選擇 */}
           <View style={styles.section}>
@@ -441,20 +452,26 @@ export default function AddAssetModal({ visible, onClose, onAdd, editingAsset }:
               data={assetTypes}
               horizontal
               showsHorizontalScrollIndicator={false}
-              nestedScrollEnabled={true}
+              nestedScrollEnabled={false}
+              scrollEnabled={true}
               keyExtractor={(item) => item.key}
               renderItem={({ item: assetType }) => (
-                <TouchableOpacity
+                <MobileTouchableOpacity
                   style={[styles.typeButton, type === assetType.key && styles.activeTypeButton]}
-                  onPress={() => setType(assetType.key)}
+                  onPress={() => {
+                    console.log('🔄 手機端資產類型選擇:', assetType.key);
+                    setType(assetType.key);
+                  }}
+                  debugLabel={`資產類型-${assetType.label}`}
                 >
                   <Text style={styles.typeIcon}>{assetType.icon}</Text>
                   <Text style={[styles.typeButtonText, type === assetType.key && styles.activeTypeButtonText]}>
                     {assetType.label}
                   </Text>
-                </TouchableOpacity>
+                </MobileTouchableOpacity>
               )}
               contentContainerStyle={styles.typeScrollContent}
+              scrollEventThrottle={16}
             />
           </View>
 
@@ -804,9 +821,12 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: '#007AFF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: 8,
+    minHeight: 44, // 確保足夠的觸控區域
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   saveButtonText: {
     color: '#fff',
@@ -833,14 +853,16 @@ const styles = StyleSheet.create({
   },
   typeButton: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderRadius: 12,
     backgroundColor: '#fff',
     borderWidth: 2,
     borderColor: '#E5E5E5',
     marginRight: 12,
     minWidth: 80,
+    minHeight: 80, // 確保足夠的觸控區域
   },
   activeTypeButton: {
     backgroundColor: '#007AFF',
