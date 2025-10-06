@@ -1,10 +1,10 @@
-// FinTranzo - iOS 安全版本
+// Ho記帳 - iOS 本地版本
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import AppNavigator from './src/navigation/AppNavigator';
+import LocalOnlyAppNavigator from './src/navigation/LocalOnlyAppNavigator';
 
 // iOS 安全錯誤邊界
 class ErrorBoundary extends React.Component<
@@ -46,16 +46,16 @@ function AppContent() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
 
-  // iOS 安全啟動流程
+  // iOS 本地版本啟動流程
   useEffect(() => {
-    console.log('🚀 FinTranzo iOS 安全啟動');
+    console.log('🚀 Ho記帳 iOS 本地版本啟動');
 
     const initializeApp = async () => {
       try {
         // 延遲初始化，避免 iOS Watchdog Timeout
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        console.log('✅ 應用初始化完成');
+        console.log('✅ 本地版本初始化完成');
         setIsInitialized(true);
       } catch (error) {
         console.error('❌ 應用初始化失敗:', error);
@@ -74,17 +74,17 @@ function AppContent() {
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
         <Text style={styles.loadingText}>
-          {initError ? `初始化失敗: ${initError}` : '正在載入 FinTranzo...'}
+          {initError ? `初始化失敗: ${initError}` : '正在載入 Ho記帳...'}
         </Text>
       </View>
     );
   }
 
-  return <AppNavigator />;
+  return <LocalOnlyAppNavigator />;
 }
 
 export default function App() {
-  console.log('🚀 FinTranzo 主應用啟動');
+  console.log('🚀 Ho記帳 iOS 本地版本啟動');
 
   return (
     <ErrorBoundary>
