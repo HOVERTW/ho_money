@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "Ho記帳",
-    "slug": "FinTranzo",
-    "version": "1.0.0",
+    "slug": "HoMoney",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -14,16 +14,13 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.hovertw.fintranzo2025",
+      "bundleIdentifier": "com.hovertw.homoney",
       "jsEngine": "jsc",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
-        },
         "NSMotionUsageDescription": "此應用需要使用設備運動感應器來檢測搖動手勢，以便快速返回當前月份"
       },
-      "buildNumber": "1"
+      "buildNumber": "2"
     },
     "android": {
       "adaptiveIcon": {
